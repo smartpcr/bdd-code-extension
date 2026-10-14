@@ -123,7 +123,10 @@ export function parseSuite(text: string, file: string): SuiteFile {
     return suite;
   }
   const root = y.doc.contents;
-  if (!isMap(root)) return suite;
+  if (!isMap(root)) {
+    suite.notAMapping = true;
+    return suite;
+  }
   const w = new Walker(y, text, file);
   suite.hasSuiteKey = root.items.some(p => isScalar(p.key) && p.key.value === 'suite');
   suite.suiteName = stringOf(root, 'suite');

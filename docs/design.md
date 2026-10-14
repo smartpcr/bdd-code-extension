@@ -1409,7 +1409,9 @@ unless a scenario says otherwise:
 
 * **Given.** Every `validate` entry listed in
   `test/e2e/conformance/run-manifest.yaml` that has no `catalogOverlay` (an
-  overlay is a corpus-only mechanism the editor does not use), each with its
+  overlay is a corpus-only mechanism the editor does not use) and no `params`
+  (command-line `--param` values an editor lint does not have; corrected at
+  plan step B2.2), each with its
   `<stem>.expected.json`. Among them, `typos.yml` (`E101`, `E104`, `E101`),
   `gherkin.yml` (`E212` to `W304`), `meta.yml` (`E207`), `dataflow.yml`
   (`E3xx`) and `portability.yml` (`E201`). Target binding: the entry's

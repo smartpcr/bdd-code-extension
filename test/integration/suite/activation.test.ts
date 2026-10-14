@@ -15,7 +15,7 @@ describe('B1.1 activation in os-context', () => {
     assert.match(first, /^Root: .+  Catalog: .+$/);
     assert.ok(key(first).includes(`root: ${key(folder())}`), first);
     assert.ok(key(first).endsWith(key(catalog)), first);
-    assert.strictEqual(a.providerCount, 4);
+    assert.strictEqual(a.providerCount, 5);
     assert.strictEqual(a.indexers.length, 1);
     console.log(`    log: ${a.log.join(' | ')}`);
   });

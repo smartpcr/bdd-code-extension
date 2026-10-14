@@ -20,6 +20,17 @@
   "extensionDependencies": [
     "redhat.vscode-yaml"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Lint, run, build and schema generation run code from the folder and are disabled until it is trusted.",
+      "restrictedConfigurations": [
+        "bddSuite.bindings",
+        "bddSuite.schemaGenerator",
+        "bddSuite.lintTool"
+      ]
+    }
+  },
   "contributes": {
     "configuration": {
       "title": "Suite Authoring",
@@ -231,13 +242,40 @@
           "description": "Path to the lab connection file for lab runs; prompted when empty."
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "bddSuite.showActions",
+        "title": "Show actions implemented by binding...",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.buildLintTool",
+        "title": "Build lint tool",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.chooseLintTool",
+        "title": "Choose lint tool...",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.chooseTargetBinding",
+        "title": "Choose target binding...",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.configureLint",
+        "title": "Configure lint...",
+        "category": "Suite"
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p . && node esbuild.mjs",
     "build:test": "tsc -p tsconfig.test.json",
-    "test:unit": "npm run build:test && c8 --100 --include \"out-test/src/core/**\" --include \"out-test/src/config/**\" --reporter=text --reporter=text-summary node --test \"out-test/test/unit/**/*.test.js\"",
-    "test:integration": "npm run compile && npm run build:test && node out-test/test/integration/runTest.js",
+    "test:unit": "npm run build:test && c8 --100 --include \"out-test/src/core/**\" --include \"out-test/src/config/**\" --include \"out-test/src/tools/**\" --reporter=text --reporter=text-summary node --test \"out-test/test/unit/**/*.test.js\"",
+    "test:integration": "npm run compile && npm run build:test && node --test --test-timeout=900000 \"out-test/test/integration/node/*.test.js\" && node out-test/test/integration/runTest.js",
     "sync-defaults": "npm run build:test && node scripts/sync-defaults.mjs",
     "package": "npm run compile && vsce package --no-dependencies"
   },

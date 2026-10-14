@@ -559,7 +559,7 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 | Stage | Result | Priority | Depends on | Steps | Built | Done |
 | --- | --- | --- | --- | --- | --- | --- |
 | [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 7 of 7 | 7 of 7 (B1.4 TypeScript half and B1.7 E-B7 timing half deferred by name) |
-| [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 6 | 0 of 6 | 0 of 6 |
+| [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 6 | 6 of 6 | 4 of 6 (B2.6 with one manual check outstanding); B2.1 and B2.5 open only for their PowerShell quarter, blocked in `os-context` (PowerShell 7.6.7 `Test-Json`) |
 | [B3](#stage-b3-completion-that-knows-the-scope) | Completion that knows the scope | P1 | B1.2, B1.3, B1.6 | 5 | 0 of 5 | 0 of 5 |
 | [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 0 of 3 | 0 of 3 |
 | [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B8.5 | 5 | 0 of 5 | 0 of 5 |
@@ -584,8 +584,8 @@ and its TypeScript half stays open until then. B7 is last and needs all of it.
 
 | Scenario | Signs off | Needs a lab | Status |
 | --- | --- | --- | --- |
-| [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5, B9.3 | no | not run |
-| [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can) | B1.2, B2.3, B3.1 | no | hover half passed 2026-10-14; the rest open (B2.3, B3.1) |
+| [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5, B9.3 | no | passed 2026-10-14 for Rust, Go, C#; PowerShell blocked (os-context defect); TypeScript open (B9.3) |
+| [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can) | B1.2, B2.3, B3.1 | no | hover and lint halves passed 2026-10-14; completion order open (B3.1) |
 | [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | four-binding half passed 2026-10-14; TypeScript half open (B8.5, B8.7) |
 | [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | passed 2026-10-14 |
 | [E-B5](design.md#e-b5-completion-offers-what-is-in-scope-and-nothing-the-format-forbids) | B3.1-B3.5 | no | not run |
@@ -594,11 +594,11 @@ and its TypeScript half stays open until then. B7 is last and needs all of it.
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | hover half passed 2026-10-14; completion half open (B3.4) |
 | [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | not run |
 | [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
-| [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B9.1 | no | not run |
+| [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B9.1 | no | program half passed 2026-10-14; library half open (B9.1) |
 | [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B8.1-B8.6, B8.8 | no | not run |
 | [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go) | B8.7, B8.8 | yes | not run |
 | [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would) | B9.1-B9.3 | no | not run |
-| [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs) | B2.6 | no | not run |
+| [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs) | B2.6 | no | program half passed 2026-10-14 (grant through the harness seam; one manual check); worker half open (B9.1) |
 
 Some scenarios need features from more than one step (E-B5 needs all of B3).
 Where a scenario signs off several steps, each step names the *part* of the
@@ -1070,12 +1070,12 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
 
 **Checklist.**
 
-- [ ] B2.1 Tool runner and per-binding command profiles
-- [ ] B2.2 Lint on open and save, mapped to editor ranges
-- [ ] B2.3 Target binding: `--binding-check` and per-step binding badges
-- [ ] B2.4 Failure states: missing, slow, broken and oversized tools
-- [ ] B2.5 Lint latency measured for all four tools, and the default chosen
-- [ ] B2.6 Workspace trust gates every process and every library load
+- [ ] B2.1 Tool runner and per-binding command profiles (built; PowerShell quarter of its scenario blocked in `os-context`)
+- [x] B2.2 Lint on open and save, mapped to editor ranges
+- [x] B2.3 Target binding: `--binding-check` and per-step binding badges
+- [x] B2.4 Failure states: missing, slow, broken and oversized tools
+- [ ] B2.5 Lint latency measured for all four tools, and the default chosen (measured; PowerShell quarter of E-B1 blocked in `os-context`)
+- [x] B2.6 Workspace trust gates every process and every library load
 
 ### B2.1 Tool runner and per-binding command profiles
 
@@ -1137,7 +1137,13 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
   entry through `runTool` and `parseLintOutput` and compares with the
   expectations, before any editor wiring.
 * **Depends on.** B1.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for Go, Rust and C#; the PowerShell quarter is blocked outside this repository.
+  - [x] code. `src/tools/runTool.ts`, `src/tools/profiles.ts`, `src/core/diagnostics.ts`, `src/features/commands.ts`, `test/fake-tool/fake-suiterun.mjs`.
+  - [x] unit tests green at 100 percent of `src/tools` and `diagnostics.ts` (`runTool.test.ts`, `profiles.test.ts`, `diagnostics.test.ts`): every `ToolResult` branch with a real child, a grandchild killed on timeout, both kill paths, B2.1-5 with spaces, quotes and `$`.
+  - [x] scenario, three programs: `corpusTools.test.ts` runs Go, Rust and C# over all 45 eligible entries through `runTool` and `parseLintOutput`, identical to the corpus. Evidence: [docs/evidence/stage-b2.md](evidence/stage-b2.md).
+  - [ ] scenario, PowerShell: blocked by a defect in `os-context`'s PowerShell binding on PowerShell 7.6.7 (`Test-Json` returns false with no error, so every schema finding is lost); see the evidence.
+  - Item 3 record: `Invoke-SuiteLint` already returns objects with `code`, `severity`, `file`, `line`, `column`, `message` and `suggestion` (`New-SuiteDiagnostic`), so no projection is needed. The script serialises with `ConvertTo-Json -InputObject $d -Depth 5 -Compress`, not `-AsArray`, which nests the array a second time.
+  - Departures: every build command runs through the shell (2.4 allowed it for builds), with `${storage}` quoted when it has spaces; `runTool` takes injectable dependencies (`spawn`, `kill`, `platform`, `gate`) for the unit tests.
 
 ### B2.2 Lint on open and save, mapped to editor ranges
 
@@ -1174,7 +1180,11 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
   with the lint tool `rust` (the one built in the tree); the other three tools
   run in B2.5.
 * **Depends on.** B2.1, B1.3.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/features/lintController.ts`; `LintResults`, `tokenEnd`, `toZeroBased` in `src/core/diagnostics.ts`.
+  - [x] unit tests green at 100 percent: `LintResults` with two linted files reporting into a shared library (INV-3).
+  - [x] scenario. E-B1 with `rust` in the editor: 45 of 45 entries on open; the save half (same set, not doubled); B2.2-2 (two saves, one lint); B2.2-3 (the second lint cancels the first, only it publishes). Evidence: [docs/evidence/stage-b2.md](evidence/stage-b2.md).
+  - Departures: (1) `isLintCandidate()` also lints files under the suite globs that do not parse or whose root is not a mapping, because their `E100` is the finding (narrows DEC-B13 for lint only). (2) Lint results live per folder outside the settings rebuild, and the lint collection is not cleared on rebuild, so B2.4-1 holds across settings changes. (3) E-B1's eligible entries also exclude `params` entries (`overridden.yml`): an editor lint has no command-line `--param`.
 
 ### B2.3 Target binding: `--binding-check` and per-step binding badges
 
@@ -1210,7 +1220,10 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
 * **E2E.** [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can)
   except the completion-order assertion (B3.1).
 * **Depends on.** B2.2, B1.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/features/inlay.ts`, `src/features/statusBar.ts`, the target in `lintCommand`, `src/core/coverage.ts` (`renderBindingBadge`, `bindingTooltip`).
+  - [x] unit tests green at 100 percent: badges for four, one and zero bindings and unknown names; tooltips.
+  - [x] scenario. E-B2 except completion order (B3.1): smoke.yml under `rust` shows the same 4 `E201` as the Go program in a terminal; hints `PS` and `PS C# Go Rs`; switching the target re-lints without a save. Evidence: [docs/evidence/stage-b2.md](evidence/stage-b2.md).
 
 ### B2.4 Failure states: missing, slow, broken and oversized tools
 
@@ -1245,7 +1258,10 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
   using the fake tool as the configured program for the timeout, junk and
   oversize cases, and a nonexistent path for the missing case.
 * **Depends on.** B2.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for program tools; the library half of E-B11 is B9.1's.
+  - [x] code. Failure handling, status texts and the not-built notification in `lintController.ts`; *Build lint tool* in `commands.ts`.
+  - [x] unit tests green: the stale path of `LintResults`.
+  - [x] scenario. E-B11 program half in a worktree: missing, junk, oversize and hung programs each give their own status, the earlier `E301` stays and is marked `[stale]`, the hung program's grandchild is gone 1 s later; restoring clears the marks; *Build lint tool* rebuilt Go and the next lint published. Evidence: [docs/evidence/stage-b2.md](evidence/stage-b2.md).
 
 ### B2.5 Lint latency measured for all four tools, and the default chosen
 
@@ -1274,7 +1290,12 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
 * **E2E.** [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find),
   all four tools.
 * **Depends on.** B2.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Measured and the default kept; E-B1 done for three of four tools.
+  - [x] code. `test/integration/node/corpusTools.test.ts` (measurement), `test/integration/suite/lint.test.ts` (E-B1 per tool).
+  - [x] unit tests: none new.
+  - Measurement (B2.5-1), 2026-10-14, i9-13900K, `os-context` `1d0f0e40`, `lifecycle-stage1.yml`, p50/p95/max ms: Go 103/116/122, Rust 118/135/169, C# 279/362/413, PowerShell 1401/1778/1823. The default `lintTool` stays `go` (lowest p95); DEC-B04 is unchanged. `LINT_TIMEOUT_MS` 20000 is over 3 x 1778.
+  - [x] scenario, three tools: E-B1 in the editor passes for Rust, Go and C# (45 of 45 each). Evidence: [docs/evidence/stage-b2.md](evidence/stage-b2.md).
+  - [ ] scenario, PowerShell: blocked by a defect in `os-context`'s PowerShell binding on PowerShell 7.6.7 (`Test-Json` returns false with no error, so every schema finding is lost); see the evidence. The test reports it as pending with the 7 differing entries, never as passed.
 
 ### B2.6 Workspace trust gates every process and every library load
 
@@ -1314,7 +1335,11 @@ B2.5 measures latency, which needs all four program tools wired (the TypeScript 
 * **E2E.** [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs),
   the program half; its worker half is re-run at B9.1.
 * **Depends on.** B2.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14, with one named manual check.
+  - [x] code. `capabilities.untrustedWorkspaces` in `package.json`; `src/config/trust.ts`; the gate inside `runTool` and before every lint; the status text; re-lint on grant.
+  - [x] unit tests green at 100 percent: B2.6-1 (an injected `spawn` that fails the test is never called), the gate.
+  - [x] scenario. E-B15 program half in a genuinely untrusted window (launched without `--disable-workspace-trust`, which `runTests()` always adds): no process, refusals, navigation and hover still work; the grant handler lints with the same controller. Evidence: [docs/evidence/stage-b2.md](evidence/stage-b2.md).
+  - [ ] manual: VS Code offers no API to grant trust, so the harness calls the handler through `BDD_TEST_TRUST_SEAM`. That a real *Trust* click fires `onDidGrantWorkspaceTrust` (one line in `src/extension.ts`) needs one look by a person; it is not claimed here.
 
 ---
 

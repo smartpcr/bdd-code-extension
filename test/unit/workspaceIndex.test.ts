@@ -167,3 +167,16 @@ test('fileKey makes differently-spelled paths one key', () => {
   const ix = build();
   assert.ok(ix.isSuiteOrLibrary(fileKey(f('s.yml'))));
 });
+
+test('isLintCandidate: suites, libraries, files that do not parse, and non-mapping roots; not other mappings', () => {
+  const ix = build();
+  assert.ok(ix.isLintCandidate(f('s.yml')));
+  assert.ok(ix.isLintCandidate(f('_lib/lib.yml')));
+  assert.ok(!ix.isLintCandidate(f('orphan.yml')));
+  assert.ok(!ix.isLintCandidate(f('missing.yml')));
+  ix.updateSuite(parseSuite('suite: [broken\n', f('broken.yml')));
+  assert.ok(ix.isLintCandidate(f('broken.yml')));
+  ix.updateSuite(parseSuite('- a\n- b\n', f('list.yml')));
+  assert.ok(ix.isLintCandidate(f('list.yml')));
+  assert.strictEqual(ix.suite(f('list.yml'))!.notAMapping, true);
+});

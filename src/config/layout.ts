@@ -138,11 +138,13 @@ export class WorkspaceLayout {
     const root = findRepositoryRoot(path.dirname(catalogPath), exists);
     if (!root) return undefined;
     const expand = (s: string) => s.split('${storage}').join(storagePath);
+    // A build command is a shell string, so a storage path with spaces is quoted there.
+    const quoted = /\s/.test(storagePath) ? `"${storagePath}"` : storagePath;
     const bindings = Object.entries(settings.bindings).map(([name, b]): ResolvedBinding => ({
       ...b,
       name,
       tool: b.tool.map(expand),
-      build: b.build && { ...b.build, command: expand(b.build.command) },
+      build: b.build && { ...b.build, command: b.build.command.split('${storage}').join(quoted) },
     }));
     return new WorkspaceLayout(fileKey(folder), fileKey(root), catalogPath, settings.suiteGlobs,
       settings.exclude, bindings, settings);

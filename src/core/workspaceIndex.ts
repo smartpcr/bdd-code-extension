@@ -131,6 +131,15 @@ export class WorkspaceIndex {
     return !!s && (s.hasSuiteKey || this.j.libraries.has(key));
   }
 
+  /**
+   * A file lint should see: a suite or library, or a file that cannot be one
+   * because it does not parse or its root is not a mapping (lint says E100).
+   */
+  isLintCandidate(file: string): boolean {
+    const s = this.suites.get(fileKey(file));
+    return !!s && (this.isSuiteOrLibrary(file) || !!s.parseError || !!s.notAMapping);
+  }
+
   suiteFiles(): SuiteFile[] {
     return [...this.suites.values()].filter(s => this.isSuiteOrLibrary(s.file));
   }

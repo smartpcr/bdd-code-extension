@@ -112,6 +112,8 @@ export interface SuiteFile {
   file: string;
   /** True when the root mapping has a `suite:` key. */
   hasSuiteKey: boolean;
+  /** The document parsed but its root is not a mapping (lint reports E100). */
+  notAMapping?: boolean;
   suiteName?: string;
   imports: ImportRef[];
   params: Named[];
