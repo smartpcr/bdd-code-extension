@@ -562,10 +562,10 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 
 | Stage | Result | Priority | Depends on | Steps | Built | Done |
 | --- | --- | --- | --- | --- | --- | --- |
-| [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 7 of 7 | 7 of 7 (B1.4 TypeScript half and B1.7 E-B7 timing half deferred by name) |
+| [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 7 of 7 | 7 of 7 (B1.4 TypeScript half deferred by name; the B1.7 E-B7 timing half closed by B4.2) |
 | [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 6 | 6 of 6 | 4 of 6 (B2.6 with one manual check outstanding); B2.1 and B2.5 open only for their PowerShell quarter, blocked in `os-context` (PowerShell 7.6.7 `Test-Json`) |
 | [B3](#stage-b3-completion-that-knows-the-scope) | Completion that knows the scope | P1 | B1.2, B1.3, B1.6 | 5 | 5 of 5 | 5 of 5 |
-| [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 0 of 3 | 0 of 3 |
+| [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 3 of 3 | 3 of 3 (E-B7 TypeScript half deferred by name to B7) |
 | [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 0 of 5 | 0 of 5 |
 | [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 0 of 5 | 0 of 5 |
 | [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 0 of 8 | 0 of 8 |
@@ -594,7 +594,7 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 | [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | passed 2026-10-14 |
 | [E-B5](design.md#e-b5-completion-offers-what-is-in-scope-and-nothing-the-format-forbids) | B3.1-B3.5 | no | passed 2026-10-14 |
 | [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor) | B5.1-B5.5 | no | not run |
-| [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | not run |
+| [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | four-binding half passed 2026-10-14; TypeScript half open (B7.1, B7.5, B7.7) |
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | passed 2026-10-14 |
 | [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | not run |
 | [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
@@ -1026,11 +1026,11 @@ and its scenario edits files the earlier steps only read.
   (hover half; the completion half lands with B3.4), and the timing half of
   E-B7 (with B4.2).
 * **Depends on.** B1.2, B1.4, B1.6.
-* **Status.** Done 2026-10-14 for its own scenarios; the E-B7 timing half is named below.
+* **Status.** Done 2026-10-14, including the E-B7 timing half (B4.2).
   - [x] code. Watchers, buffer debounce, close-unsaved re-read and configuration rebuild in `src/features/indexer.ts` and `src/extension.ts`; `src/core/debounce.ts`.
   - [x] unit tests green at 100 percent: `debounce.test.ts` with a clock scoped to each test; B1.7-3 in `workspaceIndex.test.ts` (50 updates, one join rebuild).
   - [x] scenario. In a fresh worktree (`watch.test.ts`): the hover half of E-B8 (a catalog save showed the new parameter in hover after 100 ms, no reload, B1.7-1); a new Go registration was a definition target 72 ms after save (B1.7-2); an unsaved edit is indexed after the debounce; a created suite is indexed and a deleted one leaves; a settings change rebuilds and reports `BDD010`. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
-  - [-] the timing half of E-B7 is closed by B4.2, and the completion half of E-B8 by B3.4.
+  - [x] the timing half of E-B7, closed by B4.2 (drift shown 53 ms after save, [docs/evidence/stage-b4.md](evidence/stage-b4.md)), and the completion half of E-B8, closed by B3.4 ([docs/evidence/stage-b3.md](evidence/stage-b3.md)).
 
 ---
 
@@ -1586,9 +1586,9 @@ then the program cross-check, which needs built programs and is slower.
 
 **Checklist.**
 
-- [ ] B4.1 Coverage model: declared, found and drift per binding
-- [ ] B4.2 The *Suite bindings* view
-- [ ] B4.3 Cross-check with each program's `actions --json`
+- [x] B4.1 Coverage model: declared, found and drift per binding
+- [x] B4.2 The *Suite bindings* view
+- [x] B4.3 Cross-check with each program's `actions --json`
 
 ### B4.1 Coverage model: declared, found and drift per binding
 
@@ -1616,7 +1616,11 @@ then the program cross-check, which needs built programs and is slower.
   [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced),
   read from the model.
 * **Depends on.** B1.4.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+  - [x] code. `computeCoverage`, `driftCount`, `globDirectory`, `commonSource` and `toMarkdownTable` in `src/core/coverage.ts`; *Suite: Copy binding table* in `src/features/commands.ts`.
+  - [x] unit tests green at 100 percent: clean, missing (B4.1-2), extra, duplicate (same recognizer only), a site of an unlisted binding, a catalog binding with no settings, both table shapes.
+  - [x] scenario. The clean-tree half of E-B7 (`coverage.test.ts`): Declared equals the harness's own read of the catalog (PowerShell 100, C# 24, Go 24, Rust 24), Found equals Declared, Drift 0; the copied table carries `` | PowerShell | `scripts/e2e/actions/` | 100 | 100 | 0 | ``. Evidence: [docs/evidence/stage-b4.md](evidence/stage-b4.md).
+  - [-] scenario, TypeScript half: the TypeScript row is closed by B7.1 (the catalog admits `typescript`), B7.5 and B7.7, which re-run E-B7 with five bindings.
 
 ### B4.2 The *Suite bindings* view
 
@@ -1641,7 +1645,11 @@ then the program cross-check, which needs built programs and is slower.
   [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced),
   in a worktree.
 * **Depends on.** B4.1, B1.7.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+  - [x] code. `bddSuite.bindings` in `contributes.views.explorer` with its toolbar; `src/features/coverageView.ts`; created once in `src/extension.ts` and refreshed on every rebuild and `onDidChangeIndex`.
+  - [x] unit tests: none beyond B4.1, as planned.
+  - [x] scenario. B4.2-1: the view's rows equal `computeCoverage()` and each label reads `<Label>  N declared, N found, 0 drift`. B4.2-2 (`coverageDrift.test.ts`, in a worktree): deleting the Rust `"lifecycle.get" =>` arm and saving showed Drift 1 naming `lifecycle.get` "declared, not registered" (opening the catalog entry) 53 ms after save; restoring it cleared the drift. This also closes the timing half of E-B7 deferred from B1.7. Evidence: [docs/evidence/stage-b4.md](evidence/stage-b4.md).
+  - [-] scenario, TypeScript half: deleting `action('lifecycle.get', get),`; the TypeScript row is closed by B7.1 (the catalog admits `typescript`), B7.5 and B7.7, which re-run E-B7 with five bindings.
 
 ### B4.3 Cross-check with each program's `actions --json`
 
@@ -1665,7 +1673,11 @@ then the program cross-check, which needs built programs and is slower.
 * **E2E.** The program half of
   [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced).
 * **Depends on.** B4.2, B2.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+  - [x] code. `verify()` in `src/features/coverageView.ts` through `actionsCommand` (`ACTIONS_TIMEOUT_MS`) and `runTool`; `compareProgramSet` and `programAgrees` in `src/core/coverage.ts`; *Suite: Verify with binding programs* on the view's toolbar.
+  - [x] unit tests green at 100 percent: `compareProgramSet()` agreement and each kind of difference.
+  - [x] scenario. B4.3-1: each program's `actions --json` equals the catalog's set and Found (PowerShell 100, C# 24, Go 24, Rust 24). B4.3-2: a C# tool pointing at a missing file fails as `not-found` on the C# row only; the other three verify. Evidence: [docs/evidence/stage-b4.md](evidence/stage-b4.md).
+  - [-] scenario, TypeScript half: the TypeScript program's `actions --json`; the TypeScript row is closed by B7.1 (the catalog admits `typescript`), B7.5 and B7.7, which re-run E-B7 with five bindings.
 
 ---
 

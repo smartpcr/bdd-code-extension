@@ -8,6 +8,7 @@ import { createTrustGate } from './config/trust';
 import { LintResults } from './core/diagnostics';
 import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
+import { CoverageView } from './features/coverageView';
 import { registerCompletion } from './features/completion';
 import { registerHover } from './features/hover';
 import { FolderIndexer } from './features/indexer';
@@ -24,6 +25,7 @@ export interface TestApi {
   indexers: FolderIndexer[];
   controllers: LintController[];
   status: SuiteStatusBar;
+  coverage: CoverageView;
   /** Present only when BDD_TEST_TRUST_SEAM=1: what a user's trust grant does. */
   grantTrustForTest?: () => void;
   ready: Promise<void>;
@@ -41,9 +43,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
   const trustSeam = process.env.BDD_TEST_TRUST_SEAM === '1';
   let grantedBySeam = false;
   const gate = createTrustGate(() => vscode.workspace.isTrusted || grantedBySeam);
-  context.subscriptions.push(channel, catalogDiagnostics, indexDiagnostics, lintDiagnostics, status);
+  const coverage = new CoverageView(() => api.indexers, gate);
+  const tree = vscode.window.createTreeView('bddSuite.bindings', { treeDataProvider: coverage });
+  context.subscriptions.push(channel, catalogDiagnostics, indexDiagnostics, lintDiagnostics, status, coverage, tree);
   const api: TestApi = {
-    log: [], providerCount: 0, indexers: [], controllers: [], status, ready: Promise.resolve(), rebuild: async () => {},
+    log: [], providerCount: 0, indexers: [], controllers: [], status, coverage, ready: Promise.resolve(), rebuild: async () => {},
   };
   const log = (line: string) => {
     api.log.push(line);
@@ -92,10 +96,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       api.controllers.push(controller);
       session.push(indexer, controller);
     }
+    void vscode.commands.executeCommand('setContext', 'bddSuite.active', api.indexers.length > 0);
+    coverage.refresh();
     if (api.indexers.length === 0) {
       log('No actions catalog in this workspace; Suite Authoring is inert.');
       return;
     }
+    session.push(...api.indexers.map(ix => ix.onDidChangeIndex(() => coverage.refresh())));
     const hintsChanged = new vscode.EventEmitter<void>();
     session.push(hintsChanged, ...api.indexers.map(ix => ix.onDidChangeIndex(() => hintsChanged.fire())));
     const providers = [registerHover(owner), ...registerNavigation(owner, () => api.indexers),
@@ -106,6 +113,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
     if (gate.canRunWorkspaceCode()) status.setOk(first.lintTool, first.targetBinding);
     else status.setUntrusted();
     api.ready = Promise.all(api.indexers.map(ix => ix.start())).then(() => {
+      coverage.refresh();
       for (const c of api.controllers) c.lintOpen();
     });
     await api.ready;
@@ -137,6 +145,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       log,
       show: () => channel.show(true),
       gate,
+      coverage,
     }),
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('bddSuite')) void rebuild();

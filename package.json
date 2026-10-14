@@ -268,8 +268,43 @@
         "command": "bddSuite.configureLint",
         "title": "Configure lint...",
         "category": "Suite"
+      },
+      {
+        "command": "bddSuite.verifyBindingPrograms",
+        "title": "Verify with binding programs",
+        "category": "Suite",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "bddSuite.copyBindingTable",
+        "title": "Copy binding table",
+        "category": "Suite",
+        "icon": "$(copy)"
       }
-    ]
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "bddSuite.bindings",
+          "name": "Suite bindings",
+          "when": "bddSuite.active"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "bddSuite.verifyBindingPrograms",
+          "when": "view == bddSuite.bindings",
+          "group": "navigation"
+        },
+        {
+          "command": "bddSuite.copyBindingTable",
+          "when": "view == bddSuite.bindings",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p . && node esbuild.mjs",

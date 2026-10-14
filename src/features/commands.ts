@@ -3,10 +3,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { TrustGate } from '../config/trust';
+import { toMarkdownTable } from '../core/coverage';
 import { parseActionsOutput } from '../core/diagnostics';
 import { MAX_STDERR_BYTES } from '../limits';
 import { actionsCommand, buildCommand, programPath } from '../tools/profiles';
 import { runTool, ToolResult } from '../tools/runTool';
+import { CoverageView } from './coverageView';
 import { FolderIndexer } from './indexer';
 import { LintController } from './lintController';
 
@@ -16,6 +18,7 @@ export interface CommandHost {
   log(line: string): void;
   show(): void;
   gate: TrustGate;
+  coverage: CoverageView;
 }
 
 function describe(r: ToolResult): string {
@@ -94,6 +97,12 @@ export function registerCommands(host: CommandHost): vscode.Disposable[] {
       if (pick === 'Choose the lint tool') await vscode.commands.executeCommand('bddSuite.chooseLintTool');
       if (pick === 'Choose the target binding') await vscode.commands.executeCommand('bddSuite.chooseTargetBinding');
       if (pick === 'Build the lint tool') await vscode.commands.executeCommand('bddSuite.buildLintTool');
+    }),
+    vscode.commands.registerCommand('bddSuite.verifyBindingPrograms', () => host.coverage.verify()),
+    vscode.commands.registerCommand('bddSuite.copyBindingTable', async () => {
+      const text = toMarkdownTable(host.coverage.rows());
+      await vscode.env.clipboard.writeText(text);
+      return text;
     }),
   ];
 }
