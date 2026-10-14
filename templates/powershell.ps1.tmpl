@@ -1,0 +1,11 @@
+# Action: {{action}}
+#
+# TODO describe {{action}}: what it does, the step keys it reads and what it
+# returns for captureAs. Declared by Suite: Declare action; it fails until the
+# handler is written.
+
+Register-LabAction -Name '{{action}}' -Handler {
+    param([hashtable]$Step, [hashtable]$Ctx)
+
+    throw '{{action}}: not implemented in the PowerShell binding yet'
+}

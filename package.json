@@ -270,6 +270,16 @@
         "category": "Suite"
       },
       {
+        "command": "bddSuite.declareAction",
+        "title": "Declare action",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.implementAction",
+        "title": "Implement action in binding...",
+        "category": "Suite"
+      },
+      {
         "command": "bddSuite.verifyBindingPrograms",
         "title": "Verify with binding programs",
         "category": "Suite",

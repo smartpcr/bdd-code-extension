@@ -9,6 +9,7 @@ import { LintResults } from './core/diagnostics';
 import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
 import { CoverageView } from './features/coverageView';
+import { registerScaffoldActions, registerScaffoldCommands } from './features/scaffold';
 import { registerCompletion } from './features/completion';
 import { registerHover } from './features/hover';
 import { FolderIndexer } from './features/indexer';
@@ -106,8 +107,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
     const hintsChanged = new vscode.EventEmitter<void>();
     session.push(hintsChanged, ...api.indexers.map(ix => ix.onDidChangeIndex(() => hintsChanged.fire())));
     const providers = [registerHover(owner), ...registerNavigation(owner, () => api.indexers),
-      registerInlayHints(owner, hintsChanged.event), registerCompletion(owner)];
-    api.providerCount = 6;
+      registerInlayHints(owner, hintsChanged.event), registerCompletion(owner), registerScaffoldActions(owner)];
+    api.providerCount = 7;
     session.push(...providers);
     const first = api.indexers[0].layout.settings;
     if (gate.canRunWorkspaceCode()) status.setOk(first.lintTool, first.targetBinding);
@@ -146,6 +147,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       show: () => channel.show(true),
       gate,
       coverage,
+    }),
+    ...registerScaffoldCommands({
+      owner,
+      indexers: () => api.indexers,
+      log,
+      show: () => channel.show(true),
+      gate,
+      extensionPath: context.extensionPath,
     }),
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('bddSuite')) void rebuild();

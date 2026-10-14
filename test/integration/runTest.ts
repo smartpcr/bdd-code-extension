@@ -54,7 +54,7 @@ async function main(): Promise<void> {
       }, null, 2));
       trustArgs = ['--user-data-dir', untrustedData, '--extensions-dir', path.join(repo, '.vscode-test', 'extensions')];
     }
-    const env = { BDD_SESSION: s.name, OS_CONTEXT_ROOT: root, BDD_FOLDER: folder };
+    const env = { BDD_SESSION: s.name, OS_CONTEXT_ROOT: root, BDD_FOLDER: folder, BDD_FILES: process.env.BDD_FILES ?? '' };
     try {
       if (s.name === 'untrusted') {
         // runTests() always adds --disable-workspace-trust, so this session is

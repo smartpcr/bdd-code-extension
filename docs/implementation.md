@@ -566,7 +566,7 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 | [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 6 | 6 of 6 | 4 of 6 (B2.6 with one manual check outstanding); B2.1 and B2.5 open only for their PowerShell quarter, blocked in `os-context` (PowerShell 7.6.7 `Test-Json`) |
 | [B3](#stage-b3-completion-that-knows-the-scope) | Completion that knows the scope | P1 | B1.2, B1.3, B1.6 | 5 | 5 of 5 | 5 of 5 |
 | [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 3 of 3 | 3 of 3 (E-B7 TypeScript half deferred by name to B7) |
-| [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 0 of 5 | 0 of 5 |
+| [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 4 of 5 | 3 of 5 (B5.1 open only for `SuiteLint.Tests.ps1` as a whole, blocked in `os-context`; B5.5 blocked on B7.5 and B7.7) |
 | [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 0 of 5 | 0 of 5 |
 | [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 0 of 8 | 0 of 8 |
 | [B8](#stage-b8-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B7.4 | 3 | 0 of 3 | 0 of 3 |
@@ -593,7 +593,7 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 | [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | four-binding half passed 2026-10-14; TypeScript half open (B7.5, B7.7) |
 | [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | passed 2026-10-14 |
 | [E-B5](design.md#e-b5-completion-offers-what-is-in-scope-and-nothing-the-format-forbids) | B3.1-B3.5 | no | passed 2026-10-14 |
-| [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor) | B5.1-B5.5 | no | not run |
+| [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor) | B5.1-B5.5 | no | four-binding part passed 2026-10-14 except `SuiteLint.Tests.ps1` as a whole (blocked in `os-context`); TypeScript part open (B5.5) |
 | [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | four-binding half passed 2026-10-14; TypeScript half open (B7.1, B7.5, B7.7) |
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | passed 2026-10-14 |
 | [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | not run |
@@ -1723,11 +1723,11 @@ template. TypeScript is last because its registries exist only from B7.5.
 
 **Checklist.**
 
-- [ ] B5.1 Declare an action: catalog entry, PowerShell registration, schema
-- [ ] B5.2 Implement in Go
-- [ ] B5.3 Implement in Rust
-- [ ] B5.4 Implement in C#
-- [ ] B5.5 Implement in TypeScript
+- [ ] B5.1 Declare an action: catalog entry, PowerShell registration, schema (built; `SuiteLint.Tests.ps1` as a whole blocked in `os-context`)
+- [x] B5.2 Implement in Go
+- [x] B5.3 Implement in Rust
+- [x] B5.4 Implement in C#
+- [ ] B5.5 Implement in TypeScript (blocked on B7.5 and B7.7)
 
 ### B5.1 Declare an action: catalog entry, PowerShell registration, schema
 
@@ -1776,7 +1776,13 @@ template. TypeScript is last because its registries exist only from B7.5.
   [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor),
   in a worktree.
 * **Depends on.** B1.2, B2.1, B2.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Built 2026-10-14; one contract is blocked outside this repository.
+  - [x] code. `src/core/catalogEdit.ts`, `src/core/stubs.ts` (`powershellStubFile`, templates), `templates/powershell.ps1.tmpl`, `src/features/scaffold.ts` (quick fix, *Suite: Declare action*).
+  - [x] unit tests green at 100 percent: the type table, insertion offsets with and without the family, refusal without `actions:`, B5.1-3, B5.1-4, a template override.
+  - [x] scenario, B5.1-2 to B5.1-4 and the schema half of B5.1-1: the quick fix on Go lint's `E104` declared `demo.echo` with `text: string` and `times: integer` and created `DemoEcho.ps1`; `E104` cleared on the next save; one undo removed both; declaring twice refused; `Build-Schema.ps1 -Check` exited 0; the catalog checks of `SuiteLint.Tests.ps1` (Y1.3) passed. Evidence: [docs/evidence/stage-b5.md](evidence/stage-b5.md).
+  - [ ] scenario, `SuiteLint.Tests.ps1` as a whole (B5.1-1): blocked in `os-context`. It already fails on the clean tree (the PowerShell 7.6.7 `Test-Json` defect, stage B2), and its line 164 asserts exactly 100 declared actions, which any declaration breaks. See the evidence for what would close it.
+  - Record: `redhat.vscode-yaml` does not report `E104` (the schema gives `action` no enum), so the quick fix is offered on lint's diagnostic.
+  - Departures: steps are read from the document's text, not the index; templates have `@@` sections; names use every segment of the action. See the evidence.
 
 ### B5.2 Implement in Go
 
@@ -1806,7 +1812,11 @@ template. TypeScript is last because its registries exist only from B7.5.
 * **E2E.** The Go part of
   [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor).
 * **Depends on.** B5.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `templates/go.core.tmpl`, `templates/go.lifecycle.tmpl`; `planStub` and `stubTarget` in `src/core/stubs.ts`; *Implement in binding* (command and code action) in `src/features/scaffold.ts`.
+  - [x] unit tests green at 100 percent: both Go registries on excerpts of the real files, the anchors, the refusals.
+  - [x] scenario. E-B6's Go part: `go build ./...` and `go vet ./...` succeeded, the program's `actions --json` lists `demo.echo`, and running the scratch suite fails the step with `demo.echo: not implemented in the Go binding yet` (exit 1). Evidence: [docs/evidence/stage-b5.md](evidence/stage-b5.md).
+  - Departure: `gofmt -w` is not run. `internal/actions/actions.go` is not gofmt-clean at `e9da5ab5`, so it would rewrite lines the command does not own. The entry takes the value column of the entry above it instead.
 
 ### B5.3 Implement in Rust
 
@@ -1835,7 +1845,12 @@ template. TypeScript is last because its registries exist only from B7.5.
 * **E2E.** The Rust part of
   [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor).
 * **Depends on.** B5.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `templates/rust.core.tmpl`, `templates/rust.lifecycle.tmpl`; `planStub` and `stubTarget` in `src/core/stubs.ts`; *Implement in binding* (command and code action) in `src/features/scaffold.ts`.
+  - [x] unit tests green at 100 percent: both Rust registries on excerpts of the real files, the anchors, the refusals.
+  - [x] scenario. E-B6's Rust part: `cargo build` succeeded with no warnings, the program's `actions --json` lists `demo.echo`, and running the scratch suite fails the step with `demo.echo: not implemented in the Rust binding yet` (exit 1). Evidence: [docs/evidence/stage-b5.md](evidence/stage-b5.md).
+  - Item 1 record: `ActionError::action` takes `impl Into<String>` (`src/actions.rs:24`); the template's `.to_string()` compiles either way.
+  - Departures: `rustfmt` is not run (the crate is not rustfmt-clean at default settings); `dispatch()` ends in `other =>`, so the arm goes before any catch-all arm.
 
 ### B5.4 Implement in C#
 
@@ -1862,7 +1877,10 @@ template. TypeScript is last because its registries exist only from B7.5.
 * **E2E.** The C# part of
   [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor).
 * **Depends on.** B5.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `templates/csharp.core.tmpl`, `templates/csharp.lifecycle.tmpl`; `planStub` and `stubTarget` in `src/core/stubs.ts`; *Implement in binding* (command and code action) in `src/features/scaffold.ts`.
+  - [x] unit tests green at 100 percent: both C# registries on excerpts of the real files, the anchors, the refusals.
+  - [x] scenario. E-B6's C# part: `dotnet build Hci.E2E.Suite.sln` succeeded with warnings as errors, the program's `actions --json` lists `demo.echo`, and running the scratch suite fails the step with `demo.echo: not implemented in the C# binding yet` (exit 1). Evidence: [docs/evidence/stage-b5.md](evidence/stage-b5.md).
 
 ### B5.5 Implement in TypeScript
 
@@ -1897,7 +1915,8 @@ template. TypeScript is last because its registries exist only from B7.5.
   E-B6 is complete when B5.1-B5.5 have each passed their part.
 * **Depends on.** B5.1, B7.5 (the registries) and B7.7 (for the lifecycle
   template).
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Not started: blocked on B7.5 and B7.7.
+  - [ ] code, unit, scenario. `test/e2e/bindings/typescript` does not exist at `e9da5ab5`, and item 1 needs the lifecycle signature read from the real file first. `stubTarget('typescript', ...)` returns nothing until then, so the command refuses with "no stub template". E-B6's TypeScript part runs here.
 
 ---
 

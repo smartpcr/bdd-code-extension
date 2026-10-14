@@ -1,0 +1,8 @@
+@@ name
+"{{action}}",
+@@ registration
+"{{action}}" => {{rustName}}(context, step),
+@@ handler
+pub fn {{rustName}}(_context: &Shared, _step: &Value) -> Result<Value, ActionError> {
+    Err(ActionError::action("{{action}}: not implemented in the Rust binding yet".to_string()))
+}

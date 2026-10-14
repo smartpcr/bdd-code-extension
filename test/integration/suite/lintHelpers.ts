@@ -16,11 +16,15 @@ export async function setting(key: string, value: unknown, target: vscode.Config
 export async function lint(uri: vscode.Uri): Promise<LintEvent> {
   const a = await api();
   await a.ready;
-  const first = await a.controllers[0].lintNow(uri);
-  if (first.outcome !== 'superseded') return first;
-  // A settings rebuild replaced the controller mid-lint; the new one answers.
-  await a.ready;
-  return a.controllers[0].lintNow(uri);
+  let event = await a.controllers[0].lintNow(uri);
+  // A settings rebuild replaced the controller mid-lint (superseded), or the
+  // lint that opening the file schedules after LINT_DEBOUNCE_MS started and
+  // cancelled this one (B2.2-3); ask again so the answer is a finished lint.
+  for (let tries = 0; tries < 3 && (event.outcome === 'superseded' || event.outcome === 'cancelled'); tries++) {
+    await a.ready;
+    event = await a.controllers[0].lintNow(uri);
+  }
+  return event;
 }
 
 /** The lint diagnostics shown for a file, as "CODE severity line:column" with one-based positions. */
