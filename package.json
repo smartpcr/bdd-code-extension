@@ -1,0 +1,259 @@
+{
+  "name": "bdd-suite",
+  "displayName": "Suite Authoring",
+  "description": "Navigation, hover and lint for the os-context YAML test suites and their PowerShell, C#, Go, Rust and TypeScript bindings.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Testing"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/test/e2e/schema/actions.catalog.yaml"
+  ],
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Suite Authoring",
+      "properties": {
+        "bddSuite.catalogPath": {
+          "type": "string",
+          "default": "test/e2e/schema/actions.catalog.yaml",
+          "description": "The action catalog, relative to the workspace folder."
+        },
+        "bddSuite.suiteGlobs": {
+          "type": "array",
+          "default": [
+            "test/e2e/**/*.yml"
+          ],
+          "description": "Candidate suite files; a file is a suite when it has a top-level `suite:` key or is imported by one.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bddSuite.exclude": {
+          "type": "string",
+          "default": "**/{node_modules,bin,obj,target,artifacts,.git}/**",
+          "description": "Glob of files never indexed."
+        },
+        "bddSuite.lintTool": {
+          "type": "string",
+          "default": "go",
+          "description": "The binding whose code lints suites."
+        },
+        "bddSuite.targetBinding": {
+          "type": "string",
+          "default": "powershell",
+          "description": "The binding suites are meant to run with; lint reports actions it does not implement (E201)."
+        },
+        "bddSuite.bindings": {
+          "type": "object",
+          "default": {
+            "powershell": {
+              "label": "PowerShell",
+              "abbreviation": "PS",
+              "kind": "powershell",
+              "sources": [
+                "scripts/e2e/actions/*.ps1"
+              ],
+              "exclude": [
+                "**/*.Tests.ps1"
+              ],
+              "recognizers": [
+                {
+                  "pattern": "Register-LabAction\\s+-Name\\s+'(?<name>[^'$]+)'"
+                },
+                {
+                  "pattern": "Register-LabAction\\s+-Name\\s+\"(?<name>[^\"$]+)\""
+                },
+                {
+                  "pattern": "@\\{\\s*name\\s*=\\s*'(?<name>[^']+)';\\s*verb\\s*=\\s*'lifecycle\\.",
+                  "prefix": "lifecycle."
+                }
+              ],
+              "tool": [
+                "pwsh",
+                "-NoProfile",
+                "-NonInteractive"
+              ]
+            },
+            "csharp": {
+              "label": "C#",
+              "abbreviation": "C#",
+              "kind": "suiterun",
+              "sources": [
+                "test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs"
+              ],
+              "exclude": [],
+              "recognizers": [
+                {
+                  "pattern": "^\\s*\\[\\s*\"(?<name>[a-z]\\w*(?:\\.\\w+)+)\"\\s*\\]\\s*=\\s*(?<handler>.+?),?\\s*$"
+                },
+                {
+                  "pattern": "names\\.Add\\(\"(?<name>[^\"]+)\"\\)"
+                }
+              ],
+              "tool": [
+                "test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe"
+              ],
+              "build": {
+                "command": "dotnet build Hci.E2E.Suite.sln",
+                "cwd": "test/e2e/bindings/dotnet"
+              }
+            },
+            "go": {
+              "label": "Go",
+              "abbreviation": "Go",
+              "kind": "suiterun",
+              "sources": [
+                "test/e2e/bindings/go/internal/**/*.go"
+              ],
+              "exclude": [
+                "**/*_test.go"
+              ],
+              "recognizers": [
+                {
+                  "pattern": "^\\s*\"(?<name>[a-z][\\w]*(?:\\.[\\w]+)+)\"\\s*:\\s*(?<handler>[\\w.]+)"
+                },
+                {
+                  "pattern": "append\\(names,\\s*\"(?<name>[\\w.]+)\"\\)"
+                }
+              ],
+              "tool": [
+                "${storage}/go/suiterun.exe"
+              ],
+              "build": {
+                "command": "go build -o ${storage}/go/suiterun.exe ./cmd/suiterun",
+                "cwd": "test/e2e/bindings/go"
+              }
+            },
+            "rust": {
+              "label": "Rust",
+              "abbreviation": "Rs",
+              "kind": "suiterun",
+              "sources": [
+                "test/e2e/bindings/rust/src/**/*.rs"
+              ],
+              "exclude": [],
+              "recognizers": [
+                {
+                  "pattern": "map\\.insert\\(\\s*\"(?<name>[a-z]\\w*(?:\\.\\w+)+)\"\\s*,\\s*(?<handler>\\w+)\\s*\\)"
+                },
+                {
+                  "pattern": "^\\s*\"(?<name>[a-z]\\w*(?:\\.\\w+)+)\"\\s*=>\\s*(?<handler>\\w+)\\("
+                },
+                {
+                  "pattern": "names\\.push\\(\"(?<name>[^\"]+)\"\\.to_string\\(\\)\\)"
+                }
+              ],
+              "tool": [
+                "test/e2e/bindings/rust/target/debug/suiterun.exe"
+              ],
+              "build": {
+                "command": "cargo build",
+                "cwd": "test/e2e/bindings/rust"
+              }
+            },
+            "typescript": {
+              "label": "TypeScript",
+              "abbreviation": "TS",
+              "kind": "suiterun",
+              "sources": [
+                "test/e2e/bindings/typescript/src/**/*.ts"
+              ],
+              "exclude": [
+                "**/*.test.ts"
+              ],
+              "recognizers": [
+                {
+                  "pattern": "\\baction\\(\\s*'(?<name>[^']+)'\\s*,\\s*(?<handler>[\\w.]+)\\s*\\)"
+                }
+              ],
+              "tool": [
+                "node",
+                "test/e2e/bindings/typescript/dist/cli.js"
+              ],
+              "build": {
+                "command": "npm ci && npm run build",
+                "cwd": "test/e2e/bindings/typescript",
+                "shell": true
+              },
+              "library": "test/e2e/bindings/typescript/dist/index.js"
+            }
+          },
+          "description": "Per binding: source globs, registration recognizers, program and build command."
+        },
+        "bddSuite.schemaGenerator": {
+          "type": "array",
+          "default": [
+            "pwsh",
+            "-NoProfile",
+            "-NonInteractive",
+            "-File",
+            "test/e2e/schema/Build-Schema.ps1"
+          ],
+          "description": "Command that regenerates suite.schema.json after a catalog edit.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bddSuite.inlayHints.bindings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show which bindings implement each step's action."
+        },
+        "bddSuite.templatesDir": {
+          "type": "string",
+          "default": "",
+          "description": "Workspace directory whose files override the stub templates."
+        },
+        "bddSuite.lab.apiUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Lifecycle API URL for lab runs; prompted when empty."
+        },
+        "bddSuite.lab.labId": {
+          "type": "string",
+          "default": "",
+          "description": "Lab lineage id (32 hex characters) for lab runs; prompted when empty."
+        },
+        "bddSuite.lab.connectionFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the lab connection file for lab runs; prompted when empty."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p . && node esbuild.mjs",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test:unit": "npm run build:test && c8 --100 --include \"out-test/src/core/**\" --include \"out-test/src/config/**\" --reporter=text --reporter=text-summary node --test \"out-test/test/unit/**/*.test.js\"",
+    "test:integration": "npm run compile && npm run build:test && node out-test/test/integration/runTest.js",
+    "sync-defaults": "npm run build:test && node scripts/sync-defaults.mjs",
+    "package": "npm run compile && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "minimatch": "^9.0.5",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "~1.95.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.0.0",
+    "c8": "^10.1.3",
+    "esbuild": "^0.25.0",
+    "mocha": "^11.0.0",
+    "typescript": "~5.9.0"
+  }
+}

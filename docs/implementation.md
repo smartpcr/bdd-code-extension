@@ -3,8 +3,14 @@
 The design is [design.md](design.md). It says what the extension does and why;
 this plan says how, step by step, with a status that is ticked only against
 evidence. Goals, decisions and scenarios are not restated here; they are linked
-by ID: outcomes `O1`-`O8`, decisions `DEC-B01`-`DEC-B14`, scenarios
-`E-B1`-`E-B11`.
+by ID: outcomes `O1`-`O10`, decisions `DEC-B01`-`DEC-B22`, scenarios
+`E-B1`-`E-B15`.
+
+**Revision 2 (2026-10-14).** Adds the TypeScript binding (stage B8, built in
+`os-context`) and lint while typing through it (stage B9). It also adds step
+B2.6 (workspace trust) and step B5.5 (TypeScript stubs), and the TypeScript
+defaults in [2.8](#28-settings). No existing step ID moved. Stages are listed in
+delivery order, so B8 and B9 appear before B7, which now depends on them.
 
 ---
 
@@ -29,6 +35,19 @@ consequences of that shape, so they are not repeated:
   rebuilding it, so a slow scan briefly shows a clean workspace. Here a file's
   lint result replaces only that file's entries, and a failed lint never
   replaces anything (INV-3, INV-4).
+
+**Two repositories.** Stages B1-B7 and B9 are built here, in
+`bdd-code-extension`. Stage B8 is built in `os-context`, under that
+repository's own rules (its `CLAUDE.md`):
+
+* commit only when asked, and never push;
+* ASCII only in scripts;
+* no `.vscode`-only conventions;
+* any version bump that `Build-All.ps1` writes is left unstaged.
+
+B8's steps name `os-context` paths without a prefix, and everything they add
+lives under `test/e2e/bindings/typescript/` except the admission edits
+(design [2.5](design.md#25-admitting-a-fifth-binding)).
 
 **How to read a step.** Fields in order: Deliverable, Why its own step,
 Implementation (a numbered recipe), Contracts (`<step>-n`, cited by code
@@ -59,6 +78,9 @@ All paths in this table are in this repository unless they start with
 | Scaffolding text | `src/core/catalogEdit.ts`, `src/core/stubs.ts`, `templates/*` | `renderCatalogEntry()`, `planStub()` | pure |
 | Lint and trace parsing | `src/core/diagnostics.ts`, `src/core/trace.ts` | `parseLintOutput()`, `mapTrace()` | pure |
 | Tool runner | `src/tools/runTool.ts`, `src/tools/profiles.ts` | `runTool()`, `lintCommand()`, `actionsCommand()`, `listCommand()`, `runCommand()`, `buildCommand()` | extension host, spawns child processes |
+| Lint worker host | `src/lint/workerHost.ts` | `LintWorkerHost` (start, `lint()`, terminate, restart) | extension host |
+| Lint worker | `src/lint/worker.ts`, bundled to `dist/lintWorker.js` | message loop that `import()`s the TypeScript library and calls `createLinter().lint()` | a `worker_threads` thread in the extension host process |
+| Trust gate | `src/config/trust.ts` | `canRunWorkspaceCode()`, `onTrustChanged` | extension host |
 | Providers and controllers | `src/features/*.ts` | navigation, hover, inlay hints, completion, lint controller, status bar, coverage view, scaffolding commands, testing | extension host |
 | Unit tests | `test/unit/*.test.ts` | `node:test` suites over `src/core`, `src/tools`, `src/config` | Node |
 | Fake tool | `test/fake-tool/fake-suiterun.mjs` | a program that sleeps, prints junk, prints too much, or exits with a chosen code | Node child process |
@@ -73,9 +95,34 @@ scaffolding commands (B5) and by the scenarios inside a worktree:
 | Generated schema | `test/e2e/schema/suite.schema.json` | `redhat.vscode-yaml` only |
 | Generator | `test/e2e/schema/Build-Schema.ps1` | scaffolding, E-B8 |
 | Suites, libraries | `test/e2e/**/*.yml` with a top-level `suite:` or listed in an `imports:` | Suites |
-| Binding sources | `scripts/e2e/actions/*.ps1`; `test/e2e/bindings/go/internal/**/*.go`; `test/e2e/bindings/rust/src/**/*.rs`; `test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs` | Registrations |
+| Binding sources | `scripts/e2e/actions/*.ps1`; `test/e2e/bindings/go/internal/**/*.go`; `test/e2e/bindings/rust/src/**/*.rs`; `test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs`; `test/e2e/bindings/typescript/src/**/*.ts` | Registrations |
 | Binding programs | see [2.4](#24-how-a-tool-call-is-set-up-end-to-end) | Tool runner |
-| Corpus | `test/e2e/conformance/run-manifest.yaml` and its entries | E-B1, E-B9 oracles |
+| TypeScript library | `test/e2e/bindings/typescript/dist/index.js` | Lint worker |
+| Corpus | `test/e2e/conformance/run-manifest.yaml` and its entries | E-B1, E-B9, E-B14 oracles |
+
+The TypeScript binding's own module map (built in B8, in `os-context`). Each
+module has the Go package of the same responsibility beside it, so a reviewer
+can compare like with like.
+
+| Module (`test/e2e/bindings/typescript/`) | Mirrors Go | Exports | Built in |
+| --- | --- | --- | --- |
+| `package.json`, `package-lock.json`, `tsconfig.json` | `go.mod` | `name: "@os-context/suiterun"`, `private: true`, `type: "module"`, `bin: { suiterun: "dist/cli.js" }`, `engines: { node: ">=24" }`, scripts `build` (`tsc -p .`), `test` (`c8 ... node --test`), `lint:types` | B8.1 |
+| `src/cli.ts` | `cmd/suiterun`, `internal/cli` | `parse(argv): Options`, `main(argv): Promise<number>`, `EXIT_PASSED`=0, `EXIT_FAILED`=1, `EXIT_REFUSED`=2, `USAGE` | B8.1 |
+| `src/run.ts` | `internal/run` | `execute(options): Promise<Report>`, `lintVerb`, `runVerb`, `listVerb`, `actionsVerb` | B8.1, filled by B8.4-B8.6 |
+| `src/index.ts` | (none: the library API) | `apiVersion = '1.0.0'`, `createLinter({ root, schemaRoot? }): Linter` with `lint(request)` and `invalidate()`; types `LintRequest`, `Diagnostic` | B8.4 |
+| `src/paths.ts` | `internal/paths` | `repositoryRoot(start)`, `schemaRoot(root)`, `corpusRoot(root)`, `matchesGlob()`, `resolveGlob()` | B8.1 |
+| `src/schema.ts` | `internal/schema` | `loadSchema(schemaRoot, overlay?)`, `Schema`, `Action` (`name`, `bindings`, `interruptible`, `deprecated`, `params`, `captures`) | B8.2 |
+| `src/model.ts`, `src/value.ts` | `internal/model`, `internal/value` | `loadDocument(text): { value, positions }`, `Value` (`null`, `boolean`, `string`, `bigint` = int, `number` = float, `Value[]`, `Map<string, Value>`), `text()`, `asNumber()`, `toJson()` | B8.2 |
+| `src/walk.ts` | `internal/walk` | `allSteps()`, `stepLists()`, `hooks()`, `casePhases()` | B8.2 |
+| `src/diag.ts`, `src/spelling.ts` | `internal/diag`, `internal/spelling` | `Diagnostic`, `sorted()` (total order and dedup), `fails()`, `toJsonArray()`, `nearest()` | B8.2 |
+| `src/validate/structure.ts` | `internal/validate/structure.go` | `checkStructure()` (E100-E105) | B8.2 |
+| `src/validate/semantics.ts`, `src/validate/dataflow.ts`, `src/validate/index.ts` | `internal/validate` | `checkSemantics()` (E2xx, W302, W304), `checkDataflow()` (E3xx, W301, W303), `validateFile()` | B8.4 |
+| `src/expr.ts`, `src/assertion.ts` | `internal/expr`, `internal/assertion` | `evaluate()`, `expand()`, `Scope`, `FUNCTIONS` (21), `compare()`, `OPERATORS`, `unportable()` | B8.3 |
+| `src/suite.ts`, `src/exec.ts`, `src/trace.ts` | `internal/suite`, `internal/exec`, `internal/trace` | `expandSteps()`, `expandOutline()`, `resolveParams()`, `resolveVars()`, `runFile()`, `Trace` | B8.5 |
+| `src/actions/registry.ts`, `src/actions/core.ts` | `internal/actions` | `action(name, handler)`, `Request`, `Handler`, `failed()`, `timedOut()`, `coreActions` (the five `core.*` and `wait`) | B8.5 |
+| `src/report.ts` | `internal/report` | `nunit3()`, `junit()` | B8.6 |
+| `src/lifecycle/context.ts`, `src/lifecycle/actions.ts`, `src/lifecycle/stream.ts` | `internal/lifecycle` | `LifecycleContext` (`request()`, `credentials()`, `redact()`), `lifecycleActions` (18), `Stream`, `readFrame()` | B8.7 |
+| `test/conformance/*.test.ts` | `internal/conformance` | manifest, validate, execute, expressions, asserts, report, canonical | B8.1-B8.6 |
 
 ### 2.2 Interfaces and who calls whom
 
@@ -83,6 +130,8 @@ scaffolding commands (B5) and by the scenarios inside a worktree:
  VS Code --(provider calls)--> features/* --(queries)--> WorkspaceIndex
  VS Code --(save/open/change events)--> features/indexer glue --(parse*)--> WorkspaceIndex.update*
  features/lintController --> tools/profiles.lintCommand --> tools/runTool --spawn--> suiterun | pwsh
+ features/lintController --> lint/workerHost.lint --postMessage--> lint/worker --import()--> os-context typescript dist/index.js
+ every spawn and every worker start --> config/trust.canRunWorkspaceCode() first (INV-11)
  features/coverageView   --> tools/profiles.actionsCommand --> tools/runTool
  features/scaffold       --> core/catalogEdit, core/stubs --> WorkspaceEdit --> tools/runTool(Build-Schema.ps1)
  features/testing        --> tools/profiles.listCommand / runCommand --> tools/runTool --> core/trace.mapTrace
@@ -204,6 +253,55 @@ only in arguments and in what is parsed.
 9. **Publish.** `LintController` stores the result under the linted file's key
    and republishes the union over keys for each affected file (INV-3).
 
+Two exceptions to item 4, for `build` commands only (B2.4, B9.1):
+
+* `npm` on Windows is `npm.cmd`, which Node refuses to spawn without a shell
+  (`EINVAL`, since Node 20's fix for CVE-2024-27980).
+* A build is a fixed string from settings, never containing a workspace file
+  name.
+
+So `buildCommand()` may return `{ command: string, shell: true }`, and
+`runTool()` accepts `shell: true` only from `buildCommand()`; a unit test
+asserts no other profile function returns it.
+
+### 2.4b How an in-editor lint is set up end to end
+
+Used when `bddSuite.lintTool` is `typescript` (B9). Items 1, 2, 8 and 9 above are
+unchanged; items 3 to 7 are replaced by:
+
+3. **Gate.** `canRunWorkspaceCode()` (INV-11). If false, no lint; status bar.
+4. **Worker.** `LintWorkerHost` holds at most one `Worker` per window, created
+   from `dist/lintWorker.js` with `workerData: { libraryPath }`, where
+   `libraryPath` is `<root>/test/e2e/bindings/typescript/dist/index.js`
+   (setting `bddSuite.bindings.typescript.library`). On start the worker runs
+   `await import(pathToFileURL(libraryPath).href)`. It checks that
+   `apiVersion` parses as semver with major `1`, and replies
+   `{ type: 'ready', apiVersion }` or `{ type: 'refused', reason }`.
+   The library resolves its own dependencies (`yaml`, `ajv`) from its own
+   `node_modules`, never from the extension's.
+5. **Request.** `host.lint({ id, root, paths: [rel], binding: target,
+   bindingCheck: true, strict: false, overlays })` posts one message.
+   `overlays` is an object of absolute path to text for every dirty suite or
+   library document open in the window. A unique `id` per request; the host
+   keeps only the newest `id` per linted file (INV-4). The worker keeps one
+   `createLinter({ root })` per root and calls `linter.lint(request)`.
+6. **Bound.** A timer of `WORKER_LINT_TIMEOUT_MS`. On expiry, or on a `type:
+   'error'` reply, or on the worker's `exit` or `error` event, the host calls
+   `worker.terminate()`, drops the worker, and returns
+   `failure/timeout|crash`. The next request starts a new worker.
+   `WORKER_MAX_CONSECUTIVE_FAILURES` failures in a row pause live lint until
+   the next save. Cancellation of a superseded request does not terminate the
+   worker, since the library is synchronous and short; the stale reply is
+   discarded when it arrives.
+7. **Interpret.** The reply `{ type: 'result', id, diagnostics }` carries the
+   same objects `lint --json` prints. They go through the same
+   `parseLintOutput()` shape check (after `JSON.stringify`) so both paths are
+   held to `diagnostic.schema.json` by one function.
+
+When the catalog or `suite.schema.json` changes (index watcher, B1.7), the host
+posts `{ type: 'invalidate', root }`, and the worker calls
+`linter.invalidate()` so the next lint reloads them.
+
 ### 2.5 State and its single owner
 
 | State | Owner | Written when | Read by |
@@ -215,6 +313,10 @@ only in arguments and in what is parsed.
 | Derived joins (steps by action, sites by action, meta definitions by name) | `WorkspaceIndex`, rebuilt lazily after any update | first query after an update | providers |
 | Lint results | `LintController.byLintedFile` | each completed lint | `DiagnosticCollection 'bddSuite.lint'` |
 | Live child processes | `runTool` module's `live` set | spawn, exit | `deactivate()` |
+| The lint worker and its newest request id per file | `LintWorkerHost` | start, each request, terminate | `LintController`, `deactivate()` |
+| Loaded library and cached linters | the worker thread | `import()` once; `createLinter` once per root; `invalidate()` on catalog or schema change | the worker only |
+| Unsaved text sent for lint | nobody: copied into each request and discarded with it | each live lint | the worker, for that one request |
+| Workspace trust | VS Code; mirrored by `trust.ts` | `workspace.onDidGrantWorkspaceTrust` | every spawn and worker start |
 | Test items and last results | `TestingController` | discovery from the index; each run | Test Explorer |
 | Temporary trace and report files | `TestingController` under `context.storageUri/runs/` | each run | the same run; deleted by the next run of the same file |
 
@@ -236,6 +338,10 @@ All in `src/limits.ts`. Every one is enforced by code and tested at its edge.
 | `MAX_INDEXED_FILE_BYTES` | 1 MiB | The largest binding source file is 179 KB (`scripts/e2e/Invoke-LabTestSuite.Tests.ps1`, excluded anyway) and the largest suite 68 KB; a file above 1 MiB is generated or a mistake and is skipped with a log line |
 | `META_DEPTH_LIMIT` | 5 | The format's own nesting limit (`yml_suite_design.md` DEC-Y10); scope resolution stops there |
 | `KILL_GRACE_MS` | 1000 | E-B11 asserts no child survives 1 s after a kill |
+| `LIVE_LINT_DEBOUNCE_MS` | 400 | A pause long enough to be a pause, short enough that O10's one second holds with a lint that B9.3 measures; B9.3 may lower it, never raise it past 600 without changing O10 |
+| `WORKER_LINT_TIMEOUT_MS` | 5000 | Five times O10's budget; a lint that takes longer is a defect to report, and terminating it keeps the editor responsive |
+| `WORKER_MAX_CONSECUTIVE_FAILURES` | 3 | A library that fails three times running is broken, not unlucky; live lint pauses until a save rather than restarting a worker per keystroke |
+| `LIBRARY_API_MAJOR` | 1 | The `apiVersion` major the extension speaks (DEC-B19) |
 | Run timeout | none | The suite declares and the binding enforces its own limits (DEC-Y08, DEC-Y09); an extension timeout would kill the runner before its cleanup. A run ends by finishing or by an explicit, confirmed cancel (DEC-B12) |
 
 ### 2.7 Invariants
@@ -265,6 +371,31 @@ No step may break these. Reviews cite them by number.
    providers never read files or parse; they query the index.
 10. **INV-10.** Every path from a tool's output is resolved against
     `WorkspaceLayout.root`, never against `process.cwd()`.
+11. **INV-11.** No process is spawned, no worker started, and nothing imported
+    from the workspace unless `canRunWorkspaceCode()` returns true
+    (DEC-B22). `runTool()` and `LintWorkerHost.start()` check it themselves,
+    not only their callers.
+12. **INV-12.** The extension never writes unsaved text to disk to lint it.
+    Unsaved text reaches a binding only as an overlay in a worker request.
+13. **INV-13.** The extension and the TypeScript binding share no code. The
+    extension reaches the binding only through `createLinter()` and the
+    `suiterun` program; the binding imports nothing from the extension.
+
+The TypeScript binding (B8) has its own invariants, numbered `TS-n`, which its
+code and tests cite:
+
+1. **TS-1.** No YAML mapping is a plain object; every one is a `Map`.
+2. **TS-2.** An integer is a `bigint` and a float is a `number`, from parse to
+   output; no arithmetic mixes them without an explicit conversion.
+3. **TS-3.** Every string the binding writes (stdout, stderr, trace, report,
+   captured output, error messages) passes through `redact()` once secrets are
+   known.
+4. **TS-4.** No action runs without an `AbortSignal` that fires at its limit.
+5. **TS-5.** Nothing in `src/` reads a file except through the reader the
+   current call was given. That reader is the disk for the program and the
+   overlay-first reader for `createLinter()`, so an overlay is never bypassed.
+6. **TS-6.** The catalog's actions listing `typescript` and the binding's
+   `action(...)` registrations are the same set, checked by a test.
 
 ### 2.8 Settings
 
@@ -278,7 +409,7 @@ so the two cannot drift.
 | `bddSuite.catalogPath` | string | `test/e2e/schema/actions.catalog.yaml` | Catalog, relative to the workspace folder |
 | `bddSuite.suiteGlobs` | string[] | `["test/e2e/**/*.yml"]` | Candidate suites; content decides (DEC-B13) |
 | `bddSuite.exclude` | string | `**/{node_modules,bin,obj,target,artifacts,.git}/**` | Never indexed |
-| `bddSuite.lintTool` | string | `go` (provisional, B2.5) | Binding whose program lints |
+| `bddSuite.lintTool` | string | `go` (provisional, B2.5); `typescript` from B9.3 if its measurement meets O10 | Binding whose code lints |
 | `bddSuite.targetBinding` | string | `powershell` | Binding `--binding-check` asks about, and runs use |
 | `bddSuite.bindings` | object | see below | Per binding: sources, recognizers, tool |
 | `bddSuite.schemaGenerator` | string[] | `["pwsh","-NoProfile","-NonInteractive","-File","test/e2e/schema/Build-Schema.ps1"]` | Run after catalog edits |
@@ -291,10 +422,11 @@ Default `bddSuite.bindings` (paths relative to the workspace folder;
 
 | Binding | `sources` | `exclude` | `recognizers` (`name`, optional `handler` groups) | `tool` | `build` |
 | --- | --- | --- | --- | --- | --- |
-| `powershell` | `scripts/e2e/actions/*.ps1` | `**/*.Tests.ps1` | `Register-LabAction\s+-Name\s+'(?<name>[^']+)'`; `Register-LabAction\s+-Name\s+"(?<name>[^"]+)"` | `kind: powershell` | none |
+| `powershell` | `scripts/e2e/actions/*.ps1` | `**/*.Tests.ps1` | `Register-LabAction\s+-Name\s+'(?<name>[^'$]+)'`; `Register-LabAction\s+-Name\s+"(?<name>[^"$]+)"`; `@\{\s*name\s*=\s*'(?<name>[^']+)';\s*verb\s*=\s*'lifecycle\.` with `prefix: lifecycle.` (the five actions `lab-lifecycle.ps1` registers in a loop; B1.4) | `kind: powershell` | none |
 | `go` | `test/e2e/bindings/go/internal/**/*.go` | `**/*_test.go` | `^\s*"(?<name>[a-z][\w]*(?:\.[\w]+)+)"\s*:\s*(?<handler>[\w.]+)`; `append\(names,\s*"(?<name>[\w.]+)"\)` | `["${storage}/go/suiterun.exe"]` | `go build -o ${storage}/go/suiterun.exe ./cmd/suiterun` in `test/e2e/bindings/go` |
-| `rust` | `test/e2e/bindings/rust/src/**/*.rs` | none | `map\.insert\(\s*"(?<name>[^"]+)"\s*,\s*(?<handler>\w+)\s*\)`; `^\s*"(?<name>[^"]+)"\s*=>\s*(?<handler>\w+)\(`; `names\.push\("(?<name>[^"]+)"\.to_string\(\)\)` | `["test/e2e/bindings/rust/target/debug/suiterun.exe"]` | `cargo build` in `test/e2e/bindings/rust` |
-| `csharp` | `test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs` | none | `^\s*\[\s*"(?<name>[^"]+)"\s*\]\s*=\s*(?<handler>[^,\r\n]+?),?\s*$`; `names\.Add\("(?<name>[^"]+)"\)` | `["test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe"]` | `dotnet build Hci.E2E.Suite.sln` in `test/e2e/bindings/dotnet` |
+| `rust` | `test/e2e/bindings/rust/src/**/*.rs` | none | `map\.insert\(\s*"(?<name>[a-z]\w*(?:\.\w+)+)"\s*,\s*(?<handler>\w+)\s*\)`; `^\s*"(?<name>[a-z]\w*(?:\.\w+)+)"\s*=>\s*(?<handler>\w+)\(`; `names\.push\("(?<name>[^"]+)"\.to_string\(\)\)` | `["test/e2e/bindings/rust/target/debug/suiterun.exe"]` | `cargo build` in `test/e2e/bindings/rust` |
+| `csharp` | `test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs` | none | `^\s*\[\s*"(?<name>[a-z]\w*(?:\.\w+)+)"\s*\]\s*=\s*(?<handler>.+?),?\s*$`; `names\.Add\("(?<name>[^"]+)"\)` | `["test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe"]` | `dotnet build Hci.E2E.Suite.sln` in `test/e2e/bindings/dotnet` |
+| `typescript` | `test/e2e/bindings/typescript/src/**/*.ts` | `**/*.test.ts` | `\baction\(\s*'(?<name>[^']+)'\s*,\s*(?<handler>[\w.]+)\s*\)` | `["node", "test/e2e/bindings/typescript/dist/cli.js"]`, plus `library: "test/e2e/bindings/typescript/dist/index.js"` | `npm ci && npm run build` (shell, per 2.4) in `test/e2e/bindings/typescript` |
 
 The patterns are a starting point checked by E-B3 and E-B7, not a claim: B1.4
 runs them over the tree and records every false positive and miss it finds, and
@@ -320,6 +452,22 @@ and `TestRunProfile` are all older than that).
 | `npm run package` | `vsce package` to `bdd-suite-<version>.vsix`, then prints its SHA-256 |
 | `npm run sync-defaults -- --check` | fails if `package.json` defaults differ from `src/config/defaults.ts` |
 
+The TypeScript binding (B8), from `test/e2e/bindings/typescript/` in
+`os-context`:
+
+| Command | What it does |
+| --- | --- |
+| `npm ci` | install `yaml`, `ajv`, and the dev tools from the committed lock file |
+| `npm run build` | `tsc -p .` to `dist/` (ES2023, `module: NodeNext`, `strict`, declarations on) |
+| `npm test` | `npm run build`, then `c8 --check-coverage --lines 100 --reporter=text --reporter=json-summary node --test dist-test/`, then `node scripts/check-branches.mjs`, which reads `coverage/coverage-summary.json` and fails unless `dist/expr.js` and `dist/assertion.js` are at 100 percent of branches |
+| `node dist/cli.js lint --path 'test/e2e/suites/*.yml' --json` | the shared contract, from the repository root |
+| `pwsh -File test/e2e/conformance/Assert-DivergenceIsCaught.ps1 -Binding typescript` | the divergence check against this binding (B8.8) |
+
+Node.js: 24 (the development host has 24.16.0; Node 24 is the current LTS
+line). `engines.node: ">=24"`. CI uses `actions/setup-node` pinned by commit
+SHA like every other action in `os-context`'s workflows, with
+`node-version: 24` and `cache: npm` keyed on the package's lock file.
+
 ### 3.2 Preparing `os-context` for the integration suite
 
 Once per `os-context` commit under test, from `OS_CONTEXT_ROOT`:
@@ -330,7 +478,10 @@ Once per `os-context` commit under test, from `OS_CONTEXT_ROOT`:
    `test/e2e/bindings/go`, where `<storage>` is the test instance's global
    storage path, which `runTest.ts` prints and fixes with `--user-data-dir`.
 3. `dotnet build Hci.E2E.Suite.sln` in `test/e2e/bindings/dotnet`.
-4. Record `git -C $OS_CONTEXT_ROOT rev-parse HEAD`; the harness writes it into
+4. `npm ci` and `npm run build` in `test/e2e/bindings/typescript` (once B8.1
+   exists; before that, scenarios run with four bindings and leave the
+   TypeScript half open).
+5. Record `git -C $OS_CONTEXT_ROOT rev-parse HEAD`; the harness writes it into
    every result file.
 
 The harness never builds bindings itself in the main checkout; the B2.4 *Build
@@ -345,6 +496,18 @@ lint tool* command does, when a user asks.
   extension host. Each provider is proved by its scenario in a real VS Code.
   That is a real gap in measurement, stated rather than hidden: a provider
   branch no scenario reaches is untested.
+* `src/lint`: `workerHost.ts` at 100 percent under unit tests that drive a real
+  `Worker` running a test library (`test/fake-library/index.mjs`, which can be
+  told to answer, throw, loop or report a different `apiVersion`).
+  `worker.ts` runs only inside a worker thread, which `c8` does measure when
+  `NODE_V8_COVERAGE` is inherited; B9.1 records whether it reached 100 percent
+  that way, or names the lines.
+* The TypeScript binding follows `os-context`'s rule for new binding files:
+  100 percent of measured lines for every file under
+  `test/e2e/bindings/typescript/src/`, and 100 percent of branches for
+  `expr.ts` and `assertion.ts` (the two places "where four implementations
+  diverge quietly"), with any exclusion listed in `package.json`'s `c8` block
+  and justified at the step that adds it.
 * A step that cannot reach 100 percent names the exact lines and why in its
   Unit field.
 
@@ -356,11 +519,25 @@ the remote scenario once; rerun only what a change affects.
 * Focused unit tests while editing; the whole unit suite and the step's
   integration scenario before ticking the step.
 * Never re-run a green suite whose inputs did not change.
-* Every mock is listed with what it replaces. There are two: the fake tool
-  (replaces a binding program in process-handling unit tests) and none else.
-  Every scenario uses real programs, a real VS Code and the real checkout.
-* E-B10 (the only lab scenario) runs once, on the packaged `.vsix`, after all
-  local scenarios are green on that same `.vsix` (B7.3).
+* Every mock is listed with what it replaces:
+  - the fake tool replaces a binding program in process-handling unit tests;
+  - the fake library replaces the TypeScript library in worker-host unit
+    tests;
+  - in B8.7, a loopback HTTP server stands in for the lifecycle API. It cannot
+    prove the real API's behaviour; that is what E-B13 is for.
+
+  Every editor scenario uses real programs, the real library, a real VS Code
+  and the real checkout.
+* Two scenarios need a lab: E-B13 (the binding, in B8.7) and E-B10 (the
+  extension, in B7.3). E-B13 submits a bootstrap, so by the rule for
+  mutating scenarios it runs in its build step, B8.7, not in a later batch. It
+  runs once, after the binding's whole offline corpus is green on the same
+  commit. E-B10 runs once, on the packaged `.vsix`, after all local scenarios
+  are green on that same `.vsix`.
+* **Start the long pole first.** The lab runs and the `os-context` CI job
+  have lead time; local suites do not. Once B8.7's loopback tests are green,
+  book the lab and run E-B13 at once, while B8.8 and B9 are built. Once B8.8's workflow edits are
+  pushed by the user, the CI job runs while B9 is built.
 
 ### 3.5 Step template and definition of done
 
@@ -381,33 +558,47 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 
 | Stage | Result | Priority | Depends on | Steps | Built | Done |
 | --- | --- | --- | --- | --- | --- | --- |
-| [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 0 of 7 | 0 of 7 |
-| [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 5 | 0 of 5 | 0 of 5 |
+| [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 7 of 7 | 7 of 7 (B1.4 TypeScript half and B1.7 E-B7 timing half deferred by name) |
+| [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 6 | 0 of 6 | 0 of 6 |
 | [B3](#stage-b3-completion-that-knows-the-scope) | Completion that knows the scope | P1 | B1.2, B1.3, B1.6 | 5 | 0 of 5 | 0 of 5 |
 | [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 0 of 3 | 0 of 3 |
-| [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1 | 4 | 0 of 4 | 0 of 4 |
+| [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B8.5 | 5 | 0 of 5 | 0 of 5 |
 | [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 0 of 5 | 0 of 5 |
+| [B8](#stage-b8-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 0 of 8 | 0 of 8 |
+| [B9](#stage-b9-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B8.4 | 3 | 0 of 3 | 0 of 3 |
 | [B7](#stage-b7-package-and-accept) | Package and accept | P0 | all above | 3 | 0 of 3 | 0 of 3 |
 
 Priority says what ships first, never what may be skipped: P0 is the minimum
-useful release (navigate, hover, lint), P1 the authoring features, P2 running.
-A stage at any priority is done only against its full criteria.
+useful release (navigate, hover, lint), P1 the authoring features and the
+fifth binding, P2 running. A stage at any priority is done only against its
+full criteria.
+
+**Delivery order and parallel work.** B8 depends on nothing in this
+repository and can be built alongside B1 to B6, by another person if there is
+one. Inside B8 the order is strict (8.1 to 8.8). B9 starts when B8.4 has
+shipped `createLinter()`; it does not need the binding's executor.
+Every scenario that names five bindings runs with four until B8 finishes,
+and its TypeScript half stays open until then. B7 is last and needs all of it.
 
 **Scenario to step index.** Read from the step status blocks.
 
 | Scenario | Signs off | Needs a lab | Status |
 | --- | --- | --- | --- |
-| [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5 | no | not run |
-| [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can) | B1.2, B2.3, B3.1 | no | not run |
-| [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | not run |
-| [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | not run |
+| [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5, B9.3 | no | not run |
+| [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can) | B1.2, B2.3, B3.1 | no | hover half passed 2026-10-14; the rest open (B2.3, B3.1) |
+| [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | four-binding half passed 2026-10-14; TypeScript half open (B8.5, B8.7) |
+| [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | passed 2026-10-14 |
 | [E-B5](design.md#e-b5-completion-offers-what-is-in-scope-and-nothing-the-format-forbids) | B3.1-B3.5 | no | not run |
-| [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-all-four-bindings-from-the-editor) | B5.1-B5.4 | no | not run |
+| [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor) | B5.1-B5.5 | no | not run |
 | [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | not run |
-| [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7 | no | not run |
+| [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | hover half passed 2026-10-14; completion half open (B3.4) |
 | [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | not run |
 | [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
-| [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4 | no | not run |
+| [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B9.1 | no | not run |
+| [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B8.1-B8.6, B8.8 | no | not run |
+| [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go) | B8.7, B8.8 | yes | not run |
+| [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would) | B9.1-B9.3 | no | not run |
+| [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs) | B2.6 | no | not run |
 
 Some scenarios need features from more than one step (E-B5 needs all of B3).
 Where a scenario signs off several steps, each step names the *part* of the
@@ -424,7 +615,7 @@ The prototype's source is in
 (`LineIndex`) is reused verbatim, and nothing else is copied.
 
 **What it delivers.** Hover on an action explains it; Go to Definition goes to
-the catalog and the four registration sites; references and CodeLens go back;
+the catalog and every binding's registration site; references and CodeLens go back;
 meta step uses go to their definitions; everything stays current as files
 change. This is worth shipping alone: it answers "what does this action do and
 where is it" with no build of any binding.
@@ -464,13 +655,13 @@ and its scenario edits files the earlier steps only read.
 
 **Checklist.**
 
-- [ ] B1.1 Extension skeleton that activates on a catalog and finds the root
-- [ ] B1.2 Catalog parsed with positions, and hover on an action
-- [ ] B1.3 Suites indexed with positions, and Go to Definition to the catalog
-- [ ] B1.4 Registration sites found by recognizers, and Go to Definition to every binding
-- [ ] B1.5 References and CodeLens from registration sites and catalog entries
-- [ ] B1.6 Meta step uses resolved to definitions across imports
-- [ ] B1.7 Watchers and debounced re-index keep everything current
+- [x] B1.1 Extension skeleton that activates on a catalog and finds the root
+- [x] B1.2 Catalog parsed with positions, and hover on an action
+- [x] B1.3 Suites indexed with positions, and Go to Definition to the catalog
+- [x] B1.4 Registration sites found by recognizers, and Go to Definition to every binding
+- [x] B1.5 References and CodeLens from registration sites and catalog entries
+- [x] B1.6 Meta step uses resolved to definitions across imports
+- [x] B1.7 Watchers and debounced re-index keep everything current
 
 ### B1.1 Extension skeleton that activates on a catalog and finds the root
 
@@ -537,7 +728,11 @@ and its scenario edits files the earlier steps only read.
   B1.1-2 in a real VS Code (the second against an empty temporary folder).
   Every later scenario depends on it.
 * **Depends on.** Nothing.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `package.json`, `src/extension.ts`, `src/limits.ts`, `src/config/{defaults,layout,packageConfig}.ts`, `scripts/sync-defaults.mjs`, the integration harness.
+  - [x] unit tests green at 100 percent of `src/config`: `layout.test.ts`, `boundaries.test.ts` (INV-9), and the package.json/defaults equality test.
+  - [x] scenario. `activation.test.ts` (B1.1-1) and `inert.test.ts` (B1.1-2, which also asserts the extension does not activate on its own) in a real VS Code. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
+  - Departures: `activate()` returns a test API (log, indexers, provider count, `ready`); `fileKey()` lives in `src/core/paths.ts` so core can use it; settings are read with `inspect()` so a wrong-typed value at any level is caught; `packageConfig.ts` is the generator `sync-defaults.mjs` calls, so the equality is a unit test rather than a script run.
 
 ### B1.2 Catalog parsed with positions, and hover on an action
 
@@ -573,12 +768,12 @@ and its scenario edits files the earlier steps only read.
      `bddSuite.catalog` with source `bddSuite` (INV-2).
 * **Contracts.**
   - B1.2-1 `parseCatalog` on the real catalog returns 100 actions, of which 24
-    list four bindings, with no errors (the numbers read from the file by the
+    list every binding other than PowerShell, with no errors (the numbers read from the file by the
     test, not typed in).
   - B1.2-2 Every action's `nameRange` starts at the action name's text.
   - B1.2-3 A capture shape with `additionalProperties: true` is `open`; one
     without is closed and lists its properties.
-  - B1.2-4 Hover on `lifecycle.get` names all four bindings as implementing; on
+  - B1.2-4 Hover on `lifecycle.get` names every binding its catalog entry lists as implementing; on
     `cluster.state`, PowerShell only.
 * **Constraints.** `MAX_INDEXED_FILE_BYTES` applies to the catalog too (today
   1719 lines).
@@ -594,7 +789,11 @@ and its scenario edits files the earlier steps only read.
   (hover lists bindings) and of [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload)
   (with B1.7).
 * **Depends on.** B1.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/core/{types,text,yamlPositions,catalog,workspaceIndex,hoverText}.ts`, `src/features/hover.ts`.
+  - [x] unit tests green at 100 percent: `catalog.test.ts`, including B1.2-1 on the real catalog (100 actions, 24 listing every binding, no errors).
+  - [x] scenario. The hover half of E-B2 (`hover.test.ts`: `cluster.state` PowerShell only) and B1.2-4 (`lifecycle.get` names its four bindings with links); the hover half of E-B8 passed with B1.7. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
+  - Departures: a catalog that is not YAML is `BDD022` (the plan named only BDD020/BDD021) and keeps the previous catalog, marked stale; the hover markdown is built by the pure `src/core/hoverText.ts` so it is unit-tested; hover answers from the index (B1.3 was built in the same pass, so the line-local stopgap was never needed).
 
 ### B1.3 Suites indexed with positions, and Go to Definition to the catalog
 
@@ -655,7 +854,11 @@ and its scenario edits files the earlier steps only read.
   (first location of five). B1.3-1 runs in the integration suite over the real
   tree.
 * **Depends on.** B1.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/core/suites.ts`, `src/features/indexer.ts` (initial scan), `src/features/navigation.ts`, `test/integration/harness/oracle.ts`.
+  - [x] unit tests green at 100 percent: `suites.test.ts`, including B1.3-1 on the real tree (137 files, 2520 action steps equal to the oracle) and the item 6 measurement: `lifecycle-stage1.yml` parses in p50 9.3 ms, max 10.1 ms, under `INDEX_DEBOUNCE_MS`, so B1.7 debounces per edit as planned.
+  - [x] scenario. The catalog half of E-B3 and B1.3-1 inside VS Code (`navigation.test.ts`). Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
+  - Departures: `SuiteFile.hasSuiteKey` replaces `isLibrary`; the index decides "library" from every parsed file's imports (`isSuiteOrLibrary`). A `forStep` mapping is indexed as its own step with its parent's home, because `wait` nests a full step there. `StepHome` hooks include `cleanup`. The indexer was created here, not in B1.7, because the initial scan needs it.
 
 ### B1.4 Registration sites found by recognizers, and Go to Definition to every binding
 
@@ -687,6 +890,10 @@ and its scenario edits files the earlier steps only read.
      `defaults.ts` and the 2.8 table) or real drift (record it in this step and
      report it to the `os-context` owner). The list and its resolution are
      recorded here before the step is ticked.
+  6. The `typescript` recognizer is written now, against the registration shape
+     DEC-B16 fixes, and tested on fixtures. On the real tree it finds nothing
+     until B8.5, which is correct, because the catalog declares nothing for
+     `typescript` until then. B1.4-1 is re-run for `typescript` at B8.5 and B8.7.
 * **Contracts.**
   - B1.4-1 Each default recognizer, on the real tree, yields exactly one site
     per action the catalog declares for that binding, and no other names
@@ -706,7 +913,13 @@ and its scenario edits files the earlier steps only read.
 * **E2E.** [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration)
   except its meta half (B1.6).
 * **Depends on.** B1.3.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+  - [x] code. `src/core/registrations.ts`, the default recognizers in `src/config/defaults.ts` (corrected, see item 5), definitions and hover links.
+  - [x] unit tests green at 100 percent: `registrations.test.ts`, one fixture per recognizer with near-misses, comments and `wait`; B1.4-1 on the real tree: PowerShell 100/100, C# 24/24, Go 24/24, Rust 24/24, one site each, no other names.
+  - [x] scenario, four bindings. E-B3 except its meta half: `lifecycle.get` gives exactly the catalog and four registrations, `cluster.state` the catalog and PowerShell, `wait` the catalog and four `wait` lines. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
+  - [-] scenario, TypeScript half: the `action('lifecycle.get', get)` location is closed by B8.5 (core and `wait`) and B8.7 (lifecycle), which re-run B1.4-1 and E-B3.
+  - Item 5 record. The first run of the defaults against `os-context` `1d0f0e40` found 6 PowerShell, 22 C# and 28 Rust problems, all recognizer defects and no real drift: the PowerShell loop in `lab-lifecycle.ps1` (names built at run time), C# handlers with commas and JSON indexers, Rust assertion-operator arms. Fixed by excluding `$` from PowerShell names, a loop-table recognizer, dotted names for C# and Rust, and a C# handler of `.+?`; the 2.8 table is corrected. The second run found none.
+  - Departure: recognizers take an optional `prefix` (prepended to the captured name), and an invalid regular expression is `BDD041` (a missing name group stays `BDD040`).
 
 ### B1.5 References and CodeLens from registration sites and catalog entries
 
@@ -740,7 +953,10 @@ and its scenario edits files the earlier steps only read.
   steps.
 * **E2E.** [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it).
 * **Depends on.** B1.4.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. Reference and CodeLens providers in `src/features/navigation.ts`.
+  - [x] unit tests green: `workspaceIndex.test.ts` covers `stepsUsing` with meta and library steps, ordering, removal and staleness, at 100 percent.
+  - [x] scenario. E-B4 (`references.test.ts`): the Go site, the catalog entry and a step give the same 265 references for `lifecycle.get`, equal to the independent oracle, and the lens reads "265 suite steps"; a site no suite uses reads "no suite steps". Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
 
 ### B1.6 Meta step uses resolved to definitions across imports
 
@@ -771,7 +987,10 @@ and its scenario edits files the earlier steps only read.
 * **E2E.** The meta half of
   [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration).
 * **Depends on.** B1.3.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `visibleMetaSteps`, `metaTargetOf`, `metaDefinitionAt`, `metaUses` in `src/core/workspaceIndex.ts`; definitions and references in `navigation.ts`.
+  - [x] unit tests green at 100 percent: `meta.test.ts` (local, imported, two levels, shadowing, cycle, depth limit, missing).
+  - [x] scenario. The meta half of E-B3: `meta: select-lab` in `lifecycle-stage0.yml` resolves to `_lib/lifecycle.yml`; references on the definition list stage 0's uses. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
 
 ### B1.7 Watchers and debounced re-index keep everything current
 
@@ -803,7 +1022,11 @@ and its scenario edits files the earlier steps only read.
   (hover half; the completion half lands with B3.4), and the timing half of
   E-B7 (with B4.2).
 * **Depends on.** B1.2, B1.4, B1.6.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14 for its own scenarios; the E-B7 timing half is named below.
+  - [x] code. Watchers, buffer debounce, close-unsaved re-read and configuration rebuild in `src/features/indexer.ts` and `src/extension.ts`; `src/core/debounce.ts`.
+  - [x] unit tests green at 100 percent: `debounce.test.ts` with a clock scoped to each test; B1.7-3 in `workspaceIndex.test.ts` (50 updates, one join rebuild).
+  - [x] scenario. In a fresh worktree (`watch.test.ts`): the hover half of E-B8 (a catalog save showed the new parameter in hover after 100 ms, no reload, B1.7-1); a new Go registration was a definition target 72 ms after save (B1.7-2); an unsaved edit is indexed after the debounce; a created suite is indexed and a deleted one leaves; a settings change rebuilds and reports `BDD010`. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
+  - [-] the timing half of E-B7 is closed by B4.2, and the completion half of E-B8 by B3.4.
 
 ---
 
@@ -843,7 +1066,7 @@ and restarts.
 through a command that prints a tool's `actions --json`, which is also what B4
 needs. B2.2 is the lint controller. B2.3 adds the target binding and badges on
 top. B2.4 hardens failure states, after the happy path exists to compare against.
-B2.5 measures latency, which needs all four tools wired.
+B2.5 measures latency, which needs all four program tools wired (the TypeScript in-editor tool is measured in B9.3).
 
 **Checklist.**
 
@@ -852,6 +1075,7 @@ B2.5 measures latency, which needs all four tools wired.
 - [ ] B2.3 Target binding: `--binding-check` and per-step binding badges
 - [ ] B2.4 Failure states: missing, slow, broken and oversized tools
 - [ ] B2.5 Lint latency measured for all four tools, and the default chosen
+- [ ] B2.6 Workspace trust gates every process and every library load
 
 ### B2.1 Tool runner and per-binding command profiles
 
@@ -964,7 +1188,7 @@ B2.5 measures latency, which needs all four tools wired.
      item 3). Changing `targetBinding` re-lints every open suite.
   2. `src/features/inlay.ts`: `InlayHintsProvider` for suites. For each step
      with an action in the catalog, one hint after `actionRange.end`:
-     abbreviations `PS`, `C#`, `Go`, `Rs` for the four defaults (a binding
+     abbreviations `PS`, `C#`, `Go`, `Rs`, `TS` for the five defaults (a binding
      without an abbreviation shows its name), in the catalog's top-level
      order. Tooltip: "Implemented by: ..." and, when the target binding is
      absent, "Not implemented by <target>". Off when
@@ -1050,6 +1274,46 @@ B2.5 measures latency, which needs all four tools wired.
 * **E2E.** [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find),
   all four tools.
 * **Depends on.** B2.2.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B2.6 Workspace trust gates every process and every library load
+
+* **Deliverable.** In an untrusted folder the extension navigates, hovers and
+  completes, but starts no process and loads no workspace code, and says so in
+  the status bar. Trusting the folder turns lint and run on without a reload.
+* **Why its own step.** It is a cross-cutting gate. If it lands before the
+  in-editor library (B9), no path that loads workspace code ever exists
+  without it.
+* **Implementation.**
+  1. `package.json`: `capabilities.untrustedWorkspaces: { supported:
+     "limited", description: "Lint, run, build and schema generation run code
+     from the folder and are disabled until it is trusted.",
+     restrictedConfigurations: ["bddSuite.bindings", "bddSuite.schemaGenerator",
+     "bddSuite.lintTool"] }`. Restricting these settings stops an untrusted
+     folder's own `.vscode/settings.json` from choosing what runs once it is
+     trusted later.
+  2. `src/config/trust.ts`: `canRunWorkspaceCode(): boolean` returns
+     `vscode.workspace.isTrusted`; `onTrustChanged` wraps
+     `workspace.onDidGrantWorkspaceTrust`.
+  3. `runTool()` takes a `gate: () => boolean` parameter, bound to
+     `canRunWorkspaceCode` in `extension.ts`, and returns
+     `{ kind: 'failure', reason: 'untrusted' }` without spawning when it is
+     false. `LintWorkerHost.start()` (B9.1) takes the same gate. Both check it
+     themselves (INV-11).
+  4. The status bar item shows `Suite: untrusted, lint and run disabled`.
+     On trust granted, re-lint open suites.
+* **Contracts.**
+  - B2.6-1 With the gate false, `runTool()` never calls `spawn` (unit test with
+    an injected spawn that fails the test if called).
+  - B2.6-2 Navigation, hover and completion answer in an untrusted window.
+  - B2.6-3 Granting trust lints open suites without a reload.
+* **Files.** *new*: `src/config/trust.ts`,
+  `test/integration/suite/trust.test.ts`; *edit*: `package.json`,
+  `src/tools/runTool.ts`, `src/features/statusBar.ts`, `src/extension.ts`.
+* **Unit.** B2.6-1 in `runTool.test.ts`. 100 percent of `trust.ts`.
+* **E2E.** [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs),
+  the program half; its worker half is re-run at B9.1.
+* **Depends on.** B2.1.
 * **Status.** [ ] code [ ] unit [ ] scenario
 
 ---
@@ -1366,9 +1630,9 @@ then the program cross-check, which needs built programs and is slower.
 and every registry's location, and can run `Build-Schema.ps1`.
 
 **What it delivers.** The two commands of DEC-B10: declare an action (catalog
-entry, PowerShell registration, regenerated schema) and implement it in Go, Rust
-or C# (registry entry, stub handler, catalog `bindings` updated, regenerated
-schema).
+entry, PowerShell registration, regenerated schema) and implement it in Go,
+Rust, C# or TypeScript (registry entry, stub handler, catalog `bindings`
+updated, regenerated schema).
 
 **How it is built.** Each command computes a list of text insertions from the
 current documents (pure functions in `src/core/catalogEdit.ts` and
@@ -1388,14 +1652,17 @@ a template update, and the command refuses rather than guessing):
 | Rust, other | after the last `map.insert(` line in `registry()` in `src/actions.rs` | above `#[cfg(test)]` |
 | C#, `lifecycle.*` | before the closing `};` of `private static readonly Dictionary<string, Handler> Handlers` in `Actions/Lifecycle/LifecycleActions.cs` | a new `partial class LifecycleContext` method in the same file, before the class's closing brace |
 | C#, other | before the closing `};` of `Registry` in `Actions/CoreActions.cs` | before the class's closing brace |
+| TypeScript, `lifecycle.*` | before the closing `];` of `export const lifecycleActions: readonly Registration[] = [` in `src/lifecycle/actions.ts` | end of file |
+| TypeScript, other | before the closing `];` of `export const coreActions: readonly Registration[] = [` in `src/actions/core.ts` | end of file |
 
-Names: Go `camelCase` of the segments after the family (`demo.echo` ->
-`demoEcho`); Rust `snake_case` (`demo_echo`); C# and PowerShell file names
-`PascalCase` (`DemoEcho`).
+Names: Go and TypeScript `camelCase` of the segments after the family
+(`demo.echo` -> `demoEcho`); Rust `snake_case` (`demo_echo`); C# and
+PowerShell file names `PascalCase` (`DemoEcho`).
 
 **Step order and why.** Declaring comes first because implementing requires a
-declared action. Go, Rust and C# are each their own step because each is one
-compile that proves it, independently useful, with its own template.
+declared action. Go, Rust, C# and TypeScript are each their own step because
+each is one compile that proves it, independently useful, with its own
+template. TypeScript is last because its registries exist only from B8.5.
 
 **Checklist.**
 
@@ -1403,6 +1670,7 @@ compile that proves it, independently useful, with its own template.
 - [ ] B5.2 Implement in Go
 - [ ] B5.3 Implement in Rust
 - [ ] B5.4 Implement in C#
+- [ ] B5.5 Implement in TypeScript
 
 ### B5.1 Declare an action: catalog entry, PowerShell registration, schema
 
@@ -1448,7 +1716,7 @@ compile that proves it, independently useful, with its own template.
   and without the family present; refusal when the anchor is missing; template
   override. 100 percent of both modules.
 * **E2E.** Steps 1 and 3 (PowerShell and schema checks) of
-  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-all-four-bindings-from-the-editor),
+  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor),
   in a worktree.
 * **Depends on.** B1.2, B2.1, B2.2.
 * **Status.** [ ] code [ ] unit [ ] scenario
@@ -1479,7 +1747,7 @@ compile that proves it, independently useful, with its own template.
   *edit*: `src/core/stubs.ts`, `src/features/scaffold.ts`.
 * **Unit.** Rendering and anchors on fixture copies of both Go files.
 * **E2E.** The Go part of
-  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-all-four-bindings-from-the-editor).
+  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor).
 * **Depends on.** B5.1.
 * **Status.** [ ] code [ ] unit [ ] scenario
 
@@ -1508,7 +1776,7 @@ compile that proves it, independently useful, with its own template.
   `templates/rust.lifecycle.tmpl`; *edit*: `src/core/stubs.ts`.
 * **Unit.** As B5.2, on fixture copies of both Rust files.
 * **E2E.** The Rust part of
-  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-all-four-bindings-from-the-editor).
+  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor).
 * **Depends on.** B5.1.
 * **Status.** [ ] code [ ] unit [ ] scenario
 
@@ -1535,9 +1803,43 @@ compile that proves it, independently useful, with its own template.
   `templates/csharp.lifecycle.tmpl`; *edit*: `src/core/stubs.ts`.
 * **Unit.** As B5.2, on fixture copies of both C# files.
 * **E2E.** The C# part of
-  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-all-four-bindings-from-the-editor);
-  E-B6 is complete when B5.1-B5.4 have each passed their part.
+  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor).
 * **Depends on.** B5.1.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B5.5 Implement in TypeScript
+
+* **Deliverable.** As B5.2 for TypeScript: an `action('<name>', <handler>),`
+  entry in `coreActions` or `lifecycleActions`, and a stub handler that throws
+  `failed(...)`. The command adds `typescript` to the action's catalog
+  `bindings`, so TS-6 still holds.
+* **Why its own step.** As B5.2. It is last because the registries it writes
+  into exist only from B8.5.
+* **Implementation.**
+  1. `templates/typescript.core.tmpl`:
+     `function {{tsName}}(request: Request): Promise<Value> {\n  throw failed('{{action}}: not implemented in the TypeScript binding yet');\n}`
+     and entry `  action('{{action}}', {{tsName}}),`.
+     `templates/typescript.lifecycle.tmpl`: the same with the lifecycle
+     handler signature `(context: LifecycleContext, request: Request)`, read
+     from `src/lifecycle/actions.ts` at the commit under test and recorded
+     here before the template is written.
+  2. Indentation from the anchor line; the stub function goes at the end of
+     the file. The package has no formatter, so the template is written
+     already formatted. `tsc` with `noUnusedParameters` is not enabled in the
+     package (B8.1 decides that and records it), and the template names
+     `request` so it compiles either way.
+* **Contracts.**
+  - B5.5-1 `npm run build` and `npm test` succeed in the package, including
+    TS-6's catalog/registry test.
+  - B5.5-2 and B5.5-3 as B5.2-2 and B5.2-3 for TypeScript.
+* **Files.** *new*: `templates/typescript.core.tmpl`,
+  `templates/typescript.lifecycle.tmpl`; *edit*: `src/core/stubs.ts`.
+* **Unit.** As B5.2, on fixture copies of both TypeScript files.
+* **E2E.** The TypeScript part of
+  [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor);
+  E-B6 is complete when B5.1-B5.5 have each passed their part.
+* **Depends on.** B5.1, B8.5 (the registries) and B8.7 (for the lifecycle
+  template).
 * **Status.** [ ] code [ ] unit [ ] scenario
 
 ---
@@ -1628,7 +1930,7 @@ offline and lab paths.
      says so and reports every case it got.
 * **Contracts.**
   - B6.2-1 Item results equal the expected trace's `case` entries for the
-    corpus files of E-B9, under all four bindings.
+    corpus files of E-B9, under all five bindings (four until B8.6 lands).
   - B6.2-2 A missing or malformed trace marks every item errored "no trace".
 * **Files.** *edit*: `src/features/testing.ts`, `src/core/trace.ts`,
   `src/tools/profiles.ts`; *new*: `test/integration/suite/testing.test.ts`.
@@ -1719,13 +2021,819 @@ offline and lab paths.
 
 ---
 
+## Stage B8: the TypeScript binding, in `os-context`
+
+Built in `os-context`. Paths in this stage are `os-context` paths.
+
+**Entry state.** Measured on 2026-10-14:
+
+* The four bindings exist. Go is the model: 8,620 lines of source and 5,048 of
+  tests in 54 files, packages listed in [2.1](#21-components-and-where-they-live).
+* The corpus lists 48 validate entries, 11 execute entries, a 276-row
+  expression table, a 96-row assertion table and 7 stored reports.
+* The catalog has 100 actions; 24 list `[powershell, csharp, go, rust]`.
+* Three places refuse a fifth binding name, and others list four names (design
+  [2.5](design.md#25-admitting-a-fifth-binding)).
+* No workflow sets up Node.js. Node 24.16.0 and npm 11.13.0 are on the
+  development host.
+* Known defects in the other bindings that TypeScript must not copy are listed
+  in design 2.5, DEC-B17 and DEC-B18.
+
+**What it delivers.** O9: a fifth binding that passes the whole corpus, runs
+the portable cases on a lab with the same report as Go, and is wired into the
+conformance and lab workflows. It also delivers the one extra the extension
+needs, `createLinter()` with overlays (DEC-B20). It is worth shipping on its
+own: it is a fifth check on the corpus, and the stream-retry window
+(DEC-B18) is the first binding outside PowerShell to have it.
+
+**How it is built.**
+
+```
+ lint:  cli.parse -> run.lintVerb -> paths.repositoryRoot -> schema.loadSchema (suite.schema.json + catalog, at run time)
+          for each file: validate.validateFile(reader)
+             model.loadDocument  (yaml parseDocument + LineCounter, intAsBigInt; pointer -> {key, value} positions)
+             structure.checkStructure  (ajv/dist/2020 on value.toPlain(); stepEnvelope pass, then one branch per step)
+             validate imports  ->  semantics.checkSemantics  ->  dataflow.checkDataflow
+          diag.sorted (file, line, column, code, message; adjacent duplicates dropped) -> --json | human
+ run:   suite.expand (imports depth-first, meta steps to depth 5, tables, outlines, and-keywords, params, vars)
+          exec.runFile: suite setup -> per case [beforeEach, setup, steps (+ own asserts), asserts, cleanup, afterEach] -> teardown
+             each action: handler(request) with request.signal = AbortSignal.any([caseSignal, AbortSignal.timeout(stepLimitMs)])
+          trace.Trace -> --trace-file ; report.nunit3|junit -> --results
+ library: index.createLinter({ root }) -> linter.lint({ paths, binding, bindingCheck, strict, overlays }) = the lint path with an overlay-first reader
+```
+
+Construction decisions that hold across the stage:
+
+* **One reader.** Every file access goes through a `Reader` the call was
+  given: `diskReader` for the program, `overlayReader(overlays)` for
+  `createLinter()` (TS-5). The lint path is synchronous; the run path is
+  `async`, because actions are.
+* **Typed values from the first byte** (TS-1, TS-2). `loadDocument` uses
+  `parseDocument(text, { intAsBigInt: true, keepSourceTokens: true,
+  lineCounter })` and converts YAML maps to `Map`. `value.toPlain()` makes the
+  JSON-compatible copy Ajv needs (`bigint` to `number`, `Map` to object),
+  used only for structural validation, as Go's `model.Plain` is.
+* **Positions.** `positions: Map<pointer, { key?: Pos; value: Pos }>` with
+  one-based line and column, from `lineCounter.linePos(offset)`. `E100` is
+  always 1:1. A container's position follows Go's rule from Y4.2: the earlier
+  of its own mark and its first child's, and an empty sequence entry is
+  reported at its dash.
+* **No binding is copied.** Each module is written from the design, the corpus
+  and the catalog, with Go read for comparison, never translated line by
+  line. That is how the earlier bindings found each other's defects.
+* **Each step closes on its corpus family.** Every step from B8.2 to B8.7 ends
+  with a named slice of the corpus green, so the binding is never "mostly
+  conformant".
+
+**Step order and why.** The package and the name admission come first
+(B8.1): nothing else can be tested or committed without them. Structure
+(B8.2) comes next, because it fixes the value model and positions everything
+else uses. Expressions and assertions (B8.3) come before semantics and dataflow
+(B8.4), because dataflow's `E305`-`E309` parse every `${...}` with B8.3's
+parser, and B8.3 is proved by its own two tables without needing a validator.
+Each is signable alone. The executor (B8.5) needs evaluation and a validated
+document. Reports (B8.6) need the executor. Lifecycle actions (B8.7) need the
+executor and are the only step with a lab. CI and documentation (B8.8) come
+last, so the workflow job is green on its first run. B9 needs only B8.4.
+
+**Checklist.**
+
+- [ ] B8.1 The package, the command-line contract, and the name admitted
+- [ ] B8.2 YAML with positions and structural validation (`E100`-`E105`)
+- [ ] B8.3 The expression evaluator and the assertion comparer
+- [ ] B8.4 Semantic and dataflow validation, `lint` complete, and `createLinter()`
+- [ ] B8.5 Expansion, the execution core, the core actions and `wait`
+- [ ] B8.6 NUnit 3 and JUnit reports
+- [ ] B8.7 The 18 lifecycle actions over HTTP and SSE
+- [ ] B8.8 CI, the lab workflow, the divergence check and the documentation
+
+### B8.1 The package, the command-line contract, and the name admitted
+
+* **Deliverable.** `node test/e2e/bindings/typescript/dist/cli.js` accepts the
+  four verbs and their flags exactly as `suiterun` does, refuses anything else
+  with exit 2, and `actions --json` prints `[]`. `os-context` accepts the name
+  `typescript` everywhere it validates binding names.
+* **Why its own step.** The admission edits touch shared files and run
+  `os-context`'s gates. Landing them with nothing else makes a failure easy to
+  attribute, and every later step needs the package.
+* **Implementation.**
+  1. `test/e2e/bindings/typescript/package.json` as in
+     [2.1](#21-components-and-where-they-live): dependencies `yaml@^2`,
+     `ajv@^8`; devDependencies `typescript@~5.9`, `@types/node@^24`, `c8`.
+     Run `npm install` once to write `package-lock.json`, and commit it (the
+     dashboard commits its lock file; Rust's is ignored, so record which rule
+     this follows and why: reproducible CI).
+  2. `tsconfig.json`: `target: ES2023`, `module: NodeNext`,
+     `moduleResolution: NodeNext`, `strict: true`, `noUncheckedIndexedAccess:
+     true`, `declaration: true`, `outDir: dist`, `rootDir: src`;
+     `tsconfig.test.json` building `test/` to `dist-test/`.
+     `noUnusedParameters` stays off (B5.5 relies on it).
+  3. `.gitignore` in the package: `node_modules/`, `dist/`, `dist-test/`,
+     `coverage/`. The root `.gitignore` does not ignore `node_modules`.
+  4. `src/cli.ts`: `parse(argv)` by hand, as Go's `internal/cli` does, so an
+     unknown flag is exit 2 rather than a library's guess. It accepts the flags
+     of DEC-Y14 plus `--schema-root`, and defaults `binding` to `typescript`.
+     `main()` maps `Report.code` to `process.exitCode`, never calls
+     `process.exit()` while output is pending, and writes stdout with one
+     `write` per document.
+  5. `src/paths.ts`: `repositoryRoot(start)` walks up to `test/e2e/schema`;
+     `resolveGlob(pattern, cwd)` supports `*` and `?` only, as Go's
+     `paths.Resolve` does.
+  6. `src/run.ts`: the four verbs; in this step `lint`, `run` and `list`
+     return exit 2 "not implemented yet", and `actions` returns `[]`.
+  7. Admission, in `os-context`:
+     - `test/e2e/schema/actions.catalog.schema.json` lines 16 and 41: add
+       `"typescript"` to both enums, and reword line 12's description, which
+       today calls a fifth name a typo.
+     - `scripts/e2e/SuiteLint.psm1` line 2118: add `'typescript'` to the
+       `ValidateSet`.
+     - `test/e2e/conformance/expectation.schema.json` line 39: set the enum to
+       `["powershell", "csharp", "go", "rust", "typescript"]`, which also
+       fixes the stale `python` and the missing `csharp`.
+     - `test/e2e/schema/actions.catalog.yaml` line 22: top-level
+       `bindings: [powershell, csharp, go, rust, typescript]`; no action entry
+       changes (DEC-B21). Then run `Build-Schema.ps1`.
+  8. `test/conformance/manifest.test.ts`: every file the manifest names
+     exists, and every file under `validate/` and `execute/` is an entry or
+     support. These are the same two checks as Go's
+     `TestEveryFileTheManifestNamesIsThere`.
+* **Contracts.**
+  - B8.1-1 Each of the four verbs with each flag parses; an unknown flag, a
+    missing value, a bad `--format` and a `--param` without `=` each exit 2
+    with the usage text. These are Go's `cli_test.go` cases, read for
+    coverage, not copied.
+  - B8.1-2 `actions --json` prints `[]` and exits 0.
+  - B8.1-3 `SuiteLint.Tests.ps1`, `Conformance.Tests.ps1`, `Schema.Tests.ps1`
+    and `Build-Schema.ps1 -Check` pass after the admission edits.
+* **Constraints.** ASCII only in every file (`os-context` rule).
+* **Files.** *new*: `test/e2e/bindings/typescript/{package.json,
+  package-lock.json, tsconfig.json, tsconfig.test.json, .gitignore,
+  src/cli.ts, src/run.ts, src/paths.ts, test/unit/cli.test.ts,
+  test/unit/paths.test.ts, test/conformance/manifest.test.ts}`; *edit*:
+  `actions.catalog.schema.json`, `SuiteLint.psm1`, `expectation.schema.json`,
+  `actions.catalog.yaml`, `suite.schema.json`, `suite.schema.md`
+  (regenerated).
+* **Unit.** As B8.1-1 and B8.1-2; 100 percent of lines of `cli.ts` and
+  `paths.ts`.
+* **E2E.** The command-line half of
+  [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
+* **Depends on.** Nothing.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.2 YAML with positions and structural validation (`E100`-`E105`)
+
+* **Deliverable.** `lint --json` reports every `E100`-`E105` finding at the
+  position the corpus expects.
+* **Why its own step.** Structural validation is the largest single source of
+  position disagreements between bindings (`E100`, containers, false
+  schemas). It is closed against its own slice of the corpus before semantics
+  adds its own.
+* **Implementation.**
+  1. `src/value.ts`: the `Value` union; `text(v)` (canonical text: no `.0` on
+     a whole float, lowercase booleans, `null` is `""`), `asNumber(v)`,
+     `toPlain(v)`, `toJson(v)` (writes `bigint` as a JSON integer).
+  2. `src/model.ts`: `loadDocument(text)` per the stage construction
+     decisions. A `yaml` parse error, or any exception from the parser, is
+     `E100` at 1:1. A root that is not a mapping is `E100` at 1:1. Aliases
+     become `null`, as in Go.
+  3. `src/schema.ts`: `loadSchema(schemaRoot, overlay?)` reads
+     `suite.schema.json` and the catalog through the reader. It replaces
+     `$defs.step` with `$defs.stepEnvelope` for the whole-document pass, as
+     Go's `schema.Load` does, and merges a corpus `catalogOverlay` by the
+     manifest's rule (key replaces key; a `params` entry replaces the same
+     name or is appended).
+  4. `src/validate/structure.ts`: `checkStructure(doc, schema)`. First pass:
+     Ajv 2020 (`allErrors: true`, `strict: false`) on the envelope schema.
+     Second pass: one synthetic schema with `prefixItems` of
+     `{ $ref: '#/$defs/step.<action>' }` per step (or `step.meta`). An unknown
+     action is `E104` with `nearest()` at distance 3. A step with neither
+     `action` nor `meta` is `E102`, and a non-mapping step entry is `E103`.
+     Error mapping: `required` is `E102` at the key's position;
+     `additionalProperties` and `false schema` are `E101`, or `E105` inside a
+     step, with `nearest()` at distance 2 over the legal keys; anything else
+     is `E103` at the value.
+  5. `src/diag.ts`: `sorted()` (file, line, column, code, message; adjacent
+     duplicates dropped, because common fields are checked by both passes),
+     `fails(found, strict)`, `toJsonArray()`, and `relativePath()` with forward
+     slashes.
+  6. `test/conformance/validate.test.ts`, run in this step over the
+     validate entries whose expectation holds only `E1xx` codes.
+* **Contracts.**
+  - B8.2-1 Every validate entry whose expectation holds only `E1xx` codes
+    matches exactly. The test prints how many that is, and B8.4 raises it to
+    all 48.
+  - B8.2-2 `6 / 3` in YAML (a string) stays a string; `2` parses as
+    `bigint`, `2.0` as `number`; a mapping with keys `"10"` and `"2"` keeps
+    that order (TS-1, TS-2).
+  - B8.2-3 A YAML file the parser throws on is `E100` at 1:1, never an
+    unhandled exception.
+* **Constraints.** TS-1, TS-2, TS-5.
+* **Files.** *new*: `src/value.ts`, `src/model.ts`, `src/schema.ts`,
+  `src/walk.ts`, `src/diag.ts`, `src/spelling.ts`,
+  `src/validate/structure.ts`, `test/unit/{value,model,schema,diag,
+  spelling,structure}.test.ts`, `test/conformance/validate.test.ts`.
+* **Unit.** One test per error mapping, per position rule and per value kind;
+  100 percent of lines of every new file.
+* **E2E.** The `E1xx` slice of
+  [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
+* **Depends on.** B8.1.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.3 The expression evaluator and the assertion comparer
+
+* **Deliverable.** Every row of `expressions/cases.yaml` (276) and of
+  `asserts/cases.yaml` (96) gives the expected value and type, or result and
+  code, with 100 percent branch coverage of both modules.
+* **Why its own step.** These are "the two places where four implementations
+  diverge quietly". They are proved by their own tables before any suite
+  runs.
+* **Implementation.**
+  1. `src/expr.ts` tokenizer: identifiers, numbers (an integer literal is
+     `bigint`, a literal with `.` is `number`), strings with `"` and `'`, the
+     operators of `yml_suite_design.md` 5.9.
+  2. Pratt parser for the grammar in 5.9 (ternary, `or`, `and`, `not`,
+     comparison, sum, product, unary, primary), producing an AST; `E305` with
+     the offending token on leftover input.
+  3. Evaluator.
+     - Integer `+ - * %` stay `bigint`.
+     - `/` gives a `bigint` when both are integers and the division is exact
+       (`6 / 3` is `2`), and a `number` otherwise (`7 / 2` is `3.5`), which
+       is the table's rule.
+     - Any `number` operand makes the result a `number`.
+     - Division by zero is `E307`.
+     - A ternary evaluates only the selected branch, while both are checked.
+  4. `FUNCTIONS`: the 21 names (`lower upper trim replace format split join
+     startsWith endsWith contains len first last int float str bool default
+     env uuid nowIso`), matched case-sensitively, with arity and argument
+     types (`E306`, `E307`). `env`, `uuid` and `nowIso` are refused under a
+     stable scope (`E309`). `str(true)` is `"true"`.
+  5. `expand(template, scope)`: a string that is exactly one `${...}` keeps the
+     value's type; otherwise each expression is substituted by `text()`, and
+     a failing one reports its own code (design 6.4).
+  6. Integer overflow: read what Go (`int64`), Rust and C# do at
+     `9223372036854775807 + 1`, and whether a corpus row pins it. If one does,
+     follow it. If none does and the three agree, follow them and propose the
+     row to `os-context`. If they disagree, record the gap here and in
+     `os-context`'s open questions, and make TypeScript refuse with `E307`
+     "integer overflow" until the corpus decides. Wrapping silently is never
+     the choice.
+  7. `src/assertion.ts`: `compare(op, actual, expected, present)` for every
+     operator in DEC-Y20 except `script` (`E201` outside PowerShell). Case
+     rules as DEC-B16 item 3. `gt`/`gte`/`lt`/`lte` use `asNumber`, and a
+     non-number fails with a type message. `isTrue` requires a boolean.
+     `matches` runs `unportable(pattern)` first (`E308`), then
+     `new RegExp(pattern, 'i')`. `unportable` refuses the same constructs as
+     `SuiteLint.psm1`'s `$script:UnportablePatterns`. It also refuses an
+     inline flag group (`(?i)`, `(?m)`, ...), which RE2 accepts and
+     JavaScript's engine only partly does; record whether any suite in the
+     tree uses one (if so, that is a corpus question, not a silent refusal).
+  8. `test/conformance/{expressions,asserts}.test.ts`: every row. They fail if
+     a function in `FUNCTIONS` is never called by the table, or an operator
+     has no row (Go's checks).
+* **Contracts.**
+  - B8.3-1 All 276 expression rows and all 96 assertion rows match.
+  - B8.3-2 `1.5 + 1.5` is type `float`, `6 / 3` is type `int`, `0.0` is type
+    `float`.
+  - B8.3-3 100 percent of branches of `expr.ts` and `assertion.ts`.
+* **Constraints.** TS-2.
+* **Files.** *new*: `src/expr.ts`, `src/assertion.ts`,
+  `test/unit/{expr,assertion}.test.ts`,
+  `test/conformance/{expressions,asserts}.test.ts`,
+  `scripts/check-branches.mjs`.
+* **Unit.** As above.
+* **E2E.** The expression and assertion families of
+  [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
+* **Depends on.** B8.2.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.4 Semantic and dataflow validation, `lint` complete, and `createLinter()`
+
+* **Deliverable.** `lint` gives exactly the expected diagnostics for all 48
+  validate entries, with `--strict` and `--binding-check`. The library exports
+  `createLinter()`, which gives the same answer when a file's text is handed
+  in as an overlay.
+* **Why its own step.** It completes the lint path, the half the extension
+  needs first (B9 starts here), and it is the step that makes E-B12's validate
+  family complete.
+* **Implementation.**
+  1. `src/validate/semantics.ts`: `E201` (with `bindingCheck`, against the
+     action's catalog `bindings`), `E202`-`E214`, `W302`, `W304`, each written
+     from `diagnostics.md` and the design's rules. Go's `semantics.go` is read
+     only to compare positions. W304 does not count a `- meta:` use as an
+     unlabelled step (design 6.4).
+  2. `src/validate/dataflow.ts`: the case plan in run order (suite setup,
+     beforeEach, case setup, steps, asserts, cleanup, afterEach), then
+     `E301`-`E304`, `E306`, `E308`, `E309`, `W301`, `W303`. The context keys
+     are `cluster`, `target`, `timeoutSec`, `labId`, `apiUrl`, `defaults`.
+     Every `${...}` is parsed with B8.3's parser (no evaluation at lint time,
+     except the `E309` stability check on `vars:`).
+  3. Meta step exports used twice in one case: copy the behaviour all four
+     bindings have today (`os-context` open question 4: exports recorded at
+     the later use). Diverging would fail a corpus entry if one is added, and
+     the fix belongs in all five at once. Record it in this step.
+  4. `src/validate/index.ts`: `validateFile(path, reader, schema, options)`.
+  5. `src/index.ts`: `apiVersion = '1.0.0'`; `createLinter({ root,
+     schemaRoot? })` loads the schema once and returns `{ lint(request),
+     invalidate() }`. `lint` builds `overlayReader(request.overlays)` and runs
+     `validateFile` per path. It returns the sorted diagnostics as plain
+     objects with exactly the fields of `diagnostic.schema.json`.
+     `invalidate()` drops the cached schema and catalog.
+  6. `test/conformance/validate.test.ts` now covers all 48 entries, honouring
+     `params`, `binding`, `bindingCheck` and `catalogOverlay` from the
+     manifest.
+  7. `test/unit/linter.test.ts`: for each validate entry, `createLinter().lint()`
+     with the entry's text as an overlay at a different path in the same
+     directory gives the same codes and positions as linting the file itself.
+* **Contracts.**
+  - B8.4-1 All 48 validate entries match exactly (codes, severities, order,
+    lines, columns, exit code).
+  - B8.4-2 `createLinter().lint()` with an overlay never reads that path from
+    disk (asserted with a reader that throws for it) (TS-5).
+  - B8.4-3 `apiVersion` is `1.0.0`, and a change to `LintRequest` or
+    `Diagnostic` that is not backward compatible changes the major.
+* **Constraints.** TS-5.
+* **Files.** *new*: `src/validate/semantics.ts`, `src/validate/dataflow.ts`,
+  `src/validate/index.ts`, `src/index.ts`, `test/unit/linter.test.ts`,
+  `test/unit/{semantics,dataflow}.test.ts`; *edit*: `src/run.ts`,
+  `test/conformance/validate.test.ts`.
+* **Unit.** As above; 100 percent of lines.
+* **E2E.** The validate family of
+  [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
+* **Depends on.** B8.2, B8.3.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.5 Expansion, the execution core, the core actions and `wait`
+
+* **Deliverable.** `run` executes all 11 execute entries with the expected
+  trace and exit code. The five `core.*` actions and `wait` are registered,
+  and the catalog lists `typescript` for those six.
+* **Why its own step.** The executor is the second half of every binding and
+  the part the corpus pins by trace. The six offline actions are what the
+  execute corpus calls, so they land with it.
+* **Implementation.**
+  1. `src/suite.ts`:
+     - `readLibraries` reads imports depth-first, a library's own imports
+       first, and refuses a cycle by lowercased absolute path.
+     - `metaDefinitions` puts local definitions over imported ones.
+     - `expandSteps` expands meta uses to depth 5 (`default`s overlaid by
+       `with`, passing `ifCapture` down), turns a table into one step per row
+       (`__row`, `__rowIndex`, `__rowCount`, `__provenance`), and resolves the
+       `and` keyword once.
+     - `expandOutline` names each row `name [col=val, ...]`.
+     - `resolveParams` applies, lowest first: library, file, case,
+       `HCI_SUITE_PARAM_<NAME>`, then `--param`, last one wins.
+     - `resolveVars`.
+  2. `src/exec.ts`: `runFile(suite, options)` with the phase order and failure
+     attribution of `yml_suite_design.md` 5.2. Limits:
+     - `defaultCaseSec` 600, `defaultHookSec` 300, `defaultCleanupSec` 120,
+       `lifecycleBudgetSec` 900;
+     - each hook in its own window;
+     - a step limit is `min(own, remaining)`;
+     - each action call gets
+       `AbortSignal.any([caseSignal, AbortSignal.timeout(ms)])` (TS-4).
+
+     On expiry the step is "cancelled", or "abandoned" when the catalog says
+     `interruptible: false`. The executor stops waiting either way, because a
+     JavaScript promise cannot be killed.
+  3. Scope per case: a clone of the suite capture bag, `param`, `row`,
+     defaults flattened and under `defaults`, `timeoutSec`, and `labId` and
+     `apiUrl` from the options. A unit test asserts both are readable (the
+     Rust defect, design 6.4).
+  4. `src/actions/registry.ts`: `type Registration = { name: string; handler:
+     Handler }`; `action(name, handler): Registration`; `Request` (`step`,
+     `signal`, `recordPath`, `runNested` for `wait`); `failed(message)`,
+     `timedOut(message)`.
+  5. `src/actions/core.ts`:
+     `export const coreActions: readonly Registration[] = [ action('core.noop',
+     noop), action('core.set', set), action('core.fail', fail),
+     action('core.sleep', sleep), action('core.record', record),
+     action('wait', wait), ];`, one entry per line (the recognizer and B5.5
+     depend on that).
+     - `core.sleep` honours `signal`.
+     - `core.record` appends to `HCI_SUITE_RECORD_PATH`.
+     - `wait`: `seconds` sleeps through `signal` (unlike Go's
+       uncancellable `time.Sleep`; record the difference). `forStep` polls
+       through `request.runNested` with `intervalSec` (default 10), its own
+       `timeoutSec` (default 300) capped by the case deadline, and `until`.
+  6. `src/trace.ts`: entries `{ phase, case?, step?, action?, status, reason? }`
+     as in `expectation.schema.json`; `--trace-file` writes them.
+  7. `test/conformance/execute.test.ts`: every execute entry with its
+     `params`, `tags` and `maxSeconds`.
+     `test/conformance/catalog.test.ts`: TS-6, the registered names against
+     the catalog's `typescript` set.
+  8. Catalog: add `typescript` to the `bindings:` of `core.noop`, `core.set`,
+     `core.fail`, `core.sleep`, `core.record` and `wait` (DEC-B21), then run
+     `Build-Schema.ps1`. Re-run the extension's B1.4-1 for `typescript`.
+* **Contracts.**
+  - B8.5-1 All 11 execute entries match their traces and exit codes, and
+    `hung-step.yml` finishes inside its `maxSeconds`.
+  - B8.5-2 TS-6 holds with six names.
+  - B8.5-3 `labId` and `apiUrl` from the options are readable in a case.
+* **Constraints.** TS-4; the limit constants above, named in `src/exec.ts`.
+* **Files.** *new*: `src/suite.ts`, `src/exec.ts`, `src/trace.ts`,
+  `src/actions/registry.ts`, `src/actions/core.ts`,
+  `test/unit/{suite,exec,core}.test.ts`,
+  `test/conformance/{execute,catalog}.test.ts`; *edit*: `src/run.ts`,
+  `actions.catalog.yaml`, `suite.schema.json`, `suite.schema.md`.
+* **Unit.** 100 percent of lines.
+* **E2E.** The execute family of
+  [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
+* **Depends on.** B8.3, B8.4.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.6 NUnit 3 and JUnit reports
+
+* **Deliverable.** `--results` writes NUnit 3 (default) or JUnit, and the 7
+  stored reports canonicalise equal.
+* **Why its own step.** The report is what CI publishes, its comparison has its
+  own canonical form, and it is "the most mechanical part of the core"
+  (DEC-Y15).
+* **Implementation.**
+  1. `src/report.ts`: `nunit3(results)` and `junit(results)`. These are
+     hand-written XML with attribute and text escaping. They are named by the
+     suite's declared `suite:`, carry no absolute paths and no stack traces
+     (design 6.4), and pass all text through `redact()` (TS-3).
+  2. `test/conformance/report.test.ts`: run each `reports.entries` suite and
+     compare with the stored file after canonicalising per
+     `report/canonicalise.md`. The canonicaliser lives in the test, as in Go
+     and C#. It also checks three runs canonicalise identical.
+* **Contracts.** B8.6-1 All 7 stored reports match; three runs are identical
+  after canonicalisation.
+* **Files.** *new*: `src/report.ts`, `test/unit/report.test.ts`,
+  `test/conformance/report.test.ts`, `test/conformance/canonicalise.ts`;
+  *edit*: `src/run.ts`.
+* **Unit.** Escaping of `<`, `&`, `"`, control characters; 100 percent of lines.
+* **E2E.** The report family of
+  [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus);
+  with B8.1-B8.5 this completes E-B12's local half.
+* **Depends on.** B8.5.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.7 The 18 lifecycle actions over HTTP and SSE
+
+* **Deliverable.** The 18 `lifecycle.*` actions behave as DEC-B17 and DEC-B18
+  say, against a loopback server and against a real lab. The catalog lists
+  `typescript` for all 24 portable actions.
+* **Why its own step.** It is the only part of the binding that talks to a
+  network and the only step with a lab scenario. It changes lab state (one
+  bootstrap per run), so its scenario runs here, in its build step.
+* **Implementation.**
+  1. `src/lifecycle/context.ts`: `LifecycleContext`.
+     - **Options.** `new LifecycleContext({ apiUrl, labId, connectionFile })`.
+       `apiUrl` must start `http://` or `https://`, and one trailing `/` is
+       trimmed. `labId` must be 32 lowercase hex characters; otherwise refuse
+       with the friendly-name hint (design 6.4).
+     - **`request(method, route, body?, expected)`.** The route must start
+       `/labs` followed by end, `/` or `?`, with no `..`. It uses `fetch` with
+       `signal` = the action's signal plus the remaining case budget (300 s
+       fallback).
+       - `Content-Type` is sent only with a body; there is no auth header.
+       - A byte-order mark is stripped before JSON parsing.
+       - The `{success, data}` envelope is required for a status below 400.
+       - At 400 or above, when expected, the result is
+         `{ statusCode, error }`.
+       - `expected` is a number or a list (DEC-B17).
+     - **`credentials(hostOnly)`.** Re-reads the connection file on every
+       call: `ip`, `username`, `password`, `port` (default 5985), `useSsl`,
+       `guestAdminPassword` unless `hostOnly`, and `safeModePassword`. Each
+       secret is registered with `redact()` (TS-3).
+     - **`unacceptedGuestPassword`.** `"Ug1-"` plus 32 hex characters from
+       `crypto.randomBytes`, once per run.
+  2. `src/lifecycle/stream.ts`: `Stream` per run id, cached on the context.
+     - **Connect.** `GET /labs/{runId}/events/stream?after={cursor}` with
+       `Accept: text/event-stream` and `Last-Event-ID` when known.
+     - **`readFrame()`.** Buffers until a blank line. `event:` is the name,
+       default `message`. `data:` lines are joined by `\n`, one leading space
+       dropped. `id:`, `retry:` and comments are ignored, and a frame whose
+       data is not JSON is skipped.
+     - **Frames.** `labEvent` sets cursor = seq + 1; `complete` ends the
+       stream; `error` fails; `lagged` sets cursor = resumeAfter and
+       reconnects.
+     - **Reconnect (DEC-B18).** Retried only on a transport error, pausing
+       `min(30, 5 x attempt)` seconds, for at most 300 s and 5 reconnects.
+     - **Waiting.** `waitForRun`, `waitForEvent` and `assertQuiet` have Go's
+       semantics, with `trail(8)` in failure messages.
+  3. `src/lifecycle/actions.ts`:
+     `export const lifecycleActions: readonly Registration[] = [ ... ];` with
+     one `action('lifecycle.<x>', <handler>),` per line for `get`, `submit`,
+     `preview`, `stream`, `streamWait`, `streamQuiet`, `events`,
+     `observations`, `points`, `retry`, `rollback`, `reverify`, `session`,
+     `select`, `selectRetry`, `cleanup`, `receipt` and `compareOperation`.
+     Parameters and capture shapes are as the catalog declares them. Routes,
+     defaults and composites follow Go's `internal/lifecycle/actions.go`,
+     read on 2026-10-14:
+
+     | Action | Request | Default `expectedStatus` | Returns |
+     | --- | --- | --- | --- |
+     | `get` | GET `route` | 200 | `data`, or `{statusCode, error}` |
+     | `submit` | `method` (POST) to `route`, body built as below | 202 (number or list, DEC-B17) | `data` |
+     | `preview` | as `submit` with `body.dryRun = true` | 200, fixed | `data` |
+     | `stream` | SSE on `runId` to `complete`, then GET `/labs/{runId}`; `status` default `succeeded` | 200 | the run |
+     | `streamWait` | SSE until an event matches `phase`, `status`, `detail` (a regex, checked by `unportable()` first) | n/a | the event; a failed event fails unless `allowFailure` |
+     | `streamQuiet` | SSE for `windowMs` (default 1000, at least 0) | n/a | `{quiet: true, seen}` |
+     | `events` | GET `/labs/{runId}/events?after=N&limit=96`, repeated to the end | 200 | `{items, count}` |
+     | `observations` | GET `/labs/{runId}/lifecycle` | 200 | `data` |
+     | `points` | GET `/labs/{runId}/rollback-points` | 200 | `data` |
+     | `retry`, `rollback`, `reverify` | submit to `/labs/{runId}/resume`, `/rollback`, `/reverify` | 202 | `data` |
+     | `cleanup` | POST `/labs/receipts/{labId}/cleanup` with `body` as given | 200 | `data` |
+     | `receipt` | GET `/labs/receipts/{labId}` | 200, fixed | `data` |
+     | `session` | POST `/labs/{source.id}/update` with `connection`, `credentials`, `features` (source plan's merged with the step's), `confirmation: source.name`, `commands` (default `[]`), `rollbackPoint: false` | 202, fixed | `data` |
+     | `select` | GET `/labs`; this lab's `provision` runs that `succeeded`, newest `updatedAt` first; its `/lifecycle` phase `initialize`'s `appliedRun`; GET that run; check `cloudSolutionVersion` against `plan.image.solution.version` | 200 | the run |
+     | `selectRetry` | GET `/labs`; this lab's `provision` runs `failed` or `interrupted` and not carried to success through `resumedFrom`/`updatedFrom`; newest first, GET each, the first whose canonical plan equals the source's | 200 | the run |
+     | `compareOperation` | no HTTP; exactly one `hostState.operations` entry with `id == run.id`, `pid` 0, empty `sessionRunId`, equal `status` and `intentHash`, equal canonical units after `apiSanitized()` | n/a | `{equal, unitCount, sessionClosed}` |
+
+     A missing `runId` fails with "This step needs a captured runId."; a
+     run id that is not 32 lowercase hex characters is refused before any
+     request. `canonical()` sorts object keys and normalises ISO timestamps to
+     UTC `Z`. The submit body starts from `body` and adds `connection`, then
+     `credentials` unless `hostOnly`. `wrongGuestPassword` replaces
+     `credentials.adminPassword` with the unaccepted guest password. `lcm`
+     adds `credentials.lcmPassword`, which falls back to
+     `guestAdminPassword`.
+  4. `run.ts`: `--api-url`, `--lab-id` and `--connection-file` build one
+     context per run, shared by every file, so streams persist across cases
+     as in Go.
+  5. Loopback tests (`test/unit/lifecycle/*.test.ts`), each against an
+     `http.createServer` on port 0:
+     - one test per action: route, body and capture;
+     - the envelope and the BOM;
+     - `expectedStatus` as a number, as a list, and refused;
+     - the route guard;
+     - redaction of every secret in error text, trace and report;
+     - the stream cases Go's `stream_test.go` lists (drop and resume, lagged,
+       error frame, unknown frame, quiet window);
+     - the retry window with an injected clock scoped to each test: a server
+       that refuses connections for 12 s and then accepts is resumed from the
+       cursor; one that refuses past 300 s fails with the attempt count; an
+       HTTP 500 is not retried.
+  6. Catalog: add `typescript` to the 18 lifecycle actions' `bindings:`
+     (DEC-B21), run `Build-Schema.ps1`, and re-run TS-6 and the extension's
+     B1.4-1.
+  7. Defects to file in `os-context` (add each to
+     `docs/e2e/yml_suite_implementation.md` open questions, citing this step):
+     - Go treats a list `expectedStatus` as 202.
+     - Go redacts only request errors.
+     - Go, Rust and C# make one stream connect attempt (already open question
+       5).
+     - Open question 5 states the pauses as "5, 10, 20, 30 s" but the code
+       does `min(30, 5 x n)`.
+     - Go's `wait` with `seconds` cannot be cancelled.
+  8. Run [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go),
+     local half, on a lab.
+* **Contracts.**
+  - B8.7-1 Every loopback test above passes.
+  - B8.7-2 TS-6 holds with 24 names, and `actions --json` prints those 24.
+  - B8.7-3 E-B13's local half passes: the TypeScript and Go reports
+    canonicalise identical, and no secret appears in either.
+* **Constraints.** TS-3, TS-4; `STREAM_RETRY_WINDOW_SEC` = 300,
+  `STREAM_MAX_RECONNECTS` = 5, `STREAM_PAUSE_STEP_SEC` = 5,
+  `STREAM_PAUSE_MAX_SEC` = 30, `DEFAULT_REQUEST_BUDGET_SEC` = 300,
+  `EVENTS_PAGE_LIMIT` = 96, in `src/lifecycle/context.ts`, each with the
+  source it was taken from in a comment.
+* **Files.** *new*: `src/lifecycle/{context,stream,actions}.ts`,
+  `test/unit/lifecycle/{context,stream,actions,redact}.test.ts`; *edit*:
+  `src/run.ts`, `actions.catalog.yaml`, `suite.schema.json`,
+  `suite.schema.md`, `docs/e2e/yml_suite_implementation.md`.
+* **Unit.** 100 percent of lines.
+* **E2E.** [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go),
+  local half (the workflow half is B8.8).
+* **Depends on.** B8.5, B8.6.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B8.8 CI, the lab workflow, the divergence check and the documentation
+
+* **Deliverable.**
+  - `suite-conformance.yml` runs a green `typescript` job on every change under
+    `test/e2e/**` or `scripts/e2e/**`.
+  - The divergence check proves that job would catch a disagreement.
+  - `e2e-tests.yml` can run a lab suite with `binding: typescript`.
+  - Every list of bindings in design 2.5 names five.
+* **Why its own step.** These are shared files that every `os-context` change
+  runs through, and they go last, when the job they add is green on its first
+  run.
+* **Implementation.**
+  1. `.github/workflows/suite-conformance.yml`: job `typescript` on
+     `ubuntu-latest`, `timeout-minutes: 20`, steps:
+     - `actions/checkout` at the same pinned SHA as the other jobs;
+     - `actions/setup-node`, pinned by SHA, with `node-version: 24`,
+       `cache: npm`, and `cache-dependency-path:
+       test/e2e/bindings/typescript/package-lock.json`;
+     - `npm ci` and `npm test` with `working-directory:
+       test/e2e/bindings/typescript`.
+  2. `test/e2e/conformance/Assert-DivergenceIsCaught.ps1`: add
+     `-Binding go|typescript` (default `go`, so the existing job is unchanged).
+     For `typescript` it patches `src/assertion.ts`'s `equals` comparison to
+     be case-sensitive, requires the assertion table test to fail, and
+     restores the file in `finally`. The `divergence` job runs it twice.
+  3. `.github/workflows/e2e-tests.yml`:
+     - add `typescript` to the `binding` options;
+     - add a `setup-node` step `if: ${{ inputs.binding == 'typescript' }}`;
+     - in the run `switch`, add a `'typescript'` branch: `npm ci`,
+       `npm run build`, then `node dist/cli.js @arguments` from the package
+       directory with paths made absolute as the other branches do.
+  4. `.github/workflows/suite-lint.yml` line 117: add `'typescript'` to the
+     informational `E201` loop.
+  5. `docs/e2e/Docs.Tests.ps1` lines 143, 160-163, 170-171: five jobs, five
+     options, five directories.
+  6. `scripts/e2e/LifecycleBudgetSupport.psm1` 215, 218, 407 and
+     `LifecycleSetSegment.psm1` 569-576: add `src/exec.ts` to the executor
+     lists, and update their tests.
+  7. Prose:
+     - `CLAUDE.md` line 31;
+     - `.claude/context/tests.md`, the binding table, the `actions` commands
+       and the conformance commands;
+     - `docs/e2e/yml_suite_design.md` 3.1, 6.1 and 6.2 (also correcting 6.2's
+       stale "37 declared, 25 portable" to the catalog's 100 and 24);
+     - the conformance and schema READMEs.
+  8. Tell the user the changes are ready to push; pushing is theirs
+     (`os-context` rule). After the push, record the workflow run ids. Then
+     dispatch `e2e-tests.yml` with `binding: typescript` for E-B13's workflow
+     half.
+* **Contracts.**
+  - B8.8-1 The `typescript` job is green on the pushed commit.
+  - B8.8-2 The divergence check, for `typescript`, reports the mutation caught
+    and leaves the file unchanged.
+  - B8.8-3 `Docs.Tests.ps1` passes with five of everything.
+  - B8.8-4 The `e2e-tests.yml` run with `binding: typescript` passes E-B13's
+    workflow half.
+* **Files.** *edit*: the workflow, script, test and documentation files named
+  above.
+* **Unit.** `Docs.Tests.ps1`, `LifecycleBudgetSupport.Tests.ps1`.
+* **E2E.** [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus)
+  (CI and divergence halves) and
+  [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go)
+  (workflow half).
+* **Depends on.** B8.7.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+---
+
+## Stage B9: lint while typing through the TypeScript binding
+
+Built in this repository.
+
+**Entry state.** After B2 the extension lints on open and save through a
+program, behind the trust gate (B2.6). After B8.4 `os-context` ships
+`createLinter()` with overlays.
+
+**What it delivers.** O10: with `bddSuite.lintTool` set to `typescript`, every
+finding appears within a second of the author pausing, before saving, and is
+the binding's own answer.
+
+**How it is built.** The path of [2.4b](#24b-how-an-in-editor-lint-is-set-up-end-to-end).
+`LintController` gains a second back end behind one interface:
+
+```
+ interface LintBackend { lint(file, target, overlays, token): Promise<LintResult> }
+   ProgramBackend  (B2: runTool + lintCommand; ignores overlays; on open and save)
+   WorkerBackend   (B9: LintWorkerHost; uses overlays; on open, save and every pause)
+```
+
+The controller chooses by `lintTool`, and the triggers follow the back end.
+Everything after the result (`mergeLintResults()`, stale marking, publishing)
+is shared, so INV-3 and INV-4 hold for both without a second copy.
+
+**Step order and why.** The worker host (B9.1) is observable alone: a lint on
+save through the library, the same as B2.2's but in-process. Overlays and live
+triggers (B9.2) build on it. Measurement and the default (B9.3) need both.
+
+**Checklist.**
+
+- [ ] B9.1 The lint worker: load the library from the workspace, bounded and restartable
+- [ ] B9.2 Live lint of unsaved buffers through overlays
+- [ ] B9.3 Live lint measured, and TypeScript made the default lint tool if it meets O10
+
+### B9.1 The lint worker: load the library from the workspace, bounded and restartable
+
+* **Deliverable.** With `lintTool: typescript`, open and save lint through the
+  library in a worker thread, with the same diagnostics as the `typescript`
+  program. A missing library, a wrong `apiVersion`, a hang or a crash each
+  give their own status and stale marks.
+* **Why its own step.** Loading workspace code into the extension host is the
+  riskiest change in B9, and it is proved without live triggers in the way.
+* **Implementation.**
+  1. `src/lint/worker.ts` (bundled by `esbuild.mjs` as a second entry,
+     `dist/lintWorker.js`, `format: 'cjs'`, `platform: 'node'`):
+     - On start, `import()` the library from `workerData.libraryPath`, check
+       the `apiVersion` major against `LIBRARY_API_MAJOR`, and post `ready`
+       or `refused`.
+     - On `{ type: 'lint', id, root, request }`, use the cached
+       `createLinter({ root })`, call `lint(request)`, and post `result`, or
+       `error` with the message.
+     - On `{ type: 'invalidate', root }`, call `invalidate()`.
+  2. `src/lint/workerHost.ts`: `LintWorkerHost` per 2.4b items 3-7; `start()`
+     checks INV-11. Its `workerCount` is exposed for tests (E-B11, E-B15).
+     `deactivate()` terminates the worker.
+  3. `WorkerBackend` in `src/features/lintController.ts`; `ProgramBackend`
+     extracted from B2.2's code unchanged.
+  4. *Build lint tool* for `typescript` runs the shell build command of 2.8.
+  5. `test/fake-library/index.mjs`: controlled by `globalThis` flags set
+     through `workerData`, it answers, throws, loops, or reports
+     `apiVersion: '2.0.0'`.
+* **Contracts.**
+  - B9.1-1 For every E-B1 validate entry, the worker's diagnostics equal the
+    `typescript` program's.
+  - B9.1-2 A looping library is terminated within `WORKER_LINT_TIMEOUT_MS`
+    plus 1 s, and the next lint starts a new worker.
+  - B9.1-3 `apiVersion` `2.0.0` is refused, with both versions in the status.
+  - B9.1-4 In an untrusted workspace no worker is created (E-B15).
+* **Constraints.** `WORKER_LINT_TIMEOUT_MS`,
+  `WORKER_MAX_CONSECUTIVE_FAILURES`, `LIBRARY_API_MAJOR`; INV-11, INV-13.
+* **Files.** *new*: `src/lint/worker.ts`, `src/lint/workerHost.ts`,
+  `test/fake-library/index.mjs`, `test/unit/workerHost.test.ts`,
+  `test/integration/suite/worker.test.ts`; *edit*: `esbuild.mjs`,
+  `src/features/lintController.ts`, `src/tools/profiles.ts`,
+  `src/config/defaults.ts`.
+* **Unit.** `workerHost.test.ts` with a real `Worker` and the fake library:
+  every reply kind, timeout, exit, restart, three failures in a row. 100
+  percent of `workerHost.ts`; `worker.ts` per [3.3](#33-coverage-gates).
+* **E2E.** The `typescript` half of
+  [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden),
+  and the worker half of
+  [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs).
+* **Depends on.** B2.2, B2.6, B8.4.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B9.2 Live lint of unsaved buffers through overlays
+
+* **Deliverable.** With the TypeScript lint tool, each pause in typing in a
+  suite or library lints it with the editor's text, and the result replaces
+  the previous one, before any save.
+* **Why its own step.** It is the user-visible half of O10 and has its own
+  scenario.
+* **Implementation.**
+  1. `LintController`: with `WorkerBackend`, `onDidChangeTextDocument` for a
+     suite or library schedules a lint after `LIVE_LINT_DEBOUNCE_MS`.
+  2. Overlays: every open, dirty document the index classifies as a suite or
+     library, keyed by `uri.fsPath`. This means an unsaved library edit is
+     seen by a suite that imports it.
+  3. When a library's text changes, re-lint the open suites that import it
+     (from the index's import graph), each debounced.
+  4. A result for a superseded request id is discarded (INV-4). Typing does
+     not cancel the running lint; its result is simply dropped.
+  5. Nothing is written to disk (INV-12). The unit test asserts `fs` is not
+     called with any overlay path.
+* **Contracts.**
+  - B9.2-1 An unsaved edit that introduces `${capture.nosuch}` shows `E301` at
+    its position before any save.
+  - B9.2-2 An unsaved edit to an imported library re-lints the importing open
+    suite.
+  - B9.2-3 With `ProgramBackend`, typing triggers nothing (B2 behaviour
+    unchanged).
+* **Constraints.** `LIVE_LINT_DEBOUNCE_MS`; INV-4, INV-12.
+* **Files.** *edit*: `src/features/lintController.ts`,
+  `src/core/workspaceIndex.ts` (`importersOf(file)`); *new*:
+  `test/integration/suite/liveLint.test.ts`.
+* **Unit.** `importersOf()` and overlay selection (`selectOverlays()` in
+  `src/core/diagnostics.ts`).
+* **E2E.** [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would),
+  except its timing assertion (B9.3).
+* **Depends on.** B9.1.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+### B9.3 Live lint measured, and TypeScript made the default lint tool if it meets O10
+
+* **Deliverable.** A recorded measurement of edit-to-published time for live
+  lint, and `lintTool` defaulting to `typescript` if the 95th percentile on
+  `lifecycle-stage1.yml` is under 1 s.
+* **Why its own step.** DEC-B04 makes the default conditional on this number.
+* **Implementation.**
+  1. `test/integration/suite/latency.test.ts` gains a live case: open
+     `lifecycle-stage1.yml` in a worktree, make 20 one-character edits with a
+     pause of `LIVE_LINT_DEBOUNCE_MS` + 50 ms, and record edit-to-published
+     p50, p95 and max, with the worker already warm. Separately, record the
+     cold first lint, which includes `import()` and schema load.
+  2. If p95 < 1 s: set the `lintTool` default to `typescript` in `defaults.ts`
+     and `package.json`, and record it in DEC-B04. Otherwise: leave the
+     default, record the number in DEC-B04 and here, and open a question on
+     what to change (debounce, caching, or O10's budget, which only the user
+     can change).
+  3. Run E-B1 with `typescript` as the lint tool, and E-B14 in full.
+* **Contracts.**
+  - B9.3-1 The measurement table is here with date, machine, both commits and
+    Node version.
+  - B9.3-2 E-B1 passes with the `typescript` tool; E-B14 passes, timing
+    included.
+* **Files.** *edit*: `test/integration/suite/latency.test.ts`,
+  `src/config/defaults.ts`, `package.json`, `docs/design.md` (DEC-B04).
+* **Unit.** None new.
+* **E2E.** [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find)
+  (`typescript` tool) and
+  [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would).
+* **Depends on.** B9.2.
+* **Status.** [ ] code [ ] unit [ ] scenario
+
+---
+
 ## Stage B7: package and accept
 
 **Entry state.** Every build step done, each with its scenario passed on the
 development build.
 
-**What it delivers.** A `.vsix` with a recorded hash, every offline scenario
-re-run on that exact package, and the lab scenario run once.
+**What it delivers.** A `.vsix` with a recorded hash, every offline editor
+scenario re-run on that exact package, and the extension's lab scenario (E-B10)
+run once. The binding's own scenarios (E-B12, E-B13) are closed in B8 against
+the binding and are not re-run here; the package does not contain the binding.
 
 **How it is built.** `runTest.ts` gains `--vsix <path>`: it installs the
 package into the fresh `--extensions-dir` with the downloaded VS Code's CLI
@@ -1760,12 +2868,12 @@ package already green locally.
   `scripts/package.mjs`.
 * **Unit.** None.
 * **E2E.** None of its own; B7.2 runs on its output.
-* **Depends on.** All of B1-B6.
+* **Depends on.** All of B1-B6, B8 and B9.
 * **Status.** [ ] code [ ] unit [ ] scenario
 
 ### B7.2 Offline acceptance on the package
 
-* **Deliverable.** E-B1 to E-B9 and E-B11 pass on the packaged extension, with a
+* **Deliverable.** E-B1 to E-B9, E-B11, E-B14 and E-B15 pass on the packaged extension, with a
   recorded result file.
 * **Why its own step.** The build stages proved the development build; this
   proves what a user installs.
@@ -1777,7 +2885,7 @@ package already green locally.
   leaves this step open.
 * **Files.** *edit*: `test/integration/runTest.ts`.
 * **Unit.** None.
-* **E2E.** E-B1 to E-B9, E-B11.
+* **E2E.** E-B1 to E-B9, E-B11, E-B14, E-B15 (E-B12 and E-B13 are the binding's own and closed in B8).
 * **Depends on.** B7.1.
 * **Status.** [ ] code [ ] unit [ ] scenario
 
@@ -1828,26 +2936,46 @@ package already green locally.
 
 ## 5. Open questions
 
-1. **A case-name filter on `suiterun run`.** DEC-B11 runs a whole file under Go,
-   Rust and C# because the shared command line has no case filter. Adding
-   `--case <name>` to DEC-Y14 in `os-context` (four bindings and a corpus entry)
-   would let the extension run one case everywhere. Not part of this plan; the
-   extension would adopt it by adding the flag in `runCommand()`.
+1. **A case-name filter on `suiterun run`.** DEC-B11 runs a whole file under
+   Go, Rust, C# and TypeScript because the shared command line has no case
+   filter. Adding `--case <name>` to DEC-Y14 in `os-context` (five bindings
+   and a corpus entry) would let the extension run one case everywhere. Not
+   part of this plan; the extension would adopt it by adding the flag in
+   `runCommand()`.
 2. **Do the binding programs run cleanup on an interrupt?** B6.5 assumes a kill
    skips cleanup and warns accordingly. If the programs handle Ctrl+C by
-   running `cleanup`, `afterEach` and `teardown`, the extension could send that
-   first and kill only after a grace period. Needs a check in each binding.
-3. **Live dataflow while typing.** DEC-B03 lints on save. If a binding gains a
-   `lint --stdin --as <path>` mode that reads the buffer but resolves imports
-   from the given path, the extension could lint unsaved buffers with no
-   approximation. That is a change to the shared contract, not to this
-   extension.
+   running `cleanup`, `afterEach` and `teardown`, the extension could send
+   that first and kill only after a grace period. Needs a check in each
+   binding. The TypeScript binding could do it from the start (an
+   `AbortController` on `SIGINT` that lets cleanup run under its own limit).
+   B8.5 does not, so that its behaviour matches the other four until the
+   question is answered for all five.
+3. **Live dataflow while typing, for the other bindings.** B9 gives it to the
+   TypeScript lint tool through its library. A `lint --stdin --as <path>`
+   mode on the shared command line would give it to every binding, but it is a
+   change to the contract for five programs, and is not needed while the
+   TypeScript tool exists.
 4. **The meta-used-twice defect in `os-context`** (its plan, open question 4).
-   The scope model of B3.3 records exports at the first use, which is what the
-   bindings will do once fixed; until then lint may report an `E303` that
-   completion did not predict. Nothing to do here but keep B3.3's rule.
-5. **Non-Windows hosts.** `killTree`'s POSIX path is unit-tested only. If the
-   extension is used on Linux or macOS, E-B11 needs a run there.
+   The scope model of B3.3 records exports at the first use. B8.4 copies the
+   bindings' current behaviour so the five agree, and the fix lands in all
+   five at once with a corpus entry.
+5. **Integer overflow in expressions.** Whether `9223372036854775807 + 1` is
+   pinned by the corpus, and what the four existing bindings do with it, is
+   read in B8.3. If they disagree, it is a corpus question for `os-context`.
+6. **Defects in the other bindings found by designing the fifth** (filed in
+   `os-context` by B8.7):
+   - a list `expectedStatus` read as 202 in Go;
+   - redaction only of request errors in Go;
+   - one stream connect attempt in Go, Rust and C#;
+   - Go's uncancellable `wait` with `seconds`;
+   - the stale binding enum in `expectation.schema.json` (fixed in B8.1);
+   - open question 5's prose disagreeing with `LifecycleStream.psm1`.
+
+   Each needs a fix in its own binding, and a corpus entry where the behaviour
+   is offline.
+7. **Non-Windows hosts.** `killTree`'s POSIX path is unit-tested only. If the
+   extension is used on Linux or macOS, E-B11 needs a run there. The TypeScript
+   binding runs on Linux in CI, for the corpus only.
 
 ---
 
@@ -1858,7 +2986,7 @@ package already green locally.
 | B1.1 | all | DEC-B13, DEC-B14 | (activation test) | INV-9 |
 | B1.2 | O2, O8 | DEC-B07 | E-B2, E-B8 | INV-2 |
 | B1.3 | O3 | DEC-B01, DEC-B07 | E-B3 | INV-9 |
-| B1.4 | O3, O6 | DEC-B05, DEC-B06 | E-B3, E-B7 | INV-2 |
+| B1.4 | O3, O6 | DEC-B05, DEC-B06, DEC-B16 | E-B3, E-B7 | INV-2 |
 | B1.5 | O3 | DEC-B01 | E-B4 | |
 | B1.6 | O3 | DEC-B07 | E-B3 | |
 | B1.7 | O8 | DEC-B07 | E-B8, E-B7 | |
@@ -1867,23 +2995,36 @@ package already green locally.
 | B2.3 | O2 | DEC-B04 | E-B2 | |
 | B2.4 | O1 | DEC-B02 | E-B11 | INV-4, INV-5 |
 | B2.5 | O1 | DEC-B04 | E-B1 | |
+| B2.6 | O1, O7, O10 | DEC-B22 | E-B15 | INV-11 |
 | B3.1 | O2, O4 | DEC-B09 | E-B2, E-B5 | |
 | B3.2 | O4 | DEC-B08 | E-B5 | INV-9 |
 | B3.3 | O4 | DEC-B08 | E-B5 | |
 | B3.4 | O4, O8 | DEC-B08 | E-B5, E-B8 | |
 | B3.5 | O4 | DEC-B08 | E-B5 | |
-| B4.1 | O6 | DEC-B05 | E-B7 | |
+| B4.1 | O6 | DEC-B05, DEC-B21 | E-B7 | |
 | B4.2 | O6 | DEC-B05 | E-B7 | |
-| B4.3 | O6 | DEC-B05 | E-B7 | INV-5 |
+| B4.3 | O6 | DEC-B05 | E-B7 | INV-5, INV-11 |
 | B5.1 | O5 | DEC-B10 | E-B6 | INV-1, INV-8 |
 | B5.2 | O5 | DEC-B10 | E-B6 | INV-1, INV-8 |
 | B5.3 | O5 | DEC-B10 | E-B6 | INV-1, INV-8 |
 | B5.4 | O5 | DEC-B10 | E-B6 | INV-1, INV-8 |
+| B5.5 | O5 | DEC-B10, DEC-B16 | E-B6 | INV-1, INV-8, TS-6 |
 | B6.1 | O7 | DEC-B11 | E-B9 | |
 | B6.2 | O7 | DEC-B11 | E-B9 | INV-5, INV-10 |
 | B6.3 | O7 | DEC-B11 | E-B9 | INV-6 |
 | B6.4 | O7 | DEC-B11, DEC-B12 | E-B10 | INV-6, INV-7 |
 | B6.5 | O7 | DEC-B12 | E-B9 | INV-5 |
+| B8.1 | O9 | DEC-B15, DEC-B21 | E-B12 | TS-5 |
+| B8.2 | O9 | DEC-B16 | E-B12 | TS-1, TS-2, TS-5 |
+| B8.3 | O9 | DEC-B16 | E-B12 | TS-2 |
+| B8.4 | O9, O10 | DEC-B15, DEC-B20 | E-B12 | TS-5 |
+| B8.5 | O9 | DEC-B16, DEC-B21 | E-B12 | TS-4, TS-6 |
+| B8.6 | O9 | DEC-B15 | E-B12 | TS-3 |
+| B8.7 | O9 | DEC-B17, DEC-B18, DEC-B21 | E-B13 | TS-3, TS-4, TS-6 |
+| B8.8 | O9 | DEC-B15 | E-B12, E-B13 | |
+| B9.1 | O10 | DEC-B19, DEC-B22 | E-B11, E-B15 | INV-11, INV-13 |
+| B9.2 | O10 | DEC-B20 | E-B14 | INV-4, INV-12 |
+| B9.3 | O10 | DEC-B04 | E-B1, E-B14 | |
 | B7.1 | all | DEC-B14 | (all, via B7.2) | |
-| B7.2 | all | DEC-B14 | E-B1-E-B9, E-B11 | |
+| B7.2 | all | DEC-B14 | E-B1-E-B9, E-B11, E-B14, E-B15 | |
 | B7.3 | O7 | DEC-B12, DEC-B14 | E-B10 | INV-6, INV-7 |
