@@ -22,3 +22,8 @@ export function bindingTooltip(actionBindings: string[], known: BadgeBinding[], 
   if (!actionBindings.includes(target)) lines.push(`Not implemented by ${label(target)}`);
   return lines.join('\n');
 }
+
+/** Completion sort key: actions the target binding implements first, then by name (B3.1-2). */
+export function actionSortKey(name: string, actionBindings: string[], target: string): string {
+  return `${actionBindings.includes(target) ? '0' : '1'}${name}`;
+}

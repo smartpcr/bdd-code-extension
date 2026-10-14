@@ -77,6 +77,10 @@ export interface StepInfo {
   meta?: string;
   metaRange?: Range;
   withKeys: Named[];
+  /** From the `with` key to the end of its value. */
+  withRange?: Range;
+  /** From the step's own `asserts` key to the end of its value. */
+  assertsRange?: Range;
   captureAs?: string;
   captureAsRange?: Range;
   params: (Named & { value: unknown })[];
@@ -91,6 +95,8 @@ export interface MetaStepDef {
   nameRange: Range;
   params: string[];
   exports: string[];
+  /** The parameters declared `required: true`. */
+  required: string[];
 }
 
 export interface CaseInfo {

@@ -45,6 +45,7 @@ export class LintController implements vscode.Disposable {
   /** How many lint processes were started (B2.2-2). */
   lintsStarted = 0;
   private readonly notified = new Set<string>();
+  private disposed = false;
 
   constructor(
     private readonly indexer: FolderIndexer,
@@ -134,6 +135,9 @@ export class LintController implements vscode.Disposable {
       return done(this.fail(key, failureText(this.tool, { kind: 'bad', detail: parsed.detail }),
         detail(`Lint output was not diagnostics (${parsed.detail}), exit code ${result.code}`)));
     }
+    // A controller replaced by a settings rebuild must not write its late result into
+    // the shared results or the shared collection (found by B3's regression run).
+    if (this.disposed) return done({ file: key, outcome: 'superseded' });
     const changed = this.results.replace(key, parsed.value.map(d => toZeroBased(d, layout.root)));
     this.publish(changed);
     this.status.setOk(this.tool, this.target);
@@ -147,6 +151,7 @@ export class LintController implements vscode.Disposable {
   }
 
   private fail(key: string, status: string, detail: string): LintEvent {
+    if (this.disposed) return { file: key, outcome: 'superseded' };
     this.log(detail);
     this.publish(this.results.markStale(key));
     this.status.setFailure(status);
@@ -179,6 +184,7 @@ export class LintController implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.debouncer.dispose();
     for (const r of this.running.values()) r.source.cancel();
     for (const d of this.disposables) d.dispose();

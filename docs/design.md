@@ -12,6 +12,11 @@ scenarios E-B12 to E-B15; section [2.5](#25-admitting-a-fifth-binding).
 Amended: DEC-B02, DEC-B03, DEC-B04, DEC-B05, DEC-B10 and DEC-B13, and every
 scenario that counted bindings.
 
+**Revision 3 (2026-10-14).** The plan's stages were renumbered to follow
+delivery order (TypeScript binding B7, lint while typing B8, package and
+accept B9), and every plan-step reference here follows. E-B1 also excludes
+corpus entries with `params` (corrected at plan step B2.2).
+
 **What this is.** Two things that belong together:
 
 1. A Visual Studio Code extension for writing the YAML test suites defined in
@@ -687,7 +692,7 @@ it is handed the text and the real path (DEC-B20).
 ### DEC-B04. The lint tool and the target binding are separate choices; TypeScript is the default lint tool once it is built
 
 **Choice.** Two settings. `bddSuite.lintTool` names the binding whose code
-lints. Its default is `typescript` from plan step B9.3 onward, and `go` before
+lints. Its default is `typescript` from plan step B8.3 onward, and `go` before
 that. `bddSuite.targetBinding` names the binding the author intends to run with
 (default `powershell`). Lint is asked with `--binding-check --binding <target>`,
 or the library's equivalent options, so `E201` reports what *that* binding
@@ -715,7 +720,7 @@ binding per save for findings the corpus already guarantees are identical.
 The defaults are provisional on measurement. Plan step B2.5 measures program
 lint latency on `lifecycle-stage1.yml` (the largest suite) for the four program
 tools and makes the fastest the pre-TypeScript default; if that is not Go, the
-step records the change and the reason here. Plan step B9.3 measures the
+step records the change and the reason here. Plan step B8.3 measures the
 in-editor TypeScript lint on the same file. It makes TypeScript the default
 only if the result meets O10's one-second budget at the 95th percentile;
 otherwise it records the number and leaves the default where it was.
@@ -1067,7 +1072,7 @@ recognizer that cannot confuse an action with an ordinary object key.
 
 **Cost.** `bigint` arithmetic needs explicit conversion where integers meet
 floats. `JSON.stringify` cannot write a `bigint`, so the binding has its own
-serialiser. One question is open until plan step B8.3: whether integer overflow
+serialiser. One question is open until plan step B7.3: whether integer overflow
 past 64 bits is pinned by the corpus. If the other bindings disagree on it, that
 is a corpus gap to raise in `os-context`, not a choice for TypeScript to make
 alone.
@@ -1120,7 +1125,7 @@ Neither is reachable from the portable stage 0 cases E-B13 runs, which
 **Rejected.** Copying Go exactly: the defect would then be in two bindings, and
 the next reader would take agreement for correctness.
 
-**Serves.** O9. **Verified by.** E-B13, and the loopback tests of plan step B8.7.
+**Serves.** O9. **Verified by.** E-B13, and the loopback tests of plan step B7.7.
 
 ### DEC-B18. Every text the TypeScript binding writes is redacted, and a stream connect is retried
 
@@ -1156,7 +1161,7 @@ code, and the plan records the prose as a documentation defect.
 
 **Rejected.** One connect attempt, as Go does: the known defect, built again.
 
-**Serves.** O9. **Verified by.** loopback tests in plan step B8.7; E-B13.
+**Serves.** O9. **Verified by.** loopback tests in plan step B7.7; E-B13.
 
 ### DEC-B19. The extension loads the TypeScript library from the workspace, in a worker thread
 
@@ -1221,7 +1226,7 @@ saved file, as today: the gap this decision closes.
 
 **Choice.** The name is admitted in two steps:
 
-1. **Before any handler exists**, in plan step B8.1, `os-context` accepts the
+1. **Before any handler exists**, in plan step B7.1, `os-context` accepts the
    name everywhere it is validated:
    - the two enums in `actions.catalog.schema.json`;
    - the `ValidateSet` in `SuiteLint.psm1`;
@@ -1230,7 +1235,7 @@ saved file, as today: the gap this decision closes.
    - the top-level catalog `bindings:`.
 2. **Per action**, `typescript` is added to that action's `bindings:` only in
    the step that registers its handler: the five `core.*` actions and `wait` in
-   B8.5, the 18 lifecycle actions in B8.7. That step's test (catalog agrees
+   B7.5, the 18 lifecycle actions in B7.7. That step's test (catalog agrees
    with what the binding registers, the same test the other three run) fails
    if the two differ.
 
@@ -1241,9 +1246,9 @@ lifecycle actions for Rust, Go and C# in advance, "so that Y4 to Y6 have a
 target". This design does not, because the extension now shows that claim to
 authors while they type.
 
-**Cost.** Two catalog edits during B8, each followed by `Build-Schema.ps1`.
+**Cost.** Two catalog edits during B7, each followed by `Build-Schema.ps1`.
 
-**Rejected.** Marking all 24 at once in B8.1, as Y1.3 did: a window in which
+**Rejected.** Marking all 24 at once in B7.1, as Y1.3 did: a window in which
 the binding table and `E201` are wrong.
 
 **Serves.** O6, O9. **Verified by.** E-B7, E-B12.
@@ -1331,7 +1336,7 @@ C#           test/e2e/bindings/dotnet/      24         24      0
 TypeScript   test/e2e/bindings/typescript/  24         24      0
 ```
 
-(The TypeScript row reads `0 0 0` until plan step B8.5 and `6 6 0` until B8.7,
+(The TypeScript row reads `0 0 0` until plan step B7.5 and `6 6 0` until B7.7,
 because the catalog claims an action for TypeScript only once it is registered;
 DEC-B21.)
 
@@ -1389,7 +1394,7 @@ in `os-context` with no editor, as the other bindings' Y-scenarios do. The
 controller is the developer's machine. Only E-B10 and E-B13 need a lab. Each
 scenario names the outcome it proves and the plan steps it signs off.
 
-Before plan stage B8 completes, the scenarios that list five bindings run with
+Before plan stage B7 completes, the scenarios that list five bindings run with
 the four that exist, and the TypeScript half stays open in the plan; it is never
 recorded as passed.
 
@@ -1426,7 +1431,7 @@ unless a scenario says otherwise:
   the same order. Each diagnostic's source is `suiterun:<tool>`. The save
   produced the same set, not a doubled one.
 * **Cleanup.** None; nothing is written.
-* **Proves.** O1; plan steps B2.1, B2.2, B2.5, and B9.3 for the `typescript`
+* **Proves.** O1; plan steps B2.1, B2.2, B2.5, and B8.3 for the `typescript`
   tool.
 
 ### E-B2. A step the target binding cannot run is marked, and says who can
@@ -1439,7 +1444,7 @@ unless a scenario says otherwise:
   `suiterun lint --path test/e2e/suites/smoke.yml --json --binding-check
   --binding rust` run by the harness in a terminal from the repository root.
   Each step whose action is PowerShell-only carries the inlay hint `PS`; a
-  `core.noop` step carries `PS C# Go Rs TS` once B8.5 has put `typescript` in
+  `core.noop` step carries `PS C# Go Rs TS` once B7.5 has put `typescript` in
   its catalog entry (`PS C# Go Rs` before). The same holds with target
   `typescript`: the `E201` set equals the terminal's for `--binding
   typescript`. In the completion list after
@@ -1475,7 +1480,7 @@ unless a scenario says otherwise:
   `_lib/lifecycle.yml`.
 * **Cleanup.** None.
 * **Proves.** O3; plan steps B1.3, B1.4, B1.6 (the TypeScript locations once
-  B8.5 and B8.7 have registered them).
+  B7.5 and B7.7 have registered them).
 
 ### E-B4. A registration site shows, and lists, the steps that use it
 
@@ -1657,7 +1662,7 @@ unless a scenario says otherwise:
   worker count). Restoring the real path or library and saving clears the
   stale marks.
 * **Cleanup.** Restore the setting; remove the worktree.
-* **Proves.** O1, O10; plan steps B2.4 and B9.1.
+* **Proves.** O1, O10; plan steps B2.4 and B8.1.
 
 ### E-B12. The TypeScript binding passes the whole conformance corpus
 
@@ -1689,7 +1694,7 @@ unless a scenario says otherwise:
   - The CI job is green. The divergence check reports the mutation caught,
     then restores the file.
 * **Cleanup.** None; the divergence check restores the file in `finally`.
-* **Proves.** O9; plan steps B8.1 to B8.6 and B8.8.
+* **Proves.** O9; plan steps B7.1 to B7.6 and B7.8.
 
 ### E-B13. The TypeScript binding runs the portable stage 0 cases on a lab with the same report as Go
 
@@ -1717,7 +1722,7 @@ unless a scenario says otherwise:
   E-B10's footprint states for its runs; their ids are recorded. A partial
   failure is followed by the stage 0 `read-only` cases before the lab is used
   again.
-* **Proves.** O9; plan step B8.7, and B8.8 for the workflow half.
+* **Proves.** O9; plan step B7.7, and B7.8 for the workflow half.
 
 ### E-B14. An unsaved buffer gets the same diagnostics the saved file would
 
@@ -1743,7 +1748,7 @@ unless a scenario says otherwise:
   - Nothing was written to disk: the harness checks the worktree's
     `git status` is unchanged apart from the scratch file as first saved.
 * **Cleanup.** Revert the buffer; remove the worktree.
-* **Proves.** O10; plan steps B9.1 to B9.3.
+* **Proves.** O10; plan steps B8.1 to B8.3.
 
 ### E-B15. In an untrusted workspace no binding code runs
 
@@ -1761,7 +1766,7 @@ unless a scenario says otherwise:
     trusted. Hover, Go to Definition and completion still answer.
   - After the harness grants trust, the next save lints, with no reload.
 * **Cleanup.** Reset trust for the folder.
-* **Proves.** DEC-B22; plan steps B2.6 and B9.1.
+* **Proves.** DEC-B22; plan steps B2.6 and B8.1.
 
 ### Scope of the guarantee
 
@@ -1794,9 +1799,9 @@ It does not prove:
 | O6 drift visible | DEC-B05, DEC-B21 | B4.1, B4.2, B4.3 | E-B7 |
 | O7 run from the editor | DEC-B11, DEC-B12, DEC-B22 | B6.1, B6.2, B6.3, B6.4, B6.5 | E-B9, E-B10 |
 | O8 no extension release for a format change | DEC-B02, DEC-B07, DEC-B19 | B1.2, B1.7, B3.4 | E-B8 |
-| O9 a conformant TypeScript binding | DEC-B15, DEC-B16, DEC-B17, DEC-B18, DEC-B21 | B8.1 to B8.8 | E-B12, E-B13 |
-| O10 lint while typing | DEC-B02, DEC-B19, DEC-B20 | B9.1, B9.2, B9.3 | E-B14, E-B11 |
-| (all) packaged and installable | DEC-B13, DEC-B14 | B1.1, B7.1, B7.2, B7.3 | all editor scenarios, re-run on the `.vsix` |
+| O9 a conformant TypeScript binding | DEC-B15, DEC-B16, DEC-B17, DEC-B18, DEC-B21 | B7.1 to B7.8 | E-B12, E-B13 |
+| O10 lint while typing | DEC-B02, DEC-B19, DEC-B20 | B8.1, B8.2, B8.3 | E-B14, E-B11 |
+| (all) packaged and installable | DEC-B13, DEC-B14 | B1.1, B9.1, B9.2, B9.3 | all editor scenarios, re-run on the `.vsix` |
 
 ---
 

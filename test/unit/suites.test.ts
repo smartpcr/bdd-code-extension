@@ -245,3 +245,10 @@ test('B1.3 item 6: parse time of lifecycle-stage1.yml over 20 runs', (t) => {
   times.sort((a, b) => a - b);
   t.diagnostic(`lifecycle-stage1.yml (${text.length} chars): p50 ${times[9].toFixed(1)} ms, max ${times[19].toFixed(1)} ms`);
 });
+
+test('an empty action, meta or captureAs is not the string "null"', () => {
+  const s = parseSuite('suite: e\ntests:\n  - name: c\n    steps:\n      - action:\n        meta:\n        captureAs:\n', '/e.yml');
+  assert.strictEqual(s.steps[0].action, undefined);
+  assert.strictEqual(s.steps[0].meta, undefined);
+  assert.strictEqual(s.steps[0].captureAs, undefined);
+});

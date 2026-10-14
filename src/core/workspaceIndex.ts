@@ -211,6 +211,11 @@ export class WorkspaceIndex {
     return out;
   }
 
+  /** Meta steps visible from a file, for completion: one per name, the visible one (B3.5-1). */
+  metaCompletions(file: string): MetaTarget[] {
+    return [...this.visibleMetaSteps(file).values()].sort((x, y) => x.def.name.localeCompare(y.def.name));
+  }
+
   /** The meta step definition a step's `meta:` value resolves to. */
   metaTargetOf(step: StepInfo): MetaTarget | undefined {
     return step.meta === undefined ? undefined : this.visibleMetaSteps(step.file).get(step.meta);

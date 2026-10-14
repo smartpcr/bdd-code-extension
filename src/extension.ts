@@ -8,6 +8,7 @@ import { createTrustGate } from './config/trust';
 import { LintResults } from './core/diagnostics';
 import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
+import { registerCompletion } from './features/completion';
 import { registerHover } from './features/hover';
 import { FolderIndexer } from './features/indexer';
 import { registerInlayHints } from './features/inlay';
@@ -98,8 +99,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
     const hintsChanged = new vscode.EventEmitter<void>();
     session.push(hintsChanged, ...api.indexers.map(ix => ix.onDidChangeIndex(() => hintsChanged.fire())));
     const providers = [registerHover(owner), ...registerNavigation(owner, () => api.indexers),
-      registerInlayHints(owner, hintsChanged.event)];
-    api.providerCount = 5;
+      registerInlayHints(owner, hintsChanged.event), registerCompletion(owner)];
+    api.providerCount = 6;
     session.push(...providers);
     const first = api.indexers[0].layout.settings;
     if (gate.canRunWorkspaceCode()) status.setOk(first.lintTool, first.targetBinding);
@@ -109,7 +110,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
     });
     await api.ready;
   };
-  api.rebuild = build;
+  // Rebuilds run one after another: two quick settings changes never interleave,
+  // so a controller is never replaced while a rebuild is half done.
+  let building: Promise<void> = Promise.resolve();
+  const rebuild = (): Promise<void> => (building = building.then(build, build));
+  api.rebuild = rebuild;
 
   /** Trust was granted: lint every open suite, with no reload (B2.6-3). */
   const onTrustGranted = () => {
@@ -134,11 +139,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       gate,
     }),
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('bddSuite')) void build();
+      if (e.affectsConfiguration('bddSuite')) void rebuild();
     }),
     vscode.workspace.onDidGrantWorkspaceTrust(onTrustGranted),
   );
-  await build();
+  await rebuild();
   return api;
 }
 

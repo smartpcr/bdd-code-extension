@@ -29,7 +29,9 @@ export class FolderIndexer implements vscode.Disposable {
   /** Fires once per INDEX_DEBOUNCE_MS after any index update (B1.7 item 4). */
   readonly onDidChangeIndex = this.changedEmitter.event;
   private pendingReads = 0;
-  ready: Promise<void> = Promise.resolve();
+  private markReady!: () => void;
+  /** Resolves when the initial scan is done; providers wait on it, so a rebuild never answers from an empty index. */
+  readonly ready: Promise<void> = new Promise(resolve => { this.markReady = resolve; });
 
   constructor(
     readonly layout: WorkspaceLayout,
@@ -133,7 +135,7 @@ export class FolderIndexer implements vscode.Disposable {
 
   start(): Promise<void> {
     const folder = vscode.Uri.file(this.layout.folder);
-    this.ready = (async () => {
+    const scan = (async () => {
       const started = Date.now();
       await this.load(vscode.Uri.file(this.layout.catalogPath));
       const found = await Promise.all(this.globs().map(g =>
@@ -143,7 +145,7 @@ export class FolderIndexer implements vscode.Disposable {
       const c = this.index.catalog;
       this.log(`Indexed ${c?.actions.size ?? 0} catalog actions, ${this.index.suiteFiles().length} suites and libraries, `
         + `${this.index.allSites().length} registration sites in ${Date.now() - started} ms.`);
-    })();
+    })().finally(() => this.markReady());
     for (const glob of [path.relative(this.layout.folder, this.layout.catalogPath).split(path.sep).join('/'), ...this.globs()]) {
       const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
       this.disposables.push(w,
@@ -161,7 +163,7 @@ export class FolderIndexer implements vscode.Disposable {
         if (doc.uri.scheme === 'file' && doc.isDirty && this.classify(doc.uri.fsPath)) void this.load(doc.uri);
       }),
     );
-    return this.ready;
+    return scan;
   }
 
   /** True when no read or debounced re-parse is pending (for tests). */
@@ -170,6 +172,7 @@ export class FolderIndexer implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.markReady();
     this.debouncer.dispose();
     this.changeDebouncer.dispose();
     this.changedEmitter.dispose();

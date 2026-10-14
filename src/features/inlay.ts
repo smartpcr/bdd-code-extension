@@ -7,8 +7,9 @@ export function registerInlayHints(owner: (uri: vscode.Uri) => FolderIndexer | u
   changed: vscode.Event<void>): vscode.Disposable {
   return vscode.languages.registerInlayHintsProvider({ scheme: 'file', language: 'yaml' }, {
     onDidChangeInlayHints: changed,
-    provideInlayHints(doc, range) {
+    async provideInlayHints(doc, range) {
       const ix = owner(doc.uri);
+      await ix?.ready;
       if (!ix || !ix.layout.settings['inlayHints.bindings']) return [];
       const catalog = ix.index.catalog;
       const suite = ix.index.suite(doc.uri.fsPath);

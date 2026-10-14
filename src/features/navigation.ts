@@ -50,21 +50,24 @@ export function registerNavigation(owner: Owner, indexers: () => FolderIndexer[]
     lensChanged,
     ...subscriptions,
     vscode.languages.registerDefinitionProvider(yaml, {
-      provideDefinition(doc, position) {
+      async provideDefinition(doc, position) {
         const ix = owner(doc.uri);
+        await ix?.ready;
         return ix ? definitionsAt(ix, doc.uri.fsPath, position) : undefined;
       },
     }),
     vscode.languages.registerReferenceProvider([yaml, ...sources], {
-      provideReferences(doc, position) {
+      async provideReferences(doc, position) {
         const ix = owner(doc.uri);
+        await ix?.ready;
         return ix ? referencesAt(ix, doc.uri.fsPath, position) : undefined;
       },
     }),
     vscode.languages.registerCodeLensProvider(sources, {
       onDidChangeCodeLenses: lensChanged.event,
-      provideCodeLenses(doc) {
+      async provideCodeLenses(doc) {
         const ix = owner(doc.uri);
+        await ix?.ready;
         if (!ix) return [];
         return ix.index.sitesIn(doc.uri.fsPath).map(site => {
           const steps = ix.index.stepsUsing(site.action);

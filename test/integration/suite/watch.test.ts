@@ -1,9 +1,10 @@
 // session: worktree
 // B1.7 and the hover half of E-B8, in a disposable worktree of os-context.
 import * as assert from 'assert';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { api, asLocations, at, find, hoverText, open, within } from './helpers';
+import { api, asLocations, at, find, folder, hoverText, open, within } from './helpers';
 
 async function definitions(uri: vscode.Uri, pos: vscode.Position): Promise<vscode.Location[]> {
   return asLocations(await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
@@ -25,6 +26,27 @@ describe('B1.7 the index stays current', () => {
     await catalog.save();
     const ms = await within(1000, async () => /`reason`/.test(await hoverText(suite.uri, pos)));
     console.log(`    hover showed the new parameter ${ms} ms after save; extension instance unchanged: ${a === await api()}`);
+  });
+
+  it('E-B8 completion half (B3.4): after Build-Schema.ps1, key completion in the step offers reason, once', async () => {
+    const built = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-File', 'test/e2e/schema/Build-Schema.ps1'],
+      { cwd: folder(), encoding: 'utf8' });
+    assert.strictEqual(built.status, 0, `${built.stdout}\n${built.stderr}`);
+    const suite = await open(at('test', 'e2e', 'suites', 'drain.yml'));
+    const anchor = find(suite, 'failback: NoFailback');
+    const edit = new vscode.WorkspaceEdit();
+    edit.insert(suite.uri, new vscode.Position(anchor.line + 1, 0), '        rea\n');
+    await vscode.workspace.applyEdit(edit);
+    const pos = new vscode.Position(anchor.line + 1, 11);
+    let reason: vscode.CompletionItem[] = [];
+    const ms = await within(15_000, async () => {
+      const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', suite.uri, pos);
+      reason = list.items.filter(i => (typeof i.label === 'string' ? i.label : i.label.label) === 'reason');
+      return reason.length > 0;
+    });
+    assert.strictEqual(reason.length, 1, 'offered once');
+    console.log(`    reason offered ${ms} ms after the request began (detail: ${reason[0].detail ?? 'none'})`);
+    await vscode.commands.executeCommand('workbench.action.files.revert');
   });
 
   it('B1.7-2 a new registration line is a definition target within 1 s of save; a new suite file is indexed', async () => {

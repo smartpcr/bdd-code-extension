@@ -1,6 +1,6 @@
 // session: oscontext
 // B1.3-1 in the real host, and E-B3 (four-binding half; the TypeScript
-// locations close at B8.5 and B8.7).
+// locations close at B7.5 and B7.7).
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';

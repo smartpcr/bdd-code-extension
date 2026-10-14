@@ -15,6 +15,11 @@ export async function setting(key: string, value: unknown, target: vscode.Config
 /** Lint a file now through the current controller and return the event. */
 export async function lint(uri: vscode.Uri): Promise<LintEvent> {
   const a = await api();
+  await a.ready;
+  const first = await a.controllers[0].lintNow(uri);
+  if (first.outcome !== 'superseded') return first;
+  // A settings rebuild replaced the controller mid-lint; the new one answers.
+  await a.ready;
   return a.controllers[0].lintNow(uri);
 }
 

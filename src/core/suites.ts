@@ -40,6 +40,13 @@ function namedKeys(node: unknown, y: ParsedYaml): Named[] {
     .map(p => ({ name: String((p.key as Node & { value: unknown }).value), range: y.range(p.key as Node) }));
 }
 
+function requiredItems(node: unknown): string[] {
+  return isSeq(node)
+    ? node.items.filter(i => { const r = valueOf(i, 'required'); return isScalar(r) && r.value === true; })
+      .map(i => stringOf(i, 'name')).filter((n): n is string => n !== undefined)
+    : [];
+}
+
 function namesOfItems(node: unknown): string[] {
   return isSeq(node) ? node.items.map(i => stringOf(i, 'name')).filter((n): n is string => n !== undefined) : [];
 }
@@ -67,6 +74,13 @@ class Walker {
     }
   }
 
+  /** From a pair's key to the end of its value (or of the key when the value is empty). */
+  private keyToValueEnd(pair: Pair<unknown, unknown>): StepInfo['withRange'] {
+    const k = (pair.key as Node).range!;
+    const v = (pair.value as Node | null)?.range;
+    return this.y.index.range(k[0], v ? v[1] : k[1]);
+  }
+
   step(node: unknown, home: StepHome): void {
     if (!isMap(node)) return;
     const y = this.y;
@@ -83,21 +97,23 @@ class Walker {
           info.keyword = key as Keyword;
           info.sentence = isScalar(value) ? String(value.value) : undefined;
         }
-      } else if (key === 'action' && isScalar(value)) {
+      } else if (key === 'action' && isScalar(value) && value.value !== null) {
         info.action = String(value.value);
         info.actionRange = y.range(value);
-      } else if (key === 'meta' && isScalar(value)) {
+      } else if (key === 'meta' && isScalar(value) && value.value !== null) {
         info.meta = String(value.value);
         info.metaRange = y.range(value);
       } else if (key === 'with') {
         info.withKeys = namedKeys(value, y);
-      } else if (key === 'captureAs' && isScalar(value)) {
+        info.withRange = this.keyToValueEnd(pair);
+      } else if (key === 'captureAs' && isScalar(value) && value.value !== null) {
         info.captureAs = String(value.value);
         info.captureAsRange = y.range(value);
       } else if (key === 'table') {
         info.tableColumns = isSeq(value) ? namedKeys(value.items[0], y).map(k => k.name) : [];
       } else if (!STRUCTURAL.has(key)) {
         info.params.push({ name: key, range: y.range(pair.key as Node), value: value ? value.toJSON() : null });
+        if (key === 'asserts') info.assertsRange = this.keyToValueEnd(pair);
       }
     }
     this.expressions(node, info.expressions);
@@ -150,6 +166,7 @@ export function parseSuite(text: string, file: string): SuiteFile {
       nameRange: y.range(nameNode),
       params: namesOfItems(valueOf(item, 'params')),
       exports: stringItems(valueOf(item, 'exports')),
+      required: requiredItems(valueOf(item, 'params')),
     };
     suite.metaSteps.push(def);
     w.list(valueOf(item, 'steps'), { kind: 'meta', metaName: def.name });
