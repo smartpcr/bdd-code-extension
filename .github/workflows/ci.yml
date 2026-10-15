@@ -94,7 +94,8 @@ jobs:
       - name: Every committed generated schema is current
         shell: pwsh
         run: |
-          foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml')) {
+          foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml',
+                                'runtimes/go/example/schema/actions.catalog.yaml', 'runtimes/rust/example/schema/actions.catalog.yaml')) {
             pwsh -NoProfile -File spec/Build-Schema.ps1 -Catalog $catalog -Check
             if ($LASTEXITCODE) { throw "$catalog's generated schema is stale" }
           }
@@ -120,6 +121,45 @@ jobs:
       - name: Build, unit tests, the whole corpus, coverage gates
         run: npm test
 
+  runtime-go:
+    name: Go runtime (unit, corpus, extension example)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: runtimes/go
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtimes/go/go.mod
+          cache-dependency-path: runtimes/go/go.sum
+
+      - run: go vet ./...
+
+      - name: Unit tests, the whole corpus, the extension example
+        run: go test ./...
+
+  runtime-rust:
+    name: Rust runtime (unit, corpus, extension example)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: runtimes/rust
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: runtimes/rust
+
+      - name: Unit tests, the whole corpus, the extension example
+        run: cargo test
+
   version:
     name: Is this version released?
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -143,7 +183,7 @@ jobs:
 
   release:
     name: Release v${{ needs.version.outputs.version }}
-    needs: [build, spec, runtime-typescript, version]
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, version]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: marketplace

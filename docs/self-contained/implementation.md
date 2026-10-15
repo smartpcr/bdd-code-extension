@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: implementation plan
 
-Status: **stage S1 built (2026-10-15), evidence in [docs/evidence/self-contained-s1.md](../evidence/self-contained-s1.md); S2 to S7 not started.** The design, its outcomes
+Status: **stages S1 and S2 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md) and [S2](../evidence/self-contained-s2.md); S3 to S7 not started.** The design, its outcomes
 (O1–O5), decisions (DEC-S01–DEC-S10) and scenarios (E1–E8) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -305,18 +305,18 @@ for TypeScript; generator byte-for-byte check; D13 unit tests.
 
 Result: D4, D5. Entry: S1. Exit evidence: E2 and E3 for Go and Rust.
 
-- [ ] S2.1 Copy Go; record source commit; remove lifecycle packages.
-- [ ] S2.2 New module path; move extension-facing packages out of `internal/`.
-- [ ] S2.3 Composite dispatcher; `suiterun.Main(ext...)`.
-- [ ] S2.4 Extension-supplied options, context keys, rules, prefix.
-- [ ] S2.5 Corpus tests read `conformance/`; `go vet`, `go test` pass.
-- [ ] S2.6 Go example extension; E3 Go part.
-- [ ] S2.7 Copy Rust; record source commit; remove lifecycle, stream test, lifecycle-only dependencies.
-- [ ] S2.8 Public `Action` trait and `Registry`; `run::execute_with`.
-- [ ] S2.9 Per-run extension context; options, keys, rules, prefix from extensions.
-- [ ] S2.10 Corpus tests read `conformance/`; `cargo test` passes.
-- [ ] S2.11 Rust example extension; E3 Rust part.
-- [ ] S2.12 CI jobs for Go and Rust.
+- [x] S2.1 Copy Go; record source commit; remove lifecycle packages.
+- [x] S2.2 New module path; move extension-facing packages out of `internal/`.
+- [x] S2.3 Composite dispatcher; `suiterun.Main(ext...)`.
+- [x] S2.4 Extension-supplied options, context keys, rules, prefix.
+- [x] S2.5 Corpus tests read `conformance/`; `go vet`, `go test` pass.
+- [x] S2.6 Go example extension; E3 Go part.
+- [x] S2.7 Copy Rust; record source commit; remove lifecycle, stream test, lifecycle-only dependencies.
+- [x] S2.8 Public `Action` (a struct holding a public `Handler`) and an `Extension` trait, a `Registry` composing them; `run::execute_with`.
+- [x] S2.9 Per-run extension context; options, keys, rules, prefix from extensions.
+- [x] S2.10 Corpus tests read `conformance/`; `cargo test` passes.
+- [x] S2.11 Rust example extension; E3 Rust part.
+- [ ] S2.12 CI jobs for Go and Rust. (Built: `runtime-go`, `runtime-rust`, and the example schemas in the `spec` job's check; open until they pass on GitHub.)
 
 ### Stage S3: C# runtime (P0)
 
@@ -398,8 +398,8 @@ Result: D11. Entry: S6 and a lab. Exit evidence: E6 with cleanup.
 | Scenario | Deliverables | Stage | Needs a lab | Status |
 | --- | --- | --- | --- | --- |
 | [E1](design.md#e1) | D1–D9 | S5 | no | not run |
-| [E2](design.md#e2) | D2–D7 | S1–S4 | no | TypeScript part passed locally (2026-10-15); C#, Go, Rust, PowerShell and the divergence check not run |
-| [E3](design.md#e3) | D3–D7 | S1–S4 | no | TypeScript part passed locally (2026-10-15); other languages not run |
+| [E2](design.md#e2) | D2–D7 | S1–S4 | no | TypeScript, Go and Rust parts passed locally (2026-10-15); C#, PowerShell and the divergence check not run |
+| [E3](design.md#e3) | D3–D7 | S1–S4 | no | TypeScript, Go and Rust parts passed locally (2026-10-15); C# and PowerShell not run |
 | [E4](design.md#e4) | D8, D9 | S5 | no | not run |
 | [E5](design.md#e5) | D10 | S6 | no | not run |
 | [E6](design.md#e6) | D11 | S7 | yes | not run |

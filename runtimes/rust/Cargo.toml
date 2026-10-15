@@ -1,0 +1,22 @@
+[package]
+name = "suiterun"
+version = "0.1.0"
+edition = "2021"
+description = "The Rust runtime of the YAML suite runner: the suite model, lint, execution and reports, extensible by an outside crate. Reads the same suites, catalog and conformance corpus as the other runtimes."
+publish = false
+
+# Its own workspace, so the crate builds standalone wherever it is checked out
+# (a consumer's repository may hold a workspace of its own).
+[workspace]
+
+[dependencies]
+yaml-rust2 = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+jsonschema = "0.56"
+regex = "1"
+
+[dev-dependencies]
+
+[profile.release]
+opt-level = 2

@@ -1,0 +1,19 @@
+# The example workspace's catalog: the core, imported, and the one action the
+# example extension registers.
+catalogVersion: 1
+imports:
+  - ../../../../spec/core.catalog.yaml
+bindings: [go]
+
+actions:
+  - name: example.echo
+    summary: Return a text, prefixed with the run's region.
+    bindings: [go]
+    interruptible: true
+    params:
+      - { name: text, type: string, required: true, description: What to echo. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        echoed: { type: string, description: '<region>:<text>' }

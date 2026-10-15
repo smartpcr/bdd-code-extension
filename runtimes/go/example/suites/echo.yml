@@ -1,0 +1,12 @@
+suite: echo
+tags: [slow]
+tests:
+  - name: echoes-with-the-region
+    timeoutSec: 30
+    steps:
+      - when: the region's greeting is echoed
+        action: example.echo
+        text: hello from ${region}
+        captureAs: e
+    asserts:
+      - { var: e.echoed, equals: 'eu:hello from eu' }
