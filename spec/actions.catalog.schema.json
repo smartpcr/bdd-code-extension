@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/os-context/test/e2e/schema/actions.catalog.schema.json",
+  "title": "Action catalog",
+  "description": "The vocabulary of a suite file: every action a runner registers, the parameters it reads, the shape of what it captures, the bindings that implement it, and whether it can be cancelled. Build-Schema.ps1 folds this into suite.schema.json; a validator reads it for E104, E105, E201 and E302. It says nothing about how an action behaves.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["catalogVersion", "bindings", "actions"],
+  "properties": {
+    "catalogVersion": { "type": "integer", "const": 1 },
+    "bindings": {
+      "description": "Every binding name an action may claim: the five runners (PowerShell, C#, Go, Rust, TypeScript). A name outside this list is a typo.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["powershell", "csharp", "go", "rust", "typescript"] }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/action" }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "summary", "bindings", "interruptible", "captures"],
+      "properties": {
+        "name": {
+          "description": "The name a step writes after action:. Dotted family.verb.",
+          "type": "string",
+          "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)*$"
+        },
+        "summary": { "type": "string", "minLength": 1 },
+        "bindings": {
+          "description": "The bindings that implement this action. A suite naming an action its binding does not implement is E201.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["powershell", "csharp", "go", "rust", "typescript"] }
+        },
+        "interruptible": {
+          "description": "false when the handler blocks in a call the runner cannot cancel, such as a PSDirect or WinRM session. A timeout on one of these is reported as abandoned rather than cancelled.",
+          "type": "boolean"
+        },
+        "deprecated": {
+          "description": "Present and true when using the action is W302.",
+          "type": "boolean"
+        },
+        "params": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/param" }
+        },
+        "captures": {
+          "description": "The shape of what the handler returns, as the declared type of every path a suite may read.",
+          "$ref": "#/$defs/shape"
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "param": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "type": { "enum": ["string", "integer", "number", "boolean", "object", "array", "any"] },
+        "required": { "type": "boolean" },
+        "default": true,
+        "ref": {
+          "description": "Validate the value against a hand-written definition in suite.base.json instead of by type alone. This is how the nested step and condition of wait are checked.",
+          "enum": ["step", "assert"]
+        },
+        "enum": {
+          "description": "The only values a suite may give the parameter; the generated suite schema refuses any other.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": ["string", "integer", "number", "boolean"] }
+        },
+        "items": {
+          "description": "For an array parameter, the JSON schema of each element (lifecycle.deploy acceptStatus).",
+          "type": "object"
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "shape": {
+      "description": "A closed subset of JSON Schema: enough to say what a capture path means, small enough that four bindings read it identically. An object that declares additionalProperties true is open, and a path into it cannot be checked, which is the honest answer for an API response. Two rules this schema cannot express without conditionals, which the PowerShell JSON Schema implementation reports misleadingly, are asserted by the catalog test instead: an object shape declares additionalProperties, and an array shape declares items. Neither may be left to a default nobody wrote down.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["object", "array", "string", "integer", "number", "boolean", "any"] },
+        "description": { "type": "string" },
+        "additionalProperties": { "type": "boolean" },
+        "properties": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/shape" }
+        },
+        "items": { "$ref": "#/$defs/shape" }
+      }
+    }
+  }
+}

@@ -23,7 +23,7 @@ if (fs.existsSync(target)) {
 }
 fs.cpSync(path.join(repo, 'test', 'e2e-demo', 'fixture'), target, { recursive: true });
 const { name, version } = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
-const vsix = path.join(repo, `${name}-${version}.vsix`);
+const vsix = path.join(repo, 'out', `${name}-${version}.vsix`);
 
 console.log(`Demo workspace: ${target}
 

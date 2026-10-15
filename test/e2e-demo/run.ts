@@ -26,7 +26,7 @@ function argValue(name: string): string | undefined {
 async function main(): Promise<void> {
   delete process.env.ELECTRON_RUN_AS_NODE;
   const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
-  const vsix = path.resolve(argValue('--vsix') ?? path.join(repo, `${pkg.name}-${pkg.version}.vsix`));
+  const vsix = path.resolve(argValue('--vsix') ?? path.join(repo, 'out', `${pkg.name}-${pkg.version}.vsix`));
   if (!fs.existsSync(vsix)) {
     console.log(`No package at ${vsix}; building it with npm run package.`);
     execFileSync('npm', ['run', 'package'], { cwd: repo, stdio: 'inherit', shell: process.platform === 'win32' });

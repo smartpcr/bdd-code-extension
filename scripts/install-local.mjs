@@ -11,7 +11,7 @@ import * as path from 'node:path';
 
 const repo = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
-const vsix = path.join(repo, `${pkg.name}-${pkg.version}.vsix`);
+const vsix = path.join(repo, 'out', `${pkg.name}-${pkg.version}.vsix`);
 const shell = process.platform === 'win32';
 
 execFileSync('node', [path.join(repo, 'scripts', 'package.mjs')], { cwd: repo, stdio: 'inherit' });

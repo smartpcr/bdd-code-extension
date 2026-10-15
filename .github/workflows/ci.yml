@@ -65,9 +65,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vsix
+          # Both under out/, so the artifact holds them at its root.
           path: |
-            bdd-suite-*.vsix
-            bdd-suite-*.vsix.sha256
+            out/bdd-suite-*.vsix
+            out/bdd-suite-*.vsix.sha256
           if-no-files-found: error
 
   version:

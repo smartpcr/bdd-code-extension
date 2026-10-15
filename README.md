@@ -289,7 +289,7 @@ From the source repository, with Node.js 24:
 | `npm ci` | Installs the build and test tools |
 | `npm run compile` | Type-checks and bundles `dist/extension.js` and `dist/lintWorker.js` |
 | `npm run test:unit` | Unit tests; fails below 100% coverage of `src/core`, `src/config` and `src/tools` |
-| `npm run package` | Writes `bdd-suite-<version>.vsix` and its `.sha256`, and checks that the archive holds only the built extension |
+| `npm run package` | Writes `out/bdd-suite-<version>.vsix` and its `.sha256`, and checks that the archive holds only the built extension |
 | `npm run test:demo` | Installs that `.vsix` into a fresh VS Code profile and drives the self-contained demo (above) |
 | `npm run test:integration` | The integration suite, against a full-size workspace with all five bindings built, named by `OS_CONTEXT_ROOT` |
 | `npm run install:local` | Packages and installs into your own VS Code; open windows offer the reload |
@@ -371,4 +371,7 @@ skipped, and an existing GitHub release gets its files replaced.
 
 In the source repository (not in the package): `docs/design.md`,
 `docs/implementation.md`, and the evidence for each stage under
-`docs/evidence/`.
+`docs/evidence/`. The plan to make this repository self-contained (the core
+format spec, the conformance corpus and the five language runtimes moving
+here, extended by import) is `docs/self-contained/design.md` and
+`docs/self-contained/implementation.md`.

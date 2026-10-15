@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/os-context/test/e2e/schema/diagnostic.schema.json",
+  "title": "Suite lint diagnostics",
+  "description": "The JSON document every binding's `lint --json` writes to standard output. An array, sorted by file, then line, then column, then code, then message, so two bindings cannot disagree by ordering. Codes and positions are the contract; message text is not.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/diagnostic" },
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "file", "line", "column", "message"],
+      "properties": {
+        "code": {
+          "description": "A stable code from diagnostics.md. E1xx structural, E2xx semantic, E3xx dataflow and expression, W3xx warning. A code never changes meaning.",
+          "type": "string",
+          "pattern": "^[EW][0-9]{3}$"
+        },
+        "severity": {
+          "description": "error fails the lint. warning fails it only under --strict.",
+          "enum": ["error", "warning"]
+        },
+        "file": {
+          "description": "The suite file the finding is in, relative to the repository root, with forward slashes and no backslash anywhere. Relative and slash-normalised so four bindings on three operating systems produce the same string. The rule is asserted by each binding's own tests rather than by a pattern here, because a pattern matching a backslash has to be escaped twice and is the sort of corner four JSON Schema libraries disagree about.",
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "description": "One-based line of the offending node. Structural findings point at the key; dataflow and expression findings point at the value that carries the reference.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "description": "One-based column of the same node.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "message": {
+          "description": "What is wrong, in one sentence. Not part of the conformance contract: a binding may word it differently.",
+          "type": "string",
+          "minLength": 1
+        },
+        "suggestion": {
+          "description": "The nearest legal spelling, or the correction to make. Present only when the validator has one. Not part of the conformance contract.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -7,10 +7,12 @@ import * as path from 'node:path';
 
 const repo = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
-const vsix = path.join(repo, `${pkg.name}-${pkg.version}.vsix`);
+// Build output goes under out/, never the repository root.
+const vsix = path.join(repo, 'out', `${pkg.name}-${pkg.version}.vsix`);
 const run = (cmd, args) => execFileSync(cmd, args, { cwd: repo, stdio: 'inherit', shell: process.platform === 'win32' });
 
 run('npm', ['run', 'compile']);
+fs.mkdirSync(path.dirname(vsix), { recursive: true });
 fs.rmSync(vsix, { force: true });
 // --no-dependencies: esbuild bundles yaml and minimatch into dist/extension.js.
 run('npx', ['vsce', 'package', '--no-dependencies', '--out', vsix]);
