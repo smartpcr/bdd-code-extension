@@ -22,7 +22,9 @@ const RUST = () => at('test', 'e2e', 'bindings', 'rust', 'src', 'actions.rs');
 const CSHARP = () => at('test', 'e2e', 'bindings', 'dotnet', 'Hci.E2E.Suite', 'Actions', 'CoreActions.cs');
 const TS = () => at('test', 'e2e', 'bindings', 'typescript', 'src', 'actions', 'core.ts');
 const PS = (name: string) => at('scripts', 'e2e', 'actions', `${name}.ps1`);
-const read = (uri: vscode.Uri) => fs.readFileSync(uri.fsPath, 'utf8');
+// LF whatever the checkout used: on a Windows CI runner git checks the fixture out
+// with CRLF, and the extension's edits keep each file's own line endings.
+const read = (uri: vscode.Uri) => fs.readFileSync(uri.fsPath, 'utf8').replace(/\r\n/g, '\n');
 const rel = (uri: vscode.Uri) => path.relative(ws(), uri.fsPath).split(path.sep).join('/');
 
 let api: TestApi;
