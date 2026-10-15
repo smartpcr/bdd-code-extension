@@ -19,4 +19,14 @@ describe('B1.1 activation in os-context', () => {
     assert.strictEqual(a.indexers.length, 1);
     console.log(`    log: ${a.log.join(' | ')}`);
   });
+
+  it('B9.2 with --vsix: the extension running is the installed package, not this source tree', function () {
+    const dir = process.env.BDD_VSIX_EXTENSIONS_DIR;
+    if (!dir) this.skip();
+    const ext = vscode.extensions.getExtension('local.bdd-suite')!;
+    assert.ok(key(ext.extensionPath).startsWith(key(dir!)), `${ext.extensionPath} is not under ${dir}`);
+    assert.strictEqual(ext.packageJSON.version, process.env.BDD_VSIX_VERSION);
+    assert.ok(!require('fs').existsSync(path.join(ext.extensionPath, 'src')), 'the package has no src/');
+    console.log(`    running ${ext.id}@${ext.packageJSON.version} from ${ext.extensionPath}`);
+  });
 });

@@ -576,7 +576,7 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 | [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 5 of 5 | 4 of 5 (B6.4 awaits its manual check, and its lab scenario is B9.3; TypeScript halves of B6.2 and B6.3 closed in B7) |
 | [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 8 of 8 | 5 of 8 (B7.1 open only for `SuiteLint.Tests.ps1` and `Conformance.Tests.ps1`, blocked in `os-context`; B7.7 waits for E-B13 on a lab; B7.8 waits for the user's push and a lab) |
 | [B8](#stage-b8-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B7.4 | 3 | 3 of 3 | 3 of 3 (against the uncommitted B7 binding in the `os-context` worktree) |
-| [B9](#stage-b9-package-and-accept) | Package and accept | P0 | all above | 3 | 0 of 3 | 0 of 3 |
+| [B9](#stage-b9-package-and-accept) | Package and accept | P0 | all above | 3 | 3 of 3 | 1 of 3 (B9.2 open only for E-B1's PowerShell test, blocked in `os-context`; B9.3 built and its preflight passed, E-B10 blocked on a lab) |
 
 Priority says what ships first, never what may be skipped: P0 is the minimum
 useful release (navigate, hover, lint), P1 the authoring features and the
@@ -603,7 +603,7 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 | [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | passed 2026-10-14, five bindings (the TypeScript half against the `os-context` worktree) |
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | passed 2026-10-14 |
 | [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | passed: four bindings 2026-10-15, TypeScript 2026-10-14 against the `os-context` worktree |
-| [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
+| [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4, B9.3 | yes | not run: no lab (blocked); its preflight passed on the package 2026-10-15 |
 | [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B8.1 | no | program half passed 2026-10-14; library half passed 2026-10-15 |
 | [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B7.1-B8.6, B7.8 | no | local half passed 2026-10-14 (the whole corpus, 100 % of lines, the divergence check run by hand); CI half open until the user pushes |
 | [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go) | B7.7, B7.8 | yes | not run: no lab (blocked) |
@@ -2997,9 +2997,9 @@ package already green locally.
 
 **Checklist.**
 
-- [ ] B9.1 Package and install
-- [ ] B9.2 Offline acceptance on the package
-- [ ] B9.3 Lab acceptance on the package
+- [x] B9.1 Package and install
+- [ ] B9.2 Offline acceptance on the package (built; E-B1's PowerShell test blocked in `os-context`)
+- [ ] B9.3 Lab acceptance on the package (built; preflight passed; E-B10 blocked on a lab)
 
 ### B9.1 Package and install
 
@@ -3019,7 +3019,10 @@ package already green locally.
 * **Unit.** None.
 * **E2E.** None of its own; B9.2 runs on its output.
 * **Depends on.** All of B1-B6, B7 and B8.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15.
+  - [x] code. `scripts/package.mjs` (`npm run package`: compile, `vsce package`, SHA-256, the archive listed from its own central directory), `.vscodeignore`, `README.md`.
+  - [x] unit: none, as planned.
+  - [x] scenario, B9.1-1: `bdd-suite-0.1.0.vsix` (SHA-256 `9c302f86...a573a`) holds `dist/extension.js`, `dist/lintWorker.js`, `templates/`, `package.json` and the README, and nothing under `src/` or `test/`. Evidence: [docs/evidence/stage-b9.md](evidence/stage-b9.md).
 
 ### B9.2 Offline acceptance on the package
 
@@ -3037,7 +3040,11 @@ package already green locally.
 * **Unit.** None.
 * **E2E.** E-B1 to E-B9, E-B11, E-B14, E-B15 (E-B12 and E-B13 are the binding's own and closed in B7).
 * **Depends on.** B9.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Built 2026-10-15; one scenario is blocked outside this repository.
+  - [x] code. `runTest.ts --vsix` (a fresh extensions folder, an empty development stub, the result file), per-test outcomes from `suite/index.ts`, a test that the running extension is the installed package.
+  - [x] unit: none, as planned.
+  - [x] scenario, on `bdd-suite-0.1.0.vsix`: E-B2 to E-B9, E-B11, E-B14 and E-B15 passed, and E-B1 for Rust, Go, C# and TypeScript (`artifacts/acceptance-2026-10-15.json`).
+  - [ ] scenario, E-B1's PowerShell test (B9.2-1): skipped as blocked by the PowerShell 7.6.7 `Test-Json` defect in `os-context` (stage B2), so this step stays open until it passes on the package. Evidence: [docs/evidence/stage-b9.md](evidence/stage-b9.md).
 
 ### B9.3 Lab acceptance on the package
 
@@ -3080,7 +3087,11 @@ package already green locally.
 * **Unit.** None.
 * **E2E.** [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab).
 * **Depends on.** B9.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Built 2026-10-15; blocked on a lab.
+  - [x] code. `test/integration/suite/lab.test.ts`, `runTest.ts --lab`, `npm run test:lab`: items 1 to 6, comparing reports with `os-context`'s `Test-ReportsEqual -IgnoreOutput`.
+  - [x] unit: none, as planned.
+  - [x] preflight on the package (item 3, no lab needed): `go list --tags portable` and the index agree on 7 cases, and all 9 actions they use list `go`. (E-B10 says eight, from E-Y7 on 2026-09-12; the suite tags seven today.)
+  - [ ] scenario, E-B10 (B9.3-1): BLOCKED, not run. No lab was given and the footprint was not accepted; nothing touched a lab. This box and B6.4's scenario box stay open. Evidence: [docs/evidence/stage-b9.md](evidence/stage-b9.md).
 
 ---
 

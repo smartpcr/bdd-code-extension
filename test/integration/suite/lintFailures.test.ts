@@ -8,7 +8,8 @@ import { api, at, open, within } from './helpers';
 import { lint, setting, shown } from './lintHelpers';
 
 const W = vscode.ConfigurationTarget.Workspace;
-const fake = () => path.join(vscode.extensions.getExtension('local.bdd-suite')!.extensionPath, 'test', 'fake-tool', 'fake-suiterun.mjs');
+// From this repository, not the extension's install folder: an installed .vsix has no test/ (B9.2).
+const fake = () => path.resolve(__dirname, '../../../../test/fake-tool/fake-suiterun.mjs');
 const alive = (pid: number) => {
   try {
     process.kill(pid, 0);

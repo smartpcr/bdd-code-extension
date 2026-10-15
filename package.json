@@ -322,7 +322,8 @@
     "test:unit": "npm run build:test && c8 --100 --include \"out-test/src/core/**\" --include \"out-test/src/config/**\" --include \"out-test/src/tools/**\" --include \"out-test/src/lint/workerHost.js\" --reporter=text --reporter=text-summary node --test \"out-test/test/unit/**/*.test.js\"",
     "test:integration": "npm run compile && npm run build:test && node --test --test-timeout=900000 \"out-test/test/integration/node/*.test.js\" && node out-test/test/integration/runTest.js",
     "sync-defaults": "npm run build:test && node scripts/sync-defaults.mjs",
-    "package": "npm run compile && vsce package --no-dependencies"
+    "test:lab": "npm run compile && npm run build:test && node out-test/test/integration/runTest.js --lab",
+    "package": "node scripts/package.mjs"
   },
   "dependencies": {
     "minimatch": "^9.0.5",

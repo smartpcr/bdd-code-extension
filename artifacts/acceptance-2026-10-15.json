@@ -1,0 +1,733 @@
+{
+  "package": {
+    "file": "bdd-suite-0.1.0.vsix",
+    "sha256": "9c302f86af97dea1fb46e80980b3998f70932c298f8cd83d66f6ad45f27a573a",
+    "version": "0.1.0"
+  },
+  "extensionCommit": "e759c962bb1db42c6161663ead2a27846c3570b5",
+  "extensionTreeClean": false,
+  "osContext": {
+    "path": "E:\\work\\os\\os-context-ts",
+    "commit": "7633e176fb70140e94ddc7e9d96b07eb39c39b22",
+    "uncommittedChanges": 20
+  },
+  "vscode": {
+    "executable": "E:\\work\\github\\bdd-code-extension\\.vscode-test\\vscode-win32-x64-archive-insiders\\Code - Insiders.exe",
+    "version": "1.143.0-insider (4c6cba1504)"
+  },
+  "node": "v24.16.0",
+  "started": "2026-10-15T07:40:36.686Z",
+  "finished": "2026-10-15T07:49:33.591Z",
+  "scenarios": {
+    "B1.1": {
+      "passed": 3,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B7": {
+      "passed": 6,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B2": {
+      "passed": 5,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B1": {
+      "passed": 5,
+      "failed": 0,
+      "pending": 1,
+      "verdict": "open (skipped or blocked)"
+    },
+    "E-B3": {
+      "passed": 6,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B4": {
+      "passed": 4,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B9": {
+      "passed": 13,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B5": {
+      "passed": 9,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B14": {
+      "passed": 5,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B11": {
+      "passed": 14,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B6": {
+      "passed": 8,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B8": {
+      "passed": 6,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    },
+    "E-B15": {
+      "passed": 5,
+      "failed": 0,
+      "pending": 0,
+      "verdict": "passed"
+    }
+  },
+  "tests": [
+    {
+      "file": "activation.test.ts",
+      "title": "B1.1 activation in os-context B1.1-1 activates on the catalog, and the first log line names the root and the catalog",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "B1.1"
+    },
+    {
+      "file": "activation.test.ts",
+      "title": "B1.1 activation in os-context B9.2 with --vsix: the extension running is the installed package, not this source tree",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "B1.1"
+    },
+    {
+      "file": "coverage.test.ts",
+      "title": "E-B7 the binding table matches the catalog and the programs B4.1-1 / B4.2-1 clean tree: the view's rows, Declared from the catalog, Found equals Declared, no drift",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B7"
+    },
+    {
+      "file": "coverage.test.ts",
+      "title": "E-B7 the binding table matches the catalog and the programs Copy binding table puts the Markdown table on the clipboard",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B7"
+    },
+    {
+      "file": "coverage.test.ts",
+      "title": "E-B7 the binding table matches the catalog and the programs B4.3-1 every program's actions --json equals the catalog's set for its binding, and Found",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B7"
+    },
+    {
+      "file": "coverage.test.ts",
+      "title": "E-B7 the binding table matches the catalog and the programs B4.3-2 a program that fails shows on its row and does not affect the others",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B7"
+    },
+    {
+      "file": "hover.test.ts",
+      "title": "B1.2 hover on an action B1.2-4 lifecycle.get names every binding its catalog entry lists, with links",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B2"
+    },
+    {
+      "file": "hover.test.ts",
+      "title": "B1.2 hover on an action B1.2-4 / E-B2 hover half: cluster.state is PowerShell only",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B2"
+    },
+    {
+      "file": "lint.test.ts",
+      "title": "E-B1 the editor shows exactly what the corpus says lint must find rust: every eligible validate entry, on open, at the corpus positions",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B1"
+    },
+    {
+      "file": "lint.test.ts",
+      "title": "E-B1 the editor shows exactly what the corpus says lint must find go: every eligible validate entry, on open, at the corpus positions",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B1"
+    },
+    {
+      "file": "lint.test.ts",
+      "title": "E-B1 the editor shows exactly what the corpus says lint must find csharp: every eligible validate entry, on open, at the corpus positions",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B1"
+    },
+    {
+      "file": "lint.test.ts",
+      "title": "E-B1 the editor shows exactly what the corpus says lint must find typescript: every eligible validate entry, on open, at the corpus positions",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B1"
+    },
+    {
+      "file": "lint.test.ts",
+      "title": "E-B1 the editor shows exactly what the corpus says lint must find powershell: every eligible validate entry (blocked by PowerShell 7.6.7 Test-Json)",
+      "state": "pending",
+      "session": "oscontext",
+      "scenario": "E-B1"
+    },
+    {
+      "file": "lint.test.ts",
+      "title": "E-B1 the editor shows exactly what the corpus says lint must find a diagnostic carries the code, the tool as source, the suggestion, and a range over the token",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B1"
+    },
+    {
+      "file": "navigation.test.ts",
+      "title": "B1.3 the suite index in a real VS Code B1.3-1 the initial scan indexes exactly the oracle suite files and their action steps",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B3"
+    },
+    {
+      "file": "navigation.test.ts",
+      "title": "E-B3 Go to Definition on an action lifecycle.get: the catalog entry and one registration in each binding",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B3"
+    },
+    {
+      "file": "navigation.test.ts",
+      "title": "E-B3 Go to Definition on an action cluster.state: exactly the catalog entry and PowerShell",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B3"
+    },
+    {
+      "file": "navigation.test.ts",
+      "title": "E-B3 Go to Definition on an action wait: the catalog, Wait.ps1, and the wait lines in Go exec.go, Rust actions.rs and C# Executor.cs",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B3"
+    },
+    {
+      "file": "navigation.test.ts",
+      "title": "E-B3 Go to Definition on an action E-B3 meta half: meta: select-lab in stage 0 resolves to _lib/lifecycle.yml",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B3"
+    },
+    {
+      "file": "navigation.test.ts",
+      "title": "E-B3 Go to Definition on an action a position that is not an action or a meta use has no definition from this extension",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B3"
+    },
+    {
+      "file": "references.test.ts",
+      "title": "E-B4 references and CodeLens B1.5-1/2/3 the Go site, the catalog entry and a step give the same list; the lens counts it; the oracle agrees",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B4"
+    },
+    {
+      "file": "references.test.ts",
+      "title": "E-B4 references and CodeLens B1.5-3 steps inside meta step definitions and libraries are included",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B4"
+    },
+    {
+      "file": "references.test.ts",
+      "title": "E-B4 references and CodeLens references on a meta definition list its uses across files",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B4"
+    },
+    {
+      "file": "references.test.ts",
+      "title": "E-B4 references and CodeLens a registration line for an action no suite uses says so",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B4"
+    },
+    {
+      "file": "target.test.ts",
+      "title": "E-B2 a step the target binding cannot run is marked, and says who can B2.3-1 the editor E201 set equals the terminal for the same file, tool and target",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B2"
+    },
+    {
+      "file": "target.test.ts",
+      "title": "E-B2 a step the target binding cannot run is marked, and says who can B2.3-2 inlay hints list exactly each action's catalog bindings",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B2"
+    },
+    {
+      "file": "target.test.ts",
+      "title": "E-B2 a step the target binding cannot run is marked, and says who can B2.3-3 changing the target re-lints open suites without a save; under powershell no E201 remains",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B2"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.1 / B6.1-1 every suite file, its cases and its outline rows are items; row names are the bindings' names",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2-1 / B6.3 under go: results equal the expected traces; dry run starts no action",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2-1 / B6.3 under rust: results equal the expected traces; dry run starts no action",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2-1 / B6.3 under csharp: results equal the expected traces; dry run starts no action",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2-1 / B6.3 under powershell: results equal the expected traces; dry run starts no action",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2-1 / B6.3 under typescript: results equal the expected traces; dry run starts no action",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result the 5 bindings produce the same item results",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2-2 a run that leaves no trace marks every item errored \"no trace\"",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testing.test.ts",
+      "title": "E-B9 an offline suite runs under each binding, and each case shows the corpus result B6.2 item 3 one case under PowerShell runs that case only (-TestName); under Go the file runs and reports every case",
+      "state": "passed",
+      "session": "oscontext",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "inert.test.ts",
+      "title": "B1.1 an empty folder B1.1-2 does not activate on its own, and registers no provider when activated",
+      "state": "passed",
+      "session": "empty",
+      "scenario": "B1.1"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids after ${: namespaces, context keys and the 21 functions; row only where a table or examples applies",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids B3.3-1/2 after ${capture. in the second step: agent and cs, never a later step or another case",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids B3.4-1 after ${capture.cs.: exactly the cluster.state capture properties",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids after ${param.: node and the parameters _lib/lifecycle.yml declares",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids after ${row. in the table step: the two column names",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids B3.5 after meta: the visible meta steps; inside its with:, that meta step's parameters",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids B3.1-1 after action: every catalog action exactly once; what the YAML extension adds is recorded",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids E-B2 completion order: with target rust, every rust action sorts before every other",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "completion.test.ts",
+      "title": "E-B5 completion offers what is in scope, and nothing the format forbids B3.4 hover on ${capture.cs.Nodes} names the producing step and the declared type",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B5"
+    },
+    {
+      "file": "coverageDrift.test.ts",
+      "title": "E-B7 drift appears when introduced B4.2-2 deleting the Rust dispatch arm for lifecycle.get shows \"declared, not registered\" within 2 s",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B7"
+    },
+    {
+      "file": "coverageDrift.test.ts",
+      "title": "E-B7 drift appears when introduced B4.2-2 deleting the TypeScript registration for lifecycle.get shows \"declared, not registered\" within 2 s",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B7"
+    },
+    {
+      "file": "latency.test.ts",
+      "title": "B8.3 live lint latency on lifecycle-stage1.yml (typescript tool) cold first lint, then 20 live edits: p50, p95 and max from edit to published",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B14"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "B2.2 lint on save E-B1 save half: saving gives the same set, not a doubled one",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "B2.2 lint on save B2.2-2 two saves within LINT_DEBOUNCE_MS produce one lint",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "B2.2 lint on save B2.2-3 a lint started during a running lint cancels it; only the second publishes",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "E-B11 a missing, slow or broken lint tool is reported, not hidden B2.4-1/2 missing: \"Lint: rust not built\", the E301 kept and marked stale",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "E-B11 a missing, slow or broken lint tool is reported, not hidden B2.4-1/2 junk: \"Lint output was not diagnostics\", the E301 kept and marked stale",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "E-B11 a missing, slow or broken lint tool is reported, not hidden B2.4-1/2 oversize: \"Lint output too large\", the E301 kept and marked stale",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "E-B11 a missing, slow or broken lint tool is reported, not hidden B2.4-1/2 slow: \"Lint timed out after 20 s\", the E301 kept and marked stale",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "E-B11 a missing, slow or broken lint tool is reported, not hidden restoring the tool and linting clears the stale marks",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "lintFailures.test.ts",
+      "title": "E-B11 a missing, slow or broken lint tool is reported, not hidden B2.4-4 Build lint tool for Go produces the program, after which the next lint publishes",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "liveLint.test.ts",
+      "title": "B8.2 live lint of unsaved buffers, and E-B14 B8.2-1 typing ${capture.nosuch} shows E301 at its position before any save; the imported meta is found",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B14"
+    },
+    {
+      "file": "liveLint.test.ts",
+      "title": "B8.2 live lint of unsaved buffers, and E-B14 B8.2-2 an unsaved edit to an imported library re-lints the open suite that imports it",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B14"
+    },
+    {
+      "file": "liveLint.test.ts",
+      "title": "B8.2 live lint of unsaved buffers, and E-B14 B8.2-3 with a program as the lint tool, typing lints nothing",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B14"
+    },
+    {
+      "file": "liveLint.test.ts",
+      "title": "B8.2 live lint of unsaved buffers, and E-B14 E-B14 each validate entry's text, unsaved in the scratch buffer, gets the saved file's diagnostics",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B14"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.1 the quick fix on E104 declares the action; the schema is regenerated; E104 clears on the next save",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.1-2 one undo reverts the catalog entry and the stub file; declaring again restores them",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.1-3 declaring an action already in the catalog refuses and changes nothing",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.2-B5.4 Implement in Go (from the step), Rust and C#: registry entry, stub, binding listed, no drift",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.1-1 Build-Schema.ps1 -Check exits 0 and the catalog checks of SuiteLint.Tests.ps1 (Y1.3) pass",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.2-B5.4 Go: builds clean, actions --json lists demo.echo, running the suite fails the step \"not implemented\"",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.2-B5.4 Rust: builds clean, actions --json lists demo.echo, running the suite fails the step \"not implemented\"",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "scaffold.test.ts",
+      "title": "E-B6 a new action is declared and implemented from the editor B5.2-B5.4 C#: builds clean, actions --json lists demo.echo, running the suite fails the step \"not implemented\"",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B6"
+    },
+    {
+      "file": "testingCancel.test.ts",
+      "title": "B6.5 cancellation, and the lab path of B6.4 with a fake program B6.5-1 under go, cancelling an offline run leaves no child after KILL_GRACE_MS; the case is skipped \"cancelled\"",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testingCancel.test.ts",
+      "title": "B6.5 cancellation, and the lab path of B6.4 with a fake program B6.5-1 under powershell, cancelling an offline run leaves no child after KILL_GRACE_MS; the case is skipped \"cancelled\"",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testingCancel.test.ts",
+      "title": "B6.5 cancellation, and the lab path of B6.4 with a fake program B6.4-1 / B6.4-2 a lab suite asks for the missing value, shows the list output, and Cancel starts nothing",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "testingCancel.test.ts",
+      "title": "B6.5 cancellation, and the lab path of B6.4 with a fake program B6.4 item 4 / B6.5-2 a confirmed lab run gets the lab values and is printed; a declined stop leaves it running; Stop kills it",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B9"
+    },
+    {
+      "file": "watch.test.ts",
+      "title": "B1.7 the index stays current B1.7-1 / E-B8 hover half: a catalog save is visible in hover within 1 s, without a reload",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B8"
+    },
+    {
+      "file": "watch.test.ts",
+      "title": "B1.7 the index stays current E-B8 completion half (B3.4): after Build-Schema.ps1, key completion in the step offers reason, once",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B8"
+    },
+    {
+      "file": "watch.test.ts",
+      "title": "B1.7 the index stays current B1.7-2 a new registration line is a definition target within 1 s of save; a new suite file is indexed",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B8"
+    },
+    {
+      "file": "watch.test.ts",
+      "title": "B1.7 the index stays current an unsaved edit to a suite is indexed after the debounce",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B8"
+    },
+    {
+      "file": "watch.test.ts",
+      "title": "B1.7 the index stays current a deleted suite leaves the index",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B8"
+    },
+    {
+      "file": "watch.test.ts",
+      "title": "B1.7 the index stays current a settings change rebuilds the layout and the index, reporting a wrong type",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B8"
+    },
+    {
+      "file": "worker.test.ts",
+      "title": "B8.1 the lint worker, and E-B11 for the typescript library B8.1 item 4: Build lint tool builds the typescript library; open lints through one worker",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "worker.test.ts",
+      "title": "B8.1 the lint worker, and E-B11 for the typescript library E-B11 the library renamed away: \"Lint: typescript not built\", the E301 kept and marked stale; restoring and saving clears it",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "worker.test.ts",
+      "title": "B8.1 the lint worker, and E-B11 for the typescript library E-B11 apiVersion 2.0.0: \"Lint: the typescript library speaks API 2.0.0; this extension speaks 1.x\", the E301 kept and marked stale; restoring and saving clears it",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "worker.test.ts",
+      "title": "B8.1 the lint worker, and E-B11 for the typescript library E-B11 lint() loops forever: \"Lint timed out after 5 s\", the E301 kept and marked stale; restoring and saving clears it",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "worker.test.ts",
+      "title": "B8.1 the lint worker, and E-B11 for the typescript library E-B11 lint() throws: \"Lint: the typescript library failed\", the E301 kept and marked stale; restoring and saving clears it",
+      "state": "passed",
+      "session": "worktree",
+      "scenario": "E-B11"
+    },
+    {
+      "file": "trust.test.ts",
+      "title": "E-B15 an untrusted workspace runs no binding code the window is untrusted, and the status bar says lint and run are disabled",
+      "state": "passed",
+      "session": "untrusted",
+      "scenario": "E-B15"
+    },
+    {
+      "file": "trust.test.ts",
+      "title": "E-B15 an untrusted workspace runs no binding code B2.6-1 opening a suite, linting it and asking for actions start no process",
+      "state": "passed",
+      "session": "untrusted",
+      "scenario": "E-B15"
+    },
+    {
+      "file": "trust.test.ts",
+      "title": "E-B15 an untrusted workspace runs no binding code B2.6-2 navigation and hover still answer",
+      "state": "passed",
+      "session": "untrusted",
+      "scenario": "E-B15"
+    },
+    {
+      "file": "trust.test.ts",
+      "title": "E-B15 an untrusted workspace runs no binding code B8.1-4 worker half: with the typescript tool, opening, typing and linting create no worker",
+      "state": "passed",
+      "session": "untrusted",
+      "scenario": "E-B15"
+    },
+    {
+      "file": "trust.test.ts",
+      "title": "E-B15 an untrusted workspace runs no binding code B2.6-3 granting trust lints open suites without a reload",
+      "state": "passed",
+      "session": "untrusted",
+      "scenario": "E-B15"
+    }
+  ]
+}

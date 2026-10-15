@@ -9,3 +9,8 @@ coverage/**
 **/*.map
 tsconfig*.json
 esbuild.mjs
+artifacts/**
+*.vsix
+*.vsix.sha256
+.claude/**
+.gitignore
