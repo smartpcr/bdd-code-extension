@@ -1,0 +1,6 @@
+params:
+  - { name: ignored, default: x }
+tests:
+  - name: a-library-may-not-run-a-case
+    steps:
+      - action: fixture.state

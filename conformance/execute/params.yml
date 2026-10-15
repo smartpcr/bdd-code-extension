@@ -1,0 +1,22 @@
+suite: params
+description: A parameter takes its value from the highest source that names it.
+tags: [conformance]
+
+params:
+  - { name: fromFile, type: string, default: the-file, description: Declared here and overridden by nothing. }
+  - { name: fromCommandLine, type: string, default: the-file, description: Declared here and overridden on the command line. }
+
+tests:
+  - name: a-case-that-reads-both
+    params:
+      - { name: fromCase, value: the-case }
+    steps:
+      - when: the three values are published
+        action: core.set
+        value: ${param.fromFile}|${param.fromCase}|${param.fromCommandLine}
+        captureAs: joined
+      - then: each one came from the level that names it
+        action: core.noop
+        asserts:
+          - var: joined
+            equals: the-file|the-case|the-command-line

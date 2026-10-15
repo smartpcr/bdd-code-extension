@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/spec/suite.extension.schema.json",
+  "title": "Suite-schema extension",
+  "description": "What a workspace adds to the core suite schema, imported by a catalog under suiteSchema (DEC-S10). It can add fields to four places and definitions they refer to, and nothing else: it cannot remove, loosen or redefine a core field, so a suite valid against the core stays valid.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "suite": {
+      "description": "Fields added to the top level of a suite, by name. A name the core already declares is refused.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "description": "A JSON Schema for one added field.",
+        "type": [
+          "object",
+          "boolean"
+        ]
+      }
+    },
+    "defaults": {
+      "description": "Fields added to the defaults block, by name. A name the core already declares is refused.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "description": "A JSON Schema for one added field.",
+        "type": [
+          "object",
+          "boolean"
+        ]
+      }
+    },
+    "case": {
+      "description": "Fields added to a case, by name. A name the core already declares is refused.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "description": "A JSON Schema for one added field.",
+        "type": [
+          "object",
+          "boolean"
+        ]
+      }
+    },
+    "step": {
+      "description": "Fields added to every step: each action's branch, the step envelope and a meta step use site, by name. A name the core already declares is refused.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "description": "A JSON Schema for one added field.",
+        "type": [
+          "object",
+          "boolean"
+        ]
+      }
+    },
+    "$defs": {
+      "description": "Definitions the added fields refer to as #/$defs/<name>. A name the core already defines is refused.",
+      "type": "object",
+      "additionalProperties": {
+        "description": "A JSON Schema for one added field.",
+        "type": [
+          "object",
+          "boolean"
+        ]
+      }
+    }
+  }
+}

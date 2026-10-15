@@ -1,0 +1,98 @@
+{
+  "kind": "validate",
+  "suite": "validate/shapes.yml",
+  "description": "Wrong types and unresolvable paths at many places in one file, to pin the sort order.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "W303",
+      "severity": "warning",
+      "line": 5,
+      "column": 13
+    },
+    {
+      "code": "E103",
+      "severity": "error",
+      "line": 7,
+      "column": 4
+    },
+    {
+      "code": "E103",
+      "severity": "error",
+      "line": 12,
+      "column": 9
+    },
+    {
+      "code": "E103",
+      "severity": "error",
+      "line": 12,
+      "column": 9
+    },
+    {
+      "code": "E104",
+      "severity": "error",
+      "line": 13,
+      "column": 17
+    },
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 14,
+      "column": 20
+    },
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 17,
+      "column": 20
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 19,
+      "column": 15
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 20,
+      "column": 17
+    },
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 21,
+      "column": 20
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 24,
+      "column": 17
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 27,
+      "column": 15
+    },
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 28,
+      "column": 20
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 30,
+      "column": 14
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 32,
+      "column": 14
+    }
+  ]
+}

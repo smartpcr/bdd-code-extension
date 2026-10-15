@@ -1,0 +1,32 @@
+{
+  "kind": "validate",
+  "suite": "validate/gherkin.yml",
+  "description": "Keywords out of order, two on one step, an and with nothing before it, and a half-labelled list.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "W304",
+      "severity": "warning",
+      "line": 4,
+      "column": 5
+    },
+    {
+      "code": "E212",
+      "severity": "error",
+      "line": 5,
+      "column": 9
+    },
+    {
+      "code": "E212",
+      "severity": "error",
+      "line": 9,
+      "column": 9
+    },
+    {
+      "code": "E212",
+      "severity": "error",
+      "line": 18,
+      "column": 9
+    }
+  ]
+}

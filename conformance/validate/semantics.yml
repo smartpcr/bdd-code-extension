@@ -1,0 +1,24 @@
+suite: semantics
+defaults:
+  cluster: HOST-CL01
+  target: HOST-N1
+tests:
+  - name: twice
+    timeoutSec: 0
+    steps:
+      - action: fixture.state
+        captureAs: cs
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up
+  - name: twice
+    cleanupTimeoutSec: 20000
+    steps:
+      - meta: never-declared
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up

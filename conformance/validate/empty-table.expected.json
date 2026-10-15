@@ -1,0 +1,20 @@
+{
+  "kind": "validate",
+  "suite": "validate/empty-table.yml",
+  "description": "A step table with no rows, which would run the step no times and say nothing.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E213",
+      "severity": "error",
+      "line": 8,
+      "column": 9
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 10,
+      "column": 14
+    }
+  ]
+}

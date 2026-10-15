@@ -1,0 +1,8 @@
+suite: lifecycle-case-limit
+tags: [lifecycle]
+tests:
+  - name: buys-itself-more-time
+    timeoutSec: 901
+    steps:
+      - action: lifecycle.get
+        route: /labs

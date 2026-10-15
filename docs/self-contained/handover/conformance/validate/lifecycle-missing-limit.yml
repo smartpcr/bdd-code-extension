@@ -1,0 +1,7 @@
+suite: lifecycle-missing-limit
+tags: [lifecycle]
+tests:
+  - name: declares-no-limit
+    steps:
+      - action: lifecycle.get
+        route: /labs

@@ -1,0 +1,21 @@
+suite: hook-rules
+setup:
+  - and: continues nothing
+    action: fixture.state
+    captureAs: agent
+    asserts:
+      - var: agent.State
+afterEach:
+  - action: fixture.state
+    captureAs: afterCase
+    asserts:
+      - var: afterCase.Stat
+        equals: Up
+tests:
+  - name: reads-nothing-in-particular
+    steps:
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up

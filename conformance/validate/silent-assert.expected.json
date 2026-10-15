@@ -1,0 +1,20 @@
+{
+  "kind": "validate",
+  "suite": "validate/silent-assert.yml",
+  "description": "An operator typo, which is both an unknown key and an assertion that asserts nothing.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E204",
+      "severity": "error",
+      "line": 8,
+      "column": 9
+    },
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 9,
+      "column": 9
+    }
+  ]
+}

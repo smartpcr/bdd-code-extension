@@ -1,0 +1,20 @@
+{
+  "kind": "validate",
+  "suite": "validate/lifecycle-default-limit.yml",
+  "description": "A lifecycle suite putting the per-case limit in defaults, where it would hide which cases fit.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 4,
+      "column": 3
+    },
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 6,
+      "column": 5
+    }
+  ]
+}

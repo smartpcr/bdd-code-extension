@@ -1,0 +1,33 @@
+suite: shapes
+defaults:
+  cluster: HOST-CL01
+params:
+  - { name: region, default: file }
+tests:
+  -
+  - name: steps-that-are-not-mappings
+    params:
+      - { name: region, value: case }
+    steps:
+      - just-a-string
+      - action: entirely.unlike.anything.declared
+        captureAs: nothing
+      - action: invoke
+        script: 'Get-Date'
+        captureAs: origOwner
+      - action: fixture.suspend
+        node: ${origOwner}
+        target: ${capture}
+        captureAs: suspended
+      - action: fixture.state
+        cluster: ${param}
+        target: ${defaults.nope}
+        captureAs: cs
+      - action: fixture.resume
+        node: ${clustr}
+        captureAs: resumed
+    asserts:
+      - var: cs.Nodes.0.Totally
+        equals: Up
+      - var: capturedByCapturePath
+        isNotNull: true

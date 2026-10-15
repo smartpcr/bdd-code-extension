@@ -1,0 +1,38 @@
+{
+  "kind": "validate",
+  "suite": "validate/shared-checks-missing.yml",
+  "description": "Step 3.3: a suite that imports the shared checks, never calls one, skips two without a reason (one of them no shared check at all), and calls a check without its required parameter.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E214",
+      "severity": "error",
+      "line": 3,
+      "column": 5
+    },
+    {
+      "code": "E214",
+      "severity": "error",
+      "line": 4,
+      "column": 1
+    },
+    {
+      "code": "E214",
+      "severity": "error",
+      "line": 4,
+      "column": 1
+    },
+    {
+      "code": "E208",
+      "severity": "error",
+      "line": 10,
+      "column": 15
+    },
+    {
+      "code": "E208",
+      "severity": "error",
+      "line": 15,
+      "column": 15
+    }
+  ]
+}

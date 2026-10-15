@@ -22,6 +22,7 @@ import { ActionStatus, suiteTokens, TOKEN_MODIFIERS, TOKEN_TYPES, TokenContext }
 import { Debouncer } from '../core/debounce';
 import { fileKey } from '../core/paths';
 import { FolderIndexer, toRange } from './indexer';
+import { stepEnvelopeKeys } from './scaffold';
 
 export const LANGUAGE_ID = 'bdd-suite';
 /** What the suite features answer for: a YAML file, or one in the BDD Suite mode. */
@@ -84,14 +85,7 @@ class SchemaCache {
 export function tokenContext(ix: FolderIndexer, file: string): TokenContext {
   const catalog = ix.index.catalog;
   const target = ix.layout.settings.targetBinding;
-  const base = path.join(path.dirname(ix.layout.catalogPath), 'suite.base.json');
-  let text: string | undefined;
-  try {
-    text = fs.readFileSync(base, 'utf8');
-  } catch {
-    // Missing, or unreadable for now (EMFILE while a window starts): the default keys, never a failed provider.
-  }
-  const envelope = new Set((text === undefined ? undefined : commonStepKeys(text)) ?? DEFAULT_ENVELOPE);
+  const envelope = new Set(stepEnvelopeKeys(ix.layout.catalogPath) ?? DEFAULT_ENVELOPE);
   const metas = ix.index.visibleMetaSteps(file);
   return {
     envelope,

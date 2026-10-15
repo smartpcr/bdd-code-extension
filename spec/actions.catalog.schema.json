@@ -1,44 +1,85 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/os-context/test/e2e/schema/actions.catalog.schema.json",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/spec/actions.catalog.schema.json",
   "title": "Action catalog",
-  "description": "The vocabulary of a suite file: every action a runner registers, the parameters it reads, the shape of what it captures, the bindings that implement it, and whether it can be cancelled. Build-Schema.ps1 folds this into suite.schema.json; a validator reads it for E104, E105, E201 and E302. It says nothing about how an action behaves.",
+  "description": "The vocabulary of a suite file: every action a runtime registers, the parameters it reads, the shape of what it captures, the bindings that implement it, and whether it can be cancelled. A catalog may import other catalogs (the core catalog first of all) and suite-schema extensions. Build-Schema.ps1 folds the merged catalog into suite.schema.json; a validator reads it for E104, E105, E201 and E302. It says nothing about how an action behaves.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["catalogVersion", "bindings", "actions"],
+  "required": [
+    "catalogVersion"
+  ],
   "properties": {
-    "catalogVersion": { "type": "integer", "const": 1 },
-    "bindings": {
-      "description": "Every binding name an action may claim: the five runners (PowerShell, C#, Go, Rust, TypeScript). A name outside this list is a typo.",
+    "catalogVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "imports": {
+      "description": "Other catalogs this one extends, resolved relative to this file, depth first in listed order. Their actions, binding names and suite-schema extensions are part of this catalog. A name declared twice, in this file or across imports, is an error naming both files; so is an import cycle.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "enum": ["powershell", "csharp", "go", "rust", "typescript"] }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "suiteSchema": {
+      "description": "Suite-schema extensions (files valid against suite.extension.schema.json) that add fields to the suite, its defaults, a case or a step, resolved relative to this file. An extension may only add: a field the core or another extension already has is an error.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "bindings": {
+      "description": "Every binding name an action in this file may claim. The built-in runtimes are powershell, csharp, go, rust and typescript; a workspace may name a binding of its own. An action naming a binding outside the merged list is a typo.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*$"
+      }
     },
     "actions": {
       "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/action" }
+      "items": {
+        "$ref": "#/$defs/action"
+      }
     }
   },
   "$defs": {
     "action": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "summary", "bindings", "interruptible", "captures"],
+      "required": [
+        "name",
+        "summary",
+        "bindings",
+        "interruptible",
+        "captures"
+      ],
       "properties": {
         "name": {
           "description": "The name a step writes after action:. Dotted family.verb.",
           "type": "string",
           "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)*$"
         },
-        "summary": { "type": "string", "minLength": 1 },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
         "bindings": {
           "description": "The bindings that implement this action. A suite naming an action its binding does not implement is E201.",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "enum": ["powershell", "csharp", "go", "rust", "typescript"] }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*$"
+          }
         },
         "interruptible": {
           "description": "false when the handler blocks in a call the runner cannot cancel, such as a PSDirect or WinRM session. A timeout on one of these is reported as abandoned rather than cancelled.",
@@ -51,56 +92,110 @@
         "params": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/param" }
+          "items": {
+            "$ref": "#/$defs/param"
+          }
         },
         "captures": {
           "description": "The shape of what the handler returns, as the declared type of every path a suite may read.",
           "$ref": "#/$defs/shape"
         },
-        "notes": { "type": "string" }
+        "notes": {
+          "type": "string"
+        }
       }
     },
     "param": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "type"],
+      "required": [
+        "name",
+        "type"
+      ],
       "properties": {
-        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "type": { "enum": ["string", "integer", "number", "boolean", "object", "array", "any"] },
-        "required": { "type": "boolean" },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "object",
+            "array",
+            "any"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
         "default": true,
         "ref": {
-          "description": "Validate the value against a hand-written definition in suite.base.json instead of by type alone. This is how the nested step and condition of wait are checked.",
-          "enum": ["step", "assert"]
+          "description": "Validate the value against a hand-written definition in suite.core.json instead of by type alone. This is how the nested step and condition of wait are checked.",
+          "enum": [
+            "step",
+            "assert"
+          ]
         },
         "enum": {
           "description": "The only values a suite may give the parameter; the generated suite schema refuses any other.",
           "type": "array",
           "minItems": 1,
-          "items": { "type": ["string", "integer", "number", "boolean"] }
+          "items": {
+            "type": [
+              "string",
+              "integer",
+              "number",
+              "boolean"
+            ]
+          }
         },
         "items": {
-          "description": "For an array parameter, the JSON schema of each element (lifecycle.deploy acceptStatus).",
+          "description": "For an array parameter, the JSON schema of each element.",
           "type": "object"
         },
-        "description": { "type": "string" }
+        "description": {
+          "type": "string"
+        }
       }
     },
     "shape": {
-      "description": "A closed subset of JSON Schema: enough to say what a capture path means, small enough that four bindings read it identically. An object that declares additionalProperties true is open, and a path into it cannot be checked, which is the honest answer for an API response. Two rules this schema cannot express without conditionals, which the PowerShell JSON Schema implementation reports misleadingly, are asserted by the catalog test instead: an object shape declares additionalProperties, and an array shape declares items. Neither may be left to a default nobody wrote down.",
+      "description": "A closed subset of JSON Schema: enough to say what a capture path means, small enough that every binding reads it identically. An object that declares additionalProperties true is open, and a path into it cannot be checked, which is the honest answer for an API response. Two rules this schema cannot express without conditionals, which the PowerShell JSON Schema implementation reports misleadingly, are asserted by the catalog test instead: an object shape declares additionalProperties, and an array shape declares items. Neither may be left to a default nobody wrote down.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "enum": ["object", "array", "string", "integer", "number", "boolean", "any"] },
-        "description": { "type": "string" },
-        "additionalProperties": { "type": "boolean" },
+        "type": {
+          "enum": [
+            "object",
+            "array",
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "any"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        },
         "properties": {
           "type": "object",
           "minProperties": 1,
-          "additionalProperties": { "$ref": "#/$defs/shape" }
+          "additionalProperties": {
+            "$ref": "#/$defs/shape"
+          }
         },
-        "items": { "$ref": "#/$defs/shape" }
+        "items": {
+          "$ref": "#/$defs/shape"
+        }
       }
     }
   }

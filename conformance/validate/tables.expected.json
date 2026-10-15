@@ -1,0 +1,56 @@
+{
+  "kind": "validate",
+  "suite": "validate/tables.yml",
+  "description": "Every table rule broken at once: differing columns, a repeated column, a repeated row, and a step table inside an outline.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E213",
+      "severity": "error",
+      "line": 11,
+      "column": 13
+    },
+    {
+      "code": "E213",
+      "severity": "error",
+      "line": 12,
+      "column": 13
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 20,
+      "column": 15
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 25,
+      "column": 14
+    },
+    {
+      "code": "E213",
+      "severity": "error",
+      "line": 31,
+      "column": 9
+    },
+    {
+      "code": "E213",
+      "severity": "error",
+      "line": 37,
+      "column": 9
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 40,
+      "column": 14
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 46,
+      "column": 15
+    }
+  ]
+}

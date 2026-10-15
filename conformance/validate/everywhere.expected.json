@@ -1,0 +1,62 @@
+{
+  "kind": "validate",
+  "suite": "validate/everywhere.yml",
+  "description": "A file wrong at all three levels at once, which is what proves the validator does not stop at the first error.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 1,
+      "column": 1
+    },
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 4,
+      "column": 3
+    },
+    {
+      "code": "E210",
+      "severity": "error",
+      "line": 6,
+      "column": 5
+    },
+    {
+      "code": "W303",
+      "severity": "warning",
+      "line": 6,
+      "column": 13
+    },
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 6,
+      "column": 20
+    },
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 9,
+      "column": 5
+    },
+    {
+      "code": "E206",
+      "severity": "error",
+      "line": 11,
+      "column": 15
+    },
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 14,
+      "column": 24
+    },
+    {
+      "code": "E101",
+      "severity": "error",
+      "line": 22,
+      "column": 9
+    }
+  ]
+}

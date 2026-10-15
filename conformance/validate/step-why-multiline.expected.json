@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/step-why-multiline.yml",
+  "description": "A why that runs onto a second line, which the format refuses as a value of the wrong shape.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E103",
+      "severity": "error",
+      "line": 6,
+      "column": 14
+    }
+  ]
+}

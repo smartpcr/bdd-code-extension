@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/broken.yml",
+  "description": "A file that is not YAML at all.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E100",
+      "severity": "error",
+      "line": 1,
+      "column": 1
+    }
+  ]
+}

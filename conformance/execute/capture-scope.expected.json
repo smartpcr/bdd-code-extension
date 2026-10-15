@@ -1,0 +1,52 @@
+{
+  "kind": "execute",
+  "suite": "execute/capture-scope.yml",
+  "description": "A capture belongs to the case that produced it, and what the suite setup captured reaches every case.",
+  "exitCode": 0,
+  "trace": [
+    {
+      "phase": "suite-setup",
+      "step": "step 1 (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-that-captures",
+      "step": "when this case captures something of its own (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-that-captures",
+      "step": "then it sees its own capture and the suite's (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-case-that-captures",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-that-does-not",
+      "step": "when this case captures something else (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-that-does-not",
+      "step": "then it still sees the suite's capture (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-case-that-does-not",
+      "status": "passed"
+    }
+  ]
+}

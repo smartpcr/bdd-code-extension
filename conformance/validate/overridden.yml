@@ -1,0 +1,20 @@
+suite: overridden
+imports:
+  - _lib/library.yml
+params:
+  - { name: region, default: file, override: true }
+metaSteps:
+  - name: shared
+    override: true
+    steps:
+      - action: fixture.state
+        captureAs: cs
+tests:
+  - name: reads-the-parameter
+    steps:
+      - action: fixture.state
+        target: ${param.region}
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up

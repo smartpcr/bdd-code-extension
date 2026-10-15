@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/deep.yml",
+  "description": "Meta steps nested one level past the limit, which is refused for depth rather than for a cycle.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E207",
+      "severity": "error",
+      "line": 3,
+      "column": 5
+    }
+  ]
+}

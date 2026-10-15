@@ -1,0 +1,9 @@
+suite: silent
+tests:
+  - name: an-assertion-that-asserts-nothing
+    steps:
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equal: Up

@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/row-scope-wrong.yml",
+  "description": "A path into a table's capture that forgets the step ran once per row.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 12,
+      "column": 18
+    }
+  ]
+}

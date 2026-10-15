@@ -1,0 +1,332 @@
+# The expression language, as data.
+#
+# This file is the specification. The grammar in the design describes it; when
+# the two disagree, this file is what four bindings are held to.
+#
+# Every row is evaluated against expressions/context.yaml and states one of:
+#
+#   value + type   the value the expression produces, and the type it has. A
+#                  binding that returns 3 where another returns "3" has not
+#                  agreed about anything, so the type is asserted as well.
+#   code           the diagnostic code the expression is refused with.
+#
+# `expr` is a bare expression, evaluated as though it were inside ${ }.
+# `template` is a whole string, substituted. The two differ in exactly one way,
+# which several rows below pin: a string that is nothing but one expression
+# keeps that expression's type, and a string with an expression inside text
+# becomes a string.
+#
+# `stable: true` evaluates the row the way a vars block is evaluated, where a
+# value that changes between runs is refused.
+#
+# Types are named for what they are rather than for what any one language calls
+# them: int, float, string, bool, null. A whole number is int whichever width
+# the binding stores it in.
+
+version: 1
+
+cases:
+  # --- literals -------------------------------------------------------------
+  - { expr: '1', value: 1, type: int }
+  - { expr: '0', value: 0, type: int }
+  - { expr: '-1', value: -1, type: int }
+  - { expr: '1.5', value: 1.5, type: float }
+  - { expr: '0.0', value: 0.0, type: float }
+  - { expr: "'a'", value: a, type: string }
+  - { expr: '"a"', value: a, type: string }
+  - { expr: "''", value: '', type: string }
+  - { expr: 'true', value: true, type: bool }
+  - { expr: 'false', value: false, type: bool }
+  - { expr: 'null', value: null, type: 'null' }
+
+  # --- arithmetic -----------------------------------------------------------
+  - { expr: '1 + 2', value: 3, type: int }
+  - { expr: '7 - 9', value: -2, type: int }
+  - { expr: '2 * 3', value: 6, type: int }
+  - { expr: '6 / 3', value: 2, type: int }
+  - { expr: '7 / 2', value: 3.5, type: float }
+  - { expr: '10 % 3', value: 1, type: int }
+  - { expr: '10 % 5', value: 0, type: int }
+  - { expr: '-5 + 8', value: 3, type: int }
+  - { expr: '- 3', value: -3, type: int }
+  - { expr: '1.5 + 1.5', value: 3.0, type: float }
+  - { expr: '1.5 * 2', value: 3.0, type: float }
+  - { expr: '5.0 - 1', value: 4.0, type: float }
+  - { expr: '1 / 0', code: E307 }
+  - { expr: '1 % 0', code: E307 }
+  - { expr: '1.0 / 0', code: E307 }
+
+  # --- precedence and associativity ----------------------------------------
+  - { expr: '2 + 3 * 4', value: 14, type: int }
+  - { expr: '(2 + 3) * 4', value: 20, type: int }
+  - { expr: '10 - 4 - 3', value: 3, type: int }
+  - { expr: '100 / 10 / 2', value: 5, type: int }
+  - { expr: '1 + 2 * 3 - 4 / 2', value: 5, type: int }
+  - { expr: '2 * 3 % 4', value: 2, type: int }
+  - { expr: '-2 * 3', value: -6, type: int }
+  - { expr: '(1 + 2) == 3', value: true, type: bool }
+  - { expr: '1 + 2 == 3', value: true, type: bool }
+  - { expr: 'true or false and false', value: true, type: bool }
+  - { expr: '(true or false) and false', value: false, type: bool }
+  - { expr: 'not true and false', value: false, type: bool }
+  - { expr: 'not (true and false)', value: true, type: bool }
+  - { expr: 'not not true', value: true, type: bool }
+
+  # --- plus is numeric or textual, and which one depends on the operands ----
+  - { expr: "'a' + 'b'", value: ab, type: string }
+  - { expr: '"x" + 1', value: x1, type: string }
+  - { expr: '1 + "x"', value: 1x, type: string }
+  - { expr: '"3" + 4', value: 7, type: int }
+  - { expr: '4 + "3"', value: 7, type: int }
+  - { expr: '"1.5" + 1', value: 2.5, type: float }
+  - { expr: "'a' - 1", code: E307 }
+  - { expr: "'a' * 2", code: E307 }
+
+  # --- comparison -----------------------------------------------------------
+  - { expr: '1 == 1', value: true, type: bool }
+  - { expr: '1 == 2', value: false, type: bool }
+  - { expr: '1 != 2', value: true, type: bool }
+  - { expr: '1 != 1', value: false, type: bool }
+  - { expr: '"a" == "A"', value: true, type: bool }
+  - { expr: '"a" != "A"', value: false, type: bool }
+  - { expr: '"a" == "b"', value: false, type: bool }
+  - { expr: '1 == "1"', value: true, type: bool }
+  - { expr: '"x" == 1', value: false, type: bool }
+  - { expr: '"" == null', value: true, type: bool }
+  - { expr: 'null == null', value: true, type: bool }
+  - { expr: '2 < 10', value: true, type: bool }
+  - { expr: '10 < 2', value: false, type: bool }
+  - { expr: '"9" > "10"', value: false, type: bool }
+  - { expr: '2 <= 2', value: true, type: bool }
+  - { expr: '2 < 2', value: false, type: bool }
+  - { expr: '3 >= 4', value: false, type: bool }
+  - { expr: '4 >= 4', value: true, type: bool }
+  - { expr: '4 > 3', value: true, type: bool }
+  - { expr: '"a" < "b"', code: E307 }
+  - { expr: '1 < 2 == true', code: E305 }
+
+  # --- boolean --------------------------------------------------------------
+  - { expr: 'true and true', value: true, type: bool }
+  - { expr: 'true and false', value: false, type: bool }
+  - { expr: 'false and false', value: false, type: bool }
+  - { expr: 'true or false', value: true, type: bool }
+  - { expr: 'false or false', value: false, type: bool }
+  - { expr: 'not false', value: true, type: bool }
+  - { expr: 'not true', value: false, type: bool }
+  - { expr: 'not 1', value: false, type: bool }
+  - { expr: "not 'yes'", value: false, type: bool }
+  - { expr: "not ''", value: true, type: bool }
+  - { expr: "'yes' and true", value: true, type: bool }
+  - { expr: "'maybe' and true", code: E307 }
+
+  # --- the ternary ----------------------------------------------------------
+  - { expr: '1 == 1 ? "yes" : "no"', value: 'yes', type: string }
+  - { expr: '1 == 2 ? "yes" : "no"', value: 'no', type: string }
+  - { expr: '"yes" ? 1 : 2', value: 1, type: int }
+  - { expr: "'' ? 1 : 2", value: 2, type: int }
+  - { expr: 'true ? 1 : 2', value: 1, type: int }
+  # Only the selected branch is evaluated; both are still parsed/validated.
+  - { expr: 'true ? capture.run.id : capture.absent', value: abc, type: string }
+  - { expr: 'false ? capture.absent : capture.run.id', value: abc, type: string }
+  - { expr: 'true ? capture.absent : 1', code: E301 }
+  - { expr: 'false ? 1 : capture.absent', code: E301 }
+  - { expr: 'true ? 7 : 1 / 0', value: 7, type: int }
+  - { expr: 'false ? int("invalid") : 8', value: 8, type: int }
+  - { expr: 'true ? 3 : ("invalid" < 2)', value: 3, type: int }
+  - { expr: 'false ? (capture.absent ? 1 : 2) : 9', value: 9, type: int }
+  - { expr: 'true ? (false ? capture.absent : 4) : capture.absent', value: 4, type: int }
+  - { expr: '(false ? capture.absent : 2) + capture.cs.Count', value: 5, type: int }
+  - { expr: 'true ? null : capture.absent', value: null, type: 'null' }
+  - { expr: 'true ? 1 : (2 + )', code: E305 }
+  - { expr: 'true ? 1 : nope()', code: E306 }
+  - { expr: 'true ? 1 : len()', code: E307 }
+  - { expr: 'true ? 1 : uuid()', stable: true, code: E309 }
+  - { expr: 'true ? "a" + "b" : "c"', value: ab, type: string }
+  - { expr: 'false ? 1 : 2 + 3', value: 5, type: int }
+  - { expr: '1 == 1 ? "yes"', code: E305 }
+
+  # --- paths ----------------------------------------------------------------
+  - { expr: 'cluster', value: HOST-CL01, type: string }
+  - { expr: 'target', value: HOST-N1, type: string }
+  - { expr: 'timeoutSec', value: 300, type: int }
+  - { expr: 'labId', value: lab1, type: string }
+  - { expr: 'apiUrl', value: 'http://api/api/v1', type: string }
+  - { expr: 'defaults.target', value: HOST-N1, type: string }
+  - { expr: 'defaults.timeoutSec', value: 600, type: int }
+  - { expr: 'capture.cs.State', value: Up, type: string }
+  - { expr: 'capture.cs.Count', value: 3, type: int }
+  - { expr: 'capture.cs.Nodes.0', value: N1, type: string }
+  - { expr: 'capture.cs.Nodes.1', value: N2, type: string }
+  - { expr: 'capture.cs.Nodes.2', value: N3, type: string }
+  - { expr: 'capture.cs.Deep.inner.leaf', value: found, type: string }
+  - { expr: 'capture.run.id', value: abc, type: string }
+  - { expr: 'capture.run.ok', value: true, type: bool }
+  - { expr: 'param.labId', value: lab1, type: string }
+  - { expr: 'param.budget', value: '120', type: string }
+  - { expr: 'param.blank', value: '', type: string }
+  - { expr: 'var.deadline', value: 240, type: int }
+  - { expr: 'var.region', value: west, type: string }
+  - { expr: 'row.node', value: N2, type: string }
+  - { expr: 'row.expected', value: Paused, type: string }
+  - { expr: 'capture.nope', code: E301 }
+  - { expr: 'capture.cs.nope', code: E301 }
+  - { expr: 'capture.cs.Deep.inner.nope', code: E301 }
+  - { expr: 'capture.cs.Nodes.9', code: E301 }
+  - { expr: 'nosuchroot', code: E301 }
+  - { expr: 'nosuchroot.deeper', code: E301 }
+  - { expr: 'param.nope', code: E301 }
+  - { expr: 'var.nope', code: E301 }
+  - { expr: 'row.nope', code: E301 }
+
+  # --- the closed function list --------------------------------------------
+  - { expr: 'lower("ABC")', value: abc, type: string }
+  - { expr: 'lower(capture.cs.State)', value: up, type: string }
+  - { expr: 'lower("")', value: '', type: string }
+  - { expr: 'upper("abc")', value: ABC, type: string }
+  - { expr: 'upper(cluster)', value: HOST-CL01, type: string }
+  - { expr: 'upper(null)', value: '', type: string }
+  - { expr: 'trim("  x  ")', value: x, type: string }
+  - { expr: 'trim(" a b ")', value: 'a b', type: string }
+  - { expr: 'trim("x")', value: x, type: string }
+  - { expr: 'replace("a-b", "-", "+")', value: 'a+b', type: string }
+  - { expr: 'replace("aaa", "a", "b")', value: bbb, type: string }
+  - { expr: 'replace("abc", "z", "y")', value: abc, type: string }
+  - { expr: 'format("{0}-{1}", "a", 1)', value: 'a-1', type: string }
+  - { expr: 'format("plain")', value: plain, type: string }
+  - { expr: 'format("{0}{0}", "x")', value: xx, type: string }
+  - { expr: 'split("a,b", ",")', type: list, count: 2 }
+  - { expr: 'split("a,b,c", ",")', type: list, count: 3 }
+  - { expr: 'first(split("a,b,c", ","))', value: a, type: string }
+  - { expr: 'last(split("a,b,c", ","))', value: c, type: string }
+  - { expr: 'len(split("a,b,c", ","))', value: 3, type: int }
+  - { expr: 'join(capture.cs.Nodes, ",")', value: 'N1,N2,N3', type: string }
+  - { expr: 'join(capture.cs.Nodes, "")', value: N1N2N3, type: string }
+  - { expr: 'join(capture.cs.Empty, ",")', value: '', type: string }
+  - { expr: 'startsWith(cluster, "host")', value: true, type: bool }
+  - { expr: 'startsWith(cluster, "N1")', value: false, type: bool }
+  - { expr: 'endsWith(cluster, "CL01")', value: true, type: bool }
+  - { expr: 'endsWith(cluster, "host")', value: false, type: bool }
+  - { expr: 'contains(cluster, "host")', value: true, type: bool }
+  - { expr: 'contains(cluster, "nope")', value: false, type: bool }
+  - { expr: 'contains(capture.cs.Nodes, "N2")', value: true, type: bool }
+  - { expr: 'contains(capture.cs.Nodes, "N9")', value: false, type: bool }
+  - { expr: 'contains(capture.cs.Empty, "x")', value: false, type: bool }
+  - { expr: 'len("abc")', value: 3, type: int }
+  - { expr: 'len("")', value: 0, type: int }
+  - { expr: 'len(capture.cs.Nodes)', value: 3, type: int }
+  - { expr: 'len(capture.cs.Empty)', value: 0, type: int }
+  - { expr: 'len(null)', value: 0, type: int }
+  - { expr: 'len(1)', code: E307 }
+  - { expr: 'first(capture.cs.Nodes)', value: N1, type: string }
+  - { expr: 'first(capture.cs.Empty)', code: E307 }
+  - { expr: 'last(capture.cs.Nodes)', value: N3, type: string }
+  - { expr: 'last(capture.cs.Empty)', code: E307 }
+  - { expr: 'int("3")', value: 3, type: int }
+  - { expr: 'int("3.7")', value: 3, type: int }
+  - { expr: 'int(param.budget)', value: 120, type: int }
+  - { expr: 'int(3.7)', value: 3, type: int }
+  - { expr: 'int("abc")', code: E307 }
+  - { expr: 'float("1.5")', value: 1.5, type: float }
+  - { expr: 'float("2")', value: 2.0, type: float }
+  - { expr: 'float(3)', value: 3.0, type: float }
+  - { expr: 'float("abc")', code: E307 }
+  - { expr: 'str(1)', value: '1', type: string }
+  - { expr: 'str(1.5)', value: '1.5', type: string }
+  - { expr: 'str(true)', value: 'true', type: string }
+  - { expr: 'str(null)', value: '', type: string }
+  - { expr: 'bool("yes")', value: true, type: bool }
+  - { expr: 'bool("true")', value: true, type: bool }
+  - { expr: 'bool("1")', value: true, type: bool }
+  - { expr: 'bool("no")', value: false, type: bool }
+  - { expr: 'bool("false")', value: false, type: bool }
+  - { expr: 'bool("0")', value: false, type: bool }
+  - { expr: 'bool("")', value: false, type: bool }
+  - { expr: 'bool(1)', value: true, type: bool }
+  - { expr: 'bool(0)', value: false, type: bool }
+  - { expr: 'bool(true)', value: true, type: bool }
+  - { expr: 'bool("maybe")', code: E307 }
+  - { expr: 'default(param.blank, "fallback")', value: fallback, type: string }
+  - { expr: 'default(param.labId, "fallback")', value: lab1, type: string }
+  - { expr: 'default(null, "d")', value: d, type: string }
+  - { expr: 'default("", 1)', value: 1, type: int }
+
+  # --- the three that are not stable, and where that matters ---------------
+  - { expr: 'uuid()', type: string, length: 32 }
+  - { expr: 'nowIso()', type: string, length: 20 }
+  - { expr: 'env("PATH")', type: string }
+  - { expr: 'uuid()', stable: true, code: E309 }
+  - { expr: 'nowIso()', stable: true, code: E309 }
+  - { expr: 'env("PATH")', stable: true, code: E309 }
+  - { expr: 'upper("x")', stable: true, value: X, type: string }
+  - { expr: 'len(capture.cs.Nodes)', stable: true, value: 3, type: int }
+
+  # --- calling a function wrong --------------------------------------------
+  - { expr: 'lower()', code: E307 }
+  - { expr: 'lower("a", "b")', code: E307 }
+  - { expr: 'upper()', code: E307 }
+  - { expr: 'trim()', code: E307 }
+  - { expr: 'replace("a", "b")', code: E307 }
+  - { expr: 'replace("a", "b", "c", "d")', code: E307 }
+  - { expr: 'format()', code: E307 }
+  - { expr: 'split("a")', code: E307 }
+  - { expr: 'join(capture.cs.Nodes)', code: E307 }
+  - { expr: 'startsWith("a")', code: E307 }
+  - { expr: 'endsWith("a")', code: E307 }
+  - { expr: 'contains("a")', code: E307 }
+  - { expr: 'len()', code: E307 }
+  - { expr: 'first()', code: E307 }
+  - { expr: 'last()', code: E307 }
+  - { expr: 'int()', code: E307 }
+  - { expr: 'float()', code: E307 }
+  - { expr: 'str()', code: E307 }
+  - { expr: 'bool()', code: E307 }
+  - { expr: 'default("a")', code: E307 }
+  - { expr: 'env()', code: E307 }
+  - { expr: 'uuid("a")', code: E307 }
+  - { expr: 'nowIso("a")', code: E307 }
+  - { expr: 'lowercase("A")', code: E306 }
+  - { expr: 'nosuchfunction()', code: E306 }
+  - { expr: 'LOWER("A")', code: E306 }
+
+  # --- syntax ---------------------------------------------------------------
+  - { expr: '2 ^ 3', code: E305 }
+  - { expr: '1 +', code: E305 }
+  - { expr: '+ 1', code: E305 }
+  - { expr: '(1 + 2', code: E305 }
+  - { expr: '1 + 2)', code: E305 }
+  - { expr: 'lower("x"', code: E305 }
+  - { expr: '"unterminated', code: E305 }
+  - { expr: '1 1', code: E305 }
+  - { expr: 'capture.', code: E305 }
+  - { expr: '', code: E305 }
+  - { expr: '   ', code: E305 }
+  - { expr: 'capture.cs @ 1', code: E305 }
+
+  # --- substitution: a whole expression keeps its type, text makes a string -
+  - { template: '${timeoutSec}', value: 300, type: int }
+  - { template: '${capture.cs.Count}', value: 3, type: int }
+  - { template: '${capture.run.ok}', value: true, type: bool }
+  - { template: '${1 + 2}', value: 3, type: int }
+  - { template: '${cluster}', value: HOST-CL01, type: string }
+  - { template: 'host=${cluster}', value: 'host=HOST-CL01', type: string }
+  - { template: '${cluster} and ${target}', value: 'HOST-CL01 and HOST-N1', type: string }
+  - { template: 'budget ${timeoutSec}s', value: 'budget 300s', type: string }
+  - { template: '${timeoutSec} ', value: '300 ', type: string }
+  - { template: ' ${timeoutSec}', value: ' 300', type: string }
+  - { template: 'nothing to substitute', value: 'nothing to substitute', type: string }
+  - { template: '', value: '', type: string }
+  - { template: '${lower(cluster)}-suffix', value: 'host-cl01-suffix', type: string }
+  - { template: '${capture.nope}', code: E301 }
+  - { template: 'text ${capture.nope} more', code: E301 }
+
+  # --- the whole thing together --------------------------------------------
+  - { expr: 'capture.cs.Count == 3 and cluster == "HOST-CL01"', value: true, type: bool }
+  - { expr: 'int(param.budget) * 2 + 1', value: 241, type: int }
+  - { expr: 'lower(param.labId) + "-transport"', value: 'lab1-transport', type: string }
+  - { expr: 'len(capture.cs.Nodes) > 2 ? "enough" : "not enough"', value: enough, type: string }
+  - { expr: 'join(split("a,b,c", ","), "-")', value: 'a-b-c', type: string }
+  - { expr: 'upper(first(capture.cs.Nodes)) + str(len(capture.cs.Nodes))', value: N13, type: string }
+  - { expr: 'contains(capture.cs.Nodes, row.node) and capture.cs.State == "up"', value: true, type: bool }
+  - { expr: 'default(param.blank, cluster)', value: HOST-CL01, type: string }
+  - { expr: 'not contains(capture.cs.Nodes, "N9")', value: true, type: bool }
+  - { expr: 'trim(format("  {0}  ", cluster))', value: HOST-CL01, type: string }

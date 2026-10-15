@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/guard.yml",
+  "description": "A guard naming a capture no step in the case produces, which would silently disable a cleanup.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 13,
+      "column": 20
+    }
+  ]
+}

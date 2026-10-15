@@ -1,0 +1,13 @@
+suite: row-scope-wrong
+tests:
+  - name: the-other-way-round
+    steps:
+      - given: each node in turn
+        action: fixture.state
+        target: ${row.node}
+        captureAs: views
+        table:
+          - { node: HOST-N1 }
+        asserts:
+          - var: views.0.State
+            equals: Up

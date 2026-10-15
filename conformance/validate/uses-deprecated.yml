@@ -1,0 +1,10 @@
+suite: uses-deprecated
+tests:
+  - name: uses-the-retired-action
+    steps:
+      - action: invoke
+        script: 'Get-Date'
+        captureAs: now
+    asserts:
+      - var: now
+        isNotNull: true

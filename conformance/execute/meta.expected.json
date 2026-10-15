@@ -1,0 +1,60 @@
+{
+  "kind": "execute",
+  "suite": "execute/meta.yml",
+  "description": "A meta step expands at each use site, with its parameters bound and its own steps named.",
+  "exitCode": 0,
+  "trace": [
+    {
+      "phase": "step",
+      "case": "one-use-site-with-a-default",
+      "step": "given the first marker of unnamed (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "one-use-site-with-a-default",
+      "step": "given the second marker of unnamed (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "one-use-site-with-a-default",
+      "step": "then the second marker came back under the default label (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "one-use-site-with-a-default",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "one-use-site-with-an-argument",
+      "step": "given the first marker of chosen (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "one-use-site-with-an-argument",
+      "step": "given the second marker of chosen (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "one-use-site-with-an-argument",
+      "step": "then the second marker came back under the chosen label (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "one-use-site-with-an-argument",
+      "status": "passed"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+suite: capture-scope
+description: A capture belongs to the case that produced it, and the suite bag reaches every case.
+tags: [conformance]
+
+setup:
+  - action: core.set
+    value: from-the-suite-setup
+    captureAs: shared
+
+tests:
+  - name: the-case-that-captures
+    steps:
+      - when: this case captures something of its own
+        action: core.set
+        value: only-in-this-case
+        captureAs: mine
+      - then: it sees its own capture and the suite's
+        action: core.noop
+        asserts:
+          - var: mine
+            equals: only-in-this-case
+          - var: shared
+            equals: from-the-suite-setup
+
+  - name: the-case-that-does-not
+    steps:
+      - when: this case captures something else
+        action: core.set
+        value: only-in-the-second-case
+        captureAs: theirs
+      - then: it still sees the suite's capture
+        action: core.noop
+        asserts:
+          - var: theirs
+            equals: only-in-the-second-case
+          - var: shared
+            equals: from-the-suite-setup

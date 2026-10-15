@@ -1,0 +1,48 @@
+{
+  "kind": "execute",
+  "suite": "execute/case-setup-fails.yml",
+  "description": "A failed case setup fails that case only, its cleanup still runs, and the next case is unaffected.",
+  "exitCode": 1,
+  "trace": [
+    {
+      "phase": "case-setup",
+      "case": "the-one-whose-setup-fails",
+      "step": "step 1 (core.fail)",
+      "action": "core.fail",
+      "status": "failed",
+      "reason": "action"
+    },
+    {
+      "phase": "case-cleanup",
+      "case": "the-one-whose-setup-fails",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-one-whose-setup-fails",
+      "status": "failed",
+      "reason": "hook"
+    },
+    {
+      "phase": "step",
+      "case": "the-one-after-it",
+      "step": "when the next case runs normally (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-one-after-it",
+      "step": "then it asserts normally (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-one-after-it",
+      "status": "passed"
+    }
+  ]
+}

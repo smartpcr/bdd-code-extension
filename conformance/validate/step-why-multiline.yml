@@ -1,0 +1,11 @@
+suite: step-why-multiline
+tests:
+  - name: a-reason-on-two-lines
+    steps:
+      - given: a cluster that is up
+        why: "The first line of a reason.\nAnd a second line, which the format refuses."
+        action: fixture.state
+        captureAs: before
+    asserts:
+      - var: before.State
+        equals: Up

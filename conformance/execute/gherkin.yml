@@ -1,0 +1,70 @@
+suite: gherkin
+description: A scenario reads as one, a table drives a step once per row, and an outline names its entries by their columns.
+tags: [conformance]
+
+tests:
+  - name: a-scenario-that-reads-as-one
+    steps:
+      - given: a value that was set before anything was asked of it
+        action: core.set
+        value: Paused
+        captureAs: state
+      - when: nothing else happens to it
+        action: core.noop
+      - then: it still reads Paused
+        action: core.noop
+        asserts:
+          - var: state
+            equals: Paused
+      - and: it is not Up
+        action: core.noop
+        asserts:
+          - var: state
+            notEquals: Up
+
+  - name: a-table-drives-three-rows-in-order
+    steps:
+      - when: each node is recorded in turn
+        action: core.record
+        marker: ${row.node}
+        captureAs: seen
+        table:
+          - { node: N1 }
+          - { node: N2 }
+          - { node: N3 }
+      - then: the list holds one entry per row, in row order
+        action: core.noop
+        asserts:
+          - var: seen
+            count: 3
+          - var: seen.0.marker
+            equals: N1
+          - var: seen.2.marker
+            equals: N3
+
+  - name: an-outline-named-by-its-columns
+    examples:
+      - { node: N1, expected: N1 }
+      - { node: N2, expected: N2 }
+    steps:
+      - when: the node named by the row is recorded
+        action: core.record
+        marker: ${row.node}
+        captureAs: seen
+      - then: it came back as the row says
+        action: core.noop
+        asserts:
+          - var: seen.marker
+            equals: ${row.expected}
+
+  - name: a-failure-says-the-sentence-and-the-keyword
+    steps:
+      - given: a value that is not what the next step claims
+        action: core.set
+        value: Up
+        captureAs: state
+      - then: it reads Paused, which it does not
+        action: core.noop
+        asserts:
+          - var: state
+            equals: Paused

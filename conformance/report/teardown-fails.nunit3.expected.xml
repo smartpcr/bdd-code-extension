@@ -1,0 +1,15 @@
+<test-run asserts="0" failed="1" inconclusive="0" passed="1" result="Failed" skipped="0" testcasecount="2" total="2">
+  <test-suite asserts="0" classname="teardown-fails" failed="1" fullname="teardown-fails" inconclusive="0" name="teardown-fails" passed="1" result="Failed" runstate="Runnable" skipped="0" testcasecount="2" total="2" type="TestFixture">
+    <test-case asserts="0" classname="teardown-fails" fullname="teardown-fails.a-case-that-passes" methodname="a-case-that-passes" name="a-case-that-passes" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"worked"}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="teardown-fails" fullname="teardown-fails.teardown" methodname="teardown" name="teardown" result="Failed" runstate="Runnable">
+      <failure>
+        <message>suite teardown step 1 (core.fail): the teardown could not undo what the setup did</message>
+      </failure>
+    </test-case>
+  </test-suite>
+</test-run>

@@ -1,0 +1,24 @@
+suite: teardown-fails
+description: A teardown that fails, after cases that passed.
+tags: [conformance]
+
+# The case passes and the teardown does not. A teardown is not a test, so it
+# cannot turn a passed case into a failed one; but a suite whose teardown failed
+# has not finished cleanly, and the run has to say so. That is one report entry
+# of its own and exit 1.
+teardown:
+  - action: core.fail
+    message: the teardown could not undo what the setup did
+
+tests:
+  - name: a-case-that-passes
+    steps:
+      - when: the case does its work
+        action: core.record
+        marker: worked
+        captureAs: mark
+      - then: the marker came back
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: worked

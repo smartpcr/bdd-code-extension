@@ -1,0 +1,38 @@
+{
+  "kind": "validate",
+  "suite": "validate/semantics.yml",
+  "description": "Two cases with one name, two steps with one capture, limits out of range and an undeclared meta step.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 7,
+      "column": 17
+    },
+    {
+      "code": "E203",
+      "severity": "error",
+      "line": 12,
+      "column": 20
+    },
+    {
+      "code": "E202",
+      "severity": "error",
+      "line": 16,
+      "column": 11
+    },
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 17,
+      "column": 24
+    },
+    {
+      "code": "E206",
+      "severity": "error",
+      "line": 19,
+      "column": 15
+    }
+  ]
+}

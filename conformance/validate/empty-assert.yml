@@ -1,0 +1,8 @@
+suite: empty-assert
+tests:
+  - name: asserts-nothing-at-all
+    steps:
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - equals: Up

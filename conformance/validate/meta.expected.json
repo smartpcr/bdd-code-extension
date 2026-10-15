@@ -1,0 +1,38 @@
+{
+  "kind": "validate",
+  "suite": "validate/meta.yml",
+  "description": "A meta cycle, an export no step captures, and two use sites with the wrong parameters.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E207",
+      "severity": "error",
+      "line": 3,
+      "column": 5
+    },
+    {
+      "code": "E304",
+      "severity": "error",
+      "line": 4,
+      "column": 15
+    },
+    {
+      "code": "E207",
+      "severity": "error",
+      "line": 7,
+      "column": 5
+    },
+    {
+      "code": "E208",
+      "severity": "error",
+      "line": 21,
+      "column": 15
+    },
+    {
+      "code": "E208",
+      "severity": "error",
+      "line": 22,
+      "column": 17
+    }
+  ]
+}

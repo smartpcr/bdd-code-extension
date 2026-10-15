@@ -1,118 +1,79 @@
-# The suite schema
+# The core suite format
 
-This directory holds the vocabulary the five bindings share. Everything in it is
-data: no binding compiles any of it in, and all five read these files at run
-time, so none of them can hold an opinion about the format that the others do
-not.
+What a BDD suite may contain and what every finding means, for any workspace.
+This folder holds only the core; a workspace adds its own actions and fields by
+importing it (DEC-S10 in `docs/self-contained/design.md`).
 
 | File | What it is |
 | --- | --- |
-| `suite.base.json` | The hand-written half of the schema: everything that is not an action. |
-| `actions.catalog.yaml` | Every action, what it takes, what it captures, and which bindings implement it. |
-| `actions.catalog.schema.json` | The shape the catalog itself has to have. |
-| `suite.schema.json` | Generated. The base with one branch per action merged into it. |
-| `suite.schema.md` | Generated. The same thing as a page a person reads. |
-| `diagnostic.schema.json` | The object `lint --json` writes, one per finding. |
-| `diagnostics.md` | Every code from `E100` to `W304`, and what each one means. |
+| `suite.core.json` | The suite structure, hand-written: suite, defaults, parameters, variables, imports, meta steps, hooks, cases, assertions, and the fields every step has. No product fields. |
+| `core.catalog.yaml` | The core actions every runtime implements: `core.noop`, `core.set`, `core.fail`, `core.sleep`, `core.record` and `wait`. |
+| `actions.catalog.schema.json` | What a catalog may contain, including `imports` and `suiteSchema`. |
+| `suite.extension.schema.json` | What a suite-schema extension may contain: fields added to the suite, its defaults, a case or a step, and the definitions they use. It can add; it can never redefine. |
+| `diagnostic.schema.json` | The JSON every runtime's `lint --json` writes. |
+| `diagnostics.md` | Every finding code, its meaning, the limit ceilings and the output formats. |
+| `Build-Schema.ps1` | Generates a workspace's `suite.schema.json` and `suite.schema.md` from the core, its catalog and what that imports. |
+| `suite.schema.json`, `suite.schema.md` | The generated schema and reference for the core catalog alone, committed so `-Check` keeps them current. |
+| `Schema.Tests.ps1` | The schema and import rules, asserted (Pester). |
 
-`suite.schema.json` and `suite.schema.md` are written by `Build-Schema.ps1`.
-Edit `suite.base.json` or `actions.catalog.yaml` and run it:
+## Extending the core in a workspace
 
-```powershell
-pwsh -File test/e2e/schema/Build-Schema.ps1
-```
-
-The `suite-lint` workflow runs it with `-Check` and fails a change where the
-committed pair does not match a fresh generation, so the two cannot drift.
-
-## Editing a suite with the schema attached
-
-Y7.3. The point of a generated schema is that an author sees a mistake while
-typing it, not when a lint job runs minutes later. Every editor below reads the
-same `suite.schema.json` the bindings enforce.
-
-### Visual Studio Code
-
-Nothing to do. `.vscode/settings.json` is committed and maps the suite paths to
-the schema; install the YAML extension (`redhat.vscode-yaml`) and it works. The
-mapping covers `test/e2e/suites/**`, the shared library under `_lib/`, and the
-`validate/` and `execute/` corpus fixtures.
-
-### Any editor with a YAML language server
-
-The same mapping, given to `yaml-language-server` directly. Neovim with
-`nvim-lspconfig`, Helix, Emacs with `lsp-mode` and JetBrains IDEs all take it:
-
-```json
-{
-  "yaml.schemas": {
-    "./test/e2e/schema/suite.schema.json": [
-      "test/e2e/suites/*.yml",
-      "test/e2e/suites/_lib/*.yml",
-      "test/e2e/conformance/validate/*.yml",
-      "test/e2e/conformance/execute/*.yml"
-    ]
-  }
-}
-```
-
-### One file at a time, with no configuration at all
-
-A modeline at the top of a suite works in any editor that reads one, and needs
-no settings file:
+A workspace catalog imports the core catalog and declares its own actions:
 
 ```yaml
-# yaml-language-server: $schema=../schema/suite.schema.json
+# <workspace>/test/e2e/schema/actions.catalog.yaml
+catalogVersion: 1
+imports:
+  - ../../../bdd/spec/core.catalog.yaml   # wherever this repository is checked out or pinned
+suiteSchema:
+  - shop.suite.json                       # optional: fields this workspace adds
+bindings: [go, typescript]
+actions:
+  - name: shop.order
+    summary: Place an order.
+    bindings: [go]
+    interruptible: true
+    params:
+      - { name: item, type: string, required: true }
+    captures: { type: any }
 ```
 
-None of the checked-in suites carries one, because the workspace mapping already
-covers them. It is there for a suite written somewhere else.
+* `imports` are other catalogs, resolved relative to the importing file, depth
+  first in listed order; a catalog may import one that imports the core. An
+  action declared twice is an error naming both files, and so is an import
+  cycle.
+* `suiteSchema` lists suite-schema extensions. One that adds an `owner` field to
+  every suite and a `region` to cases and steps:
 
-## What the editor catches, and what it does not
+  ```json
+  {
+    "$schema": "../../../bdd/spec/suite.extension.schema.json",
+    "suite": { "owner": { "type": "string" } },
+    "case": { "region": { "$ref": "#/$defs/region" } },
+    "step": { "region": { "$ref": "#/$defs/region" } },
+    "$defs": { "region": { "enum": ["eu", "us"] } }
+  }
+  ```
 
-The schema is one of the three levels of validation the design defines
-(DEC-Y05), and it is the first. An editor shows what a schema can see and
-nothing more.
+* Binding names are open: the built-in runtimes are `powershell`, `csharp`,
+  `go`, `rust` and `typescript`, and a workspace may name its own.
 
-| Mistake | Editor | `lint` |
-| --- | --- | --- |
-| A key nothing declares, such as `assert:` for `asserts:` | yes, `E101` | yes |
-| A required key that is missing | yes, `E102` | yes |
-| A value of the wrong type, such as `timeoutSec: "30"` | yes, `E103` | yes |
-| An action nothing declares | yes, `E104` | yes |
-| A parameter the action does not take | yes, `E105` | yes |
-| A reference that resolves to nothing | no | yes, `E301` |
-| A capture read before the step that produces it | no | yes, `E303` |
-| A meta step that forms a cycle | no | yes, `E207` |
-| A binding that does not implement an action | no | yes, `E201`, with `--binding-check` |
-
-The second and third levels need the whole file and the catalog together, which
-is what `lint` is for:
+Generate the workspace's schema and reference beside its catalog, and check in
+CI that they are current:
 
 ```powershell
-pwsh -File scripts/e2e/Invoke-LabTestSuite.ps1 -Path 'test/e2e/suites/*.yml' -Lint
+pwsh -File <this folder>/Build-Schema.ps1 -Catalog test/e2e/schema/actions.catalog.yaml
+pwsh -File <this folder>/Build-Schema.ps1 -Catalog test/e2e/schema/actions.catalog.yaml -Check
 ```
 
-### What to check on a screen, and what is already checked for you
+The generator needs PowerShell 7 and the `powershell-yaml` module.
 
-Editor integration is the one thing in this plan a test cannot assert, because
-what it produces is a squiggle on a screen. What it reads, though, is a file, and
-that file is checked: `test/e2e/schema/Schema.Tests.ps1` asserts the three
-properties an editor needs before it can underline anything, and the `suite-lint`
-workflow runs it on every change.
+## Tests
 
-| The editor behaviour | What the test asserts about the schema |
-| --- | --- |
-| `assert:` for `asserts:` underlines on a case | `case` declares `asserts`, does not declare `assert`, and is closed |
-| `nodee:` underlines on a `cluster.suspend` step | `step.cluster.suspend` declares `node`, not `nodee`, and is closed |
-| Completion after `action: cluster.state` offers `captureAs` | `step.cluster.state` declares `captureAs` among its properties |
+```powershell
+Invoke-Pester spec/Schema.Tests.ps1
+```
 
-A closed object is what makes an editor underline rather than shrug: without
-`additionalProperties: false` a schema has no opinion about a key it has never
-heard of, and neither has the editor.
-
-The squiggle itself is worth looking at once, in VS Code with
-`redhat.vscode-yaml`, after any change to `Build-Schema.ps1` that alters how the
-per-action branches are generated. Open `test/e2e/suites/smoke.yml`, make one of
-the three mistakes above, and confirm the underline appears. Nothing here records
-a result for that, because nobody can check it for you.
+They assert that the core schema closes every object an editor relies on, holds
+exactly the core actions and no product field, matches a fresh generation, and
+that imports, duplicates, cycles and extensions behave as above.

@@ -1,0 +1,17 @@
+suite: row-scope
+tests:
+  - name: a-per-row-assertion
+    steps:
+      - given: each node in turn
+        action: fixture.state
+        target: ${row.node}
+        captureAs: views
+        table:
+          - { node: HOST-N1 }
+          - { node: HOST-N2 }
+        asserts:
+          - var: views.State
+            equals: Up
+    asserts:
+      - var: views.0.State
+        equals: Up

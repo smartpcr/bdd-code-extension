@@ -1,0 +1,50 @@
+suite: tables
+tests:
+  - name: a-ragged-table
+    steps:
+      - given: each node in turn
+        action: fixture.state
+        target: ${row.node}
+        captureAs: views
+        table:
+          - { node: HOST-N1 }
+          - { node: HOST-N2, extra: yes }
+          - { node: HOST-N1 }
+    asserts:
+      - var: views
+        count: 3
+  - name: a-column-that-does-not-exist
+    steps:
+      - when: the node is suspended
+        action: fixture.suspend
+        node: ${row.nodename}
+        captureAs: suspended
+        table:
+          - { node: HOST-N2 }
+    asserts:
+      - var: suspended.State
+        equals: Paused
+  - name: two-row-scopes
+    examples:
+      - { node: HOST-N2 }
+      - { node: HOST-N3 }
+      - { node: HOST-N2 }
+    steps:
+      - when: the node is suspended
+        action: fixture.suspend
+        node: ${row.node}
+        captureAs: suspended
+        table:
+          - { drain: true }
+    asserts:
+      - var: suspended.State
+        equals: Paused
+  - name: a-row-with-no-table
+    steps:
+      - when: nothing is in scope
+        action: fixture.suspend
+        node: ${row.node}
+        captureAs: suspended
+    asserts:
+      - var: suspended.State
+        equals: Paused

@@ -1,0 +1,133 @@
+{
+  "kind": "execute",
+  "suite": "execute/gherkin.yml",
+  "description": "A scenario reads as one, a table runs a step once per row in row order, an outline names its entries by their columns, and a failure carries the keyword and the sentence.",
+  "exitCode": 1,
+  "trace": [
+    {
+      "phase": "step",
+      "case": "a-scenario-that-reads-as-one",
+      "step": "given a value that was set before anything was asked of it (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-scenario-that-reads-as-one",
+      "step": "when nothing else happens to it (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-scenario-that-reads-as-one",
+      "step": "then it still reads Paused (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-scenario-that-reads-as-one",
+      "step": "then it is not Up (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "a-scenario-that-reads-as-one",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-table-drives-three-rows-in-order",
+      "step": "when each node is recorded in turn (core.record) row 1 (node=N1)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-table-drives-three-rows-in-order",
+      "step": "when each node is recorded in turn (core.record) row 2 (node=N2)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-table-drives-three-rows-in-order",
+      "step": "when each node is recorded in turn (core.record) row 3 (node=N3)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-table-drives-three-rows-in-order",
+      "step": "then the list holds one entry per row, in row order (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "a-table-drives-three-rows-in-order",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-outline-named-by-its-columns [node=N1, expected=N1]",
+      "step": "when the node named by the row is recorded (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-outline-named-by-its-columns [node=N1, expected=N1]",
+      "step": "then it came back as the row says (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "an-outline-named-by-its-columns [node=N1, expected=N1]",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-outline-named-by-its-columns [node=N2, expected=N2]",
+      "step": "when the node named by the row is recorded (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-outline-named-by-its-columns [node=N2, expected=N2]",
+      "step": "then it came back as the row says (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "an-outline-named-by-its-columns [node=N2, expected=N2]",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-failure-says-the-sentence-and-the-keyword",
+      "step": "given a value that is not what the next step claims (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-failure-says-the-sentence-and-the-keyword",
+      "step": "then it reads Paused, which it does not (core.noop)",
+      "action": "core.noop",
+      "status": "failed",
+      "reason": "assertion"
+    },
+    {
+      "phase": "case",
+      "case": "a-failure-says-the-sentence-and-the-keyword",
+      "status": "failed",
+      "reason": "assertion"
+    }
+  ]
+}

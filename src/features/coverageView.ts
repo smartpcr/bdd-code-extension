@@ -102,7 +102,7 @@ export class CoverageView implements vscode.TreeDataProvider<CoverageNode>, vsco
     const out: CoverageNode[] = [];
     for (const a of r.declaredNotFound) {
       const entry = catalog.actions.get(a)!;
-      out.push({ kind: 'item', label: a, description: 'declared, not registered', file: catalog.file, range: entry.nameRange, warning: true });
+      out.push({ kind: 'item', label: a, description: 'declared, not registered', file: entry.file ?? catalog.file, range: entry.nameRange, warning: true });
     }
     for (const a of r.foundNotDeclared) {
       const s = siteOf(a)!;

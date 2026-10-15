@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/unread.yml",
+  "description": "A capture nothing reads, which is either a pointless step or a missing assertion.",
+  "exitCode": 0,
+  "diagnostics": [
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 6,
+      "column": 20
+    }
+  ]
+}

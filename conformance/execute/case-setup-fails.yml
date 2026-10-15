@@ -1,0 +1,34 @@
+suite: case-setup-fails
+description: A case setup that fails fails only that case, and its cleanup still runs.
+tags: [conformance]
+
+tests:
+  - name: the-one-whose-setup-fails
+    setup:
+      - action: core.fail
+        message: this case could not be prepared
+    steps:
+      - when: this step would run
+        action: core.record
+        marker: never-reached
+        captureAs: mark
+      - then: it would have asserted
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: never-reached
+    cleanup:
+      - action: core.record
+        marker: cleanup-ran-anyway
+
+  - name: the-one-after-it
+    steps:
+      - when: the next case runs normally
+        action: core.record
+        marker: still-ran
+        captureAs: mark
+      - then: it asserts normally
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: still-ran

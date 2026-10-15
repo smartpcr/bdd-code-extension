@@ -1,0 +1,38 @@
+<test-run asserts="0" failed="1" inconclusive="0" passed="4" result="Failed" skipped="0" testcasecount="5" total="5">
+  <test-suite asserts="0" classname="gherkin" failed="1" fullname="gherkin" inconclusive="0" name="gherkin" passed="4" result="Failed" runstate="Runnable" skipped="0" testcasecount="5" total="5" type="TestFixture">
+    <test-case asserts="0" classname="gherkin" fullname="gherkin.a-scenario-that-reads-as-one" methodname="a-scenario-that-reads-as-one" name="a-scenario-that-reads-as-one" result="Passed" runstate="Runnable">
+      <output>
+        "Paused"
+        {"ok":true}
+        {"ok":true}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="gherkin" fullname="gherkin.a-table-drives-three-rows-in-order" methodname="a-table-drives-three-rows-in-order" name="a-table-drives-three-rows-in-order" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"N1"}
+        {"marker":"N2"}
+        {"marker":"N3"}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="gherkin" fullname="gherkin.an-outline-named-by-its-columns [node=N1, expected=N1]" methodname="an-outline-named-by-its-columns [node=N1, expected=N1]" name="an-outline-named-by-its-columns [node=N1, expected=N1]" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"N1"}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="gherkin" fullname="gherkin.an-outline-named-by-its-columns [node=N2, expected=N2]" methodname="an-outline-named-by-its-columns [node=N2, expected=N2]" name="an-outline-named-by-its-columns [node=N2, expected=N2]" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"N2"}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="gherkin" fullname="gherkin.a-failure-says-the-sentence-and-the-keyword" methodname="a-failure-says-the-sentence-and-the-keyword" name="a-failure-says-the-sentence-and-the-keyword" result="Failed" runstate="Runnable">
+      <failure>
+        <message>then it reads Paused, which it does not (core.noop): expected state equals 'Paused', got 'Up'</message>
+      </failure>
+      <output>"Up"</output>
+    </test-case>
+  </test-suite>
+</test-run>

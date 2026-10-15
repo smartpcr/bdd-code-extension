@@ -1,0 +1,34 @@
+{
+  "kind": "execute",
+  "suite": "execute/teardown-fails.yml",
+  "description": "A teardown that fails is its own report entry and fails the run, without changing the result of a case that passed.",
+  "exitCode": 1,
+  "trace": [
+    {
+      "phase": "step",
+      "case": "a-case-that-passes",
+      "step": "when the case does its work (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-case-that-passes",
+      "step": "then the marker came back (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "a-case-that-passes",
+      "status": "passed"
+    },
+    {
+      "phase": "suite-teardown",
+      "step": "step 1 (core.fail)",
+      "action": "core.fail",
+      "status": "failed",
+      "reason": "action"
+    }
+  ]
+}

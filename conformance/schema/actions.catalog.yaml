@@ -1,0 +1,117 @@
+# The corpus's catalog: the core, imported, plus fixture actions that exist only
+# to be checked (DEC-S02). No runtime implements a fixture action; the validate
+# corpus lints suites that use them, which is all it needs. Each fixture action
+# keeps the exact parameters, types, captures and bindings of the action it
+# replaced when the corpus moved here (conformance/rename.json), so every
+# expected finding is unchanged.
+#
+# Build-Schema.ps1 folds this catalog, the core and fixture.suite.json into
+# suite.schema.json beside it, which is the schema the corpus is validated
+# against.
+catalogVersion: 1
+imports:
+  - ../../spec/core.catalog.yaml
+suiteSchema:
+  - fixture.suite.json
+bindings: [powershell, csharp, go, rust, typescript]
+
+actions:
+  - name: fixture.state
+    summary: Fixture. Read a group's health, its members' states and two counts.
+    bindings: [powershell]
+    interruptible: false
+    params:
+      - { name: cluster, type: string, description: Group name. Defaults to the context cluster. }
+      - { name: target, type: string, description: The member the read runs on. Defaults to the context target. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        Name: { type: string }
+        State: { type: string }
+        Nodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              Name: { type: string }
+              State: { type: string }
+        CsvOnlineCount: { type: integer }
+        CsvOfflineCount: { type: integer }
+        CoreGroupState: { type: string }
+        S2DState: { type: string }
+
+  - name: fixture.suspend
+    summary: Fixture. Suspend a member, optionally draining it first and waiting for the drain.
+    bindings: [powershell]
+    interruptible: false
+    params:
+      - { name: node, type: string, required: true, description: The member to suspend. }
+      - { name: target, type: string, description: The member the call runs on. Defaults to the context target. }
+      - { name: drain, type: boolean, default: true }
+      - { name: waitForDrain, type: boolean, default: true }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        Node: { type: string }
+        State: { type: string }
+
+  - name: fixture.resume
+    summary: Fixture. Resume a suspended member, with a failback policy.
+    bindings: [powershell]
+    interruptible: false
+    params:
+      - { name: node, type: string, required: true }
+      - { name: target, type: string }
+      - { name: failback, type: string, default: NoFailback, description: 'NoFailback, Immediate or Policy.' }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        Node: { type: string }
+        State: { type: string }
+
+  - name: fixture.move
+    summary: Fixture. Move a group to a member.
+    bindings: [powershell]
+    interruptible: false
+    params:
+      - { name: group, type: string, required: true }
+      - { name: toNode, type: string, required: true }
+      - { name: target, type: string }
+      - { name: vm, type: boolean, default: false }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        Group: { type: string }
+        Owner: { type: string }
+        State: { type: string }
+
+  - name: invoke
+    summary: Fixture. Run a script on a member and return whatever it returns.
+    bindings: [powershell]
+    interruptible: false
+    params:
+      - { name: target, type: string }
+      - { name: script, type: string, required: true }
+      - { name: args, type: array }
+    captures:
+      type: any
+      description: Whatever the script returns, so no path into it can be checked.
+
+  - name: inventory.get
+    summary: Fixture. Read one route and return its payload, or its error for an expected failure.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: route, type: string, required: true }
+      - { name: expectedStatus, type: integer, default: 200 }
+    captures:
+      type: object
+      additionalProperties: true
+      properties:
+        statusCode: { type: integer, description: Present only when expectedStatus is 400 or above. }
+        error: { type: string, description: Present only when expectedStatus is 400 or above. }

@@ -1,0 +1,36 @@
+<testsuites>
+  <testsuite failures="1" name="gherkin" skipped="0" tests="5">
+    <testcase classname="gherkin" name="a-scenario-that-reads-as-one">
+      <system-out>
+        "Paused"
+        {"ok":true}
+        {"ok":true}
+        {"ok":true}
+      </system-out>
+    </testcase>
+    <testcase classname="gherkin" name="a-table-drives-three-rows-in-order">
+      <system-out>
+        {"marker":"N1"}
+        {"marker":"N2"}
+        {"marker":"N3"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+    <testcase classname="gherkin" name="an-outline-named-by-its-columns [node=N1, expected=N1]">
+      <system-out>
+        {"marker":"N1"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+    <testcase classname="gherkin" name="an-outline-named-by-its-columns [node=N2, expected=N2]">
+      <system-out>
+        {"marker":"N2"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+    <testcase classname="gherkin" name="a-failure-says-the-sentence-and-the-keyword">
+      <failure message="then it reads Paused, which it does not (core.noop): expected state equals 'Paused', got 'Up'"/>
+      <system-out>"Up"</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

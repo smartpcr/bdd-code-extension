@@ -1,0 +1,8 @@
+{
+  "kind": "validate",
+  "suite": "validate/new-parameter.yml",
+  "description": "Clean against an overlay that declares the parameter, which is what makes the catalog the vocabulary rather than a list in the validator.",
+  "exitCode": 0,
+  "catalogOverlay": "validate/_catalog/new-parameter.yaml",
+  "diagnostics": []
+}

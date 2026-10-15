@@ -1,0 +1,30 @@
+{
+  "kind": "execute",
+  "suite": "execute/params.yml",
+  "description": "A parameter takes its value from the highest level that names it, the command line first.",
+  "exitCode": 0,
+  "params": {
+    "fromCommandLine": "the-command-line"
+  },
+  "trace": [
+    {
+      "phase": "step",
+      "case": "a-case-that-reads-both",
+      "step": "when the three values are published (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "a-case-that-reads-both",
+      "step": "then each one came from the level that names it (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "a-case-that-reads-both",
+      "status": "passed"
+    }
+  ]
+}

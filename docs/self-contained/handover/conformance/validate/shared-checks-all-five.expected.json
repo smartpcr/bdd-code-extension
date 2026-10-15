@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/shared-checks-all-five.yml",
+  "description": "Clean. Step 3.3: a suite that imports the shared checks and calls all five, across two cases, needs no sharedChecks key.",
+  "exitCode": 0,
+  "diagnostics": []
+}

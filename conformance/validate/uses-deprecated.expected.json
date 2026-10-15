@@ -1,0 +1,15 @@
+{
+  "kind": "validate",
+  "suite": "validate/uses-deprecated.yml",
+  "description": "An action the catalog marks deprecated, which is a warning rather than a refusal.",
+  "exitCode": 0,
+  "catalogOverlay": "validate/_catalog/deprecated.yaml",
+  "diagnostics": [
+    {
+      "code": "W302",
+      "severity": "warning",
+      "line": 5,
+      "column": 17
+    }
+  ]
+}

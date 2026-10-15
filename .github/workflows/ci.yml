@@ -71,6 +71,55 @@ jobs:
             out/bdd-suite-*.vsix.sha256
           if-no-files-found: error
 
+  spec:
+    name: Core spec and corpus schemas
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: The generator's YAML module
+        shell: pwsh
+        run: Install-Module powershell-yaml -Scope CurrentUser -Force
+
+      - name: Schema tests (the core, imports, duplicates, cycles, extensions)
+        shell: pwsh
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'spec/Schema.Tests.ps1'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
+
+      - name: Every committed generated schema is current
+        shell: pwsh
+        run: |
+          foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml')) {
+            pwsh -NoProfile -File spec/Build-Schema.ps1 -Catalog $catalog -Check
+            if ($LASTEXITCODE) { throw "$catalog's generated schema is stale" }
+          }
+
+  runtime-typescript:
+    name: TypeScript runtime (unit, corpus, extension example)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: runtimes/typescript
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: runtimes/typescript/package-lock.json
+
+      - run: npm ci
+
+      - name: Build, unit tests, the whole corpus, coverage gates
+        run: npm test
+
   version:
     name: Is this version released?
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -94,7 +143,7 @@ jobs:
 
   release:
     name: Release v${{ needs.version.outputs.version }}
-    needs: [build, version]
+    needs: [build, spec, runtime-typescript, version]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: marketplace

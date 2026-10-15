@@ -4,7 +4,8 @@ import * as path from 'path';
 import { minimatch } from 'minimatch';
 import * as vscode from 'vscode';
 import { ResolvedBinding, WorkspaceLayout } from '../config/layout';
-import { parseCatalog } from '../core/catalog';
+import * as fs from 'fs';
+import { resolveCatalog } from '../core/catalog';
 import { Debouncer } from '../core/debounce';
 import { fileKey } from '../core/paths';
 import { CompiledRecognizer, compileRecognizers, scanRegistrations } from '../core/registrations';
@@ -19,6 +20,15 @@ export const toRange = (r: Range): vscode.Range =>
 
 type Kind = { kind: 'catalog' } | { kind: 'suite' } | { kind: 'source'; binding: ResolvedBinding };
 
+/** An imported catalog's text, or undefined when it cannot be read. */
+function readSync(file: string): string | undefined {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
 export class FolderIndexer implements vscode.Disposable {
   readonly index = new WorkspaceIndex();
   private readonly recognizers = new Map<string, CompiledRecognizer[]>();
@@ -29,6 +39,8 @@ export class FolderIndexer implements vscode.Disposable {
   /** Fires once per INDEX_DEBOUNCE_MS after any index update (B1.7 item 4). */
   readonly onDidChangeIndex = this.changedEmitter.event;
   private pendingReads = 0;
+  /** Watchers on the files the catalog imports (DEC-S10), replaced whenever the catalog is re-read. */
+  private importWatchers: vscode.Disposable[] = [];
   private markReady!: () => void;
   /** Resolves when the initial scan is done; providers wait on it, so a rebuild never answers from an empty index. */
   readonly ready: Promise<void> = new Promise(resolve => { this.markReady = resolve; });
@@ -96,9 +108,10 @@ export class FolderIndexer implements vscode.Disposable {
     const key = fileKey(file);
     if (!kind) return;
     if (kind.kind === 'catalog') {
-      const c = parseCatalog(text, key);
+      const c = resolveCatalog(text, key, readSync);
       this.index.updateCatalog(c);
       this.publish(this.catalogDiagnostics, key, c.errors);
+      this.watchImports(c.imports ?? []);
     } else if (kind.kind === 'suite') {
       const s = parseSuite(text, key);
       this.index.updateSuite(s);
@@ -166,6 +179,16 @@ export class FolderIndexer implements vscode.Disposable {
     return scan;
   }
 
+  /** Re-reads the catalog when a file it imports changes, wherever that file is (a pinned submodule, say). */
+  private watchImports(files: string[]): void {
+    for (const w of this.importWatchers) w.dispose();
+    this.importWatchers = files.flatMap(f => {
+      const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(path.dirname(f)), path.basename(f)));
+      const reload = () => void this.load(vscode.Uri.file(this.layout.catalogPath));
+      return [w, w.onDidCreate(reload), w.onDidChange(reload), w.onDidDelete(reload)];
+    });
+  }
+
   /** True when no read or debounced re-parse is pending (for tests). */
   get idle(): boolean {
     return this.pendingReads === 0 && this.debouncer.size === 0 && this.changeDebouncer.size === 0;
@@ -173,6 +196,7 @@ export class FolderIndexer implements vscode.Disposable {
 
   dispose(): void {
     this.markReady();
+    for (const w of this.importWatchers) w.dispose();
     this.debouncer.dispose();
     this.changeDebouncer.dispose();
     this.changedEmitter.dispose();

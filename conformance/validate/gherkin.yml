@@ -1,0 +1,31 @@
+suite: gherkin
+tests:
+  - name: keywords-used-wrongly
+    steps:
+      - and: continues nothing at all
+        action: fixture.state
+        captureAs: first
+      - given: a state established after the fact
+        when: and exercised in the same breath
+        action: fixture.state
+        captureAs: second
+      - then: the cluster is up
+        action: fixture.state
+        captureAs: third
+        asserts:
+          - var: third.State
+            equals: Up
+      - given: a state established after a then
+        action: fixture.state
+        captureAs: fourth
+      - action: fixture.state
+        captureAs: fifth
+    asserts:
+      - var: first.State
+        equals: Up
+      - var: second.State
+        equals: Up
+      - var: fourth.State
+        equals: Up
+      - var: fifth.State
+        equals: Up

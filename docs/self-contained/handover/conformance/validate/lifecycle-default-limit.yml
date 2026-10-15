@@ -1,0 +1,9 @@
+suite: lifecycle-default-limit
+tags: [lifecycle]
+defaults:
+  timeoutSec: 601
+tests:
+  - name: inherits-an-override
+    steps:
+      - action: lifecycle.get
+        route: /labs

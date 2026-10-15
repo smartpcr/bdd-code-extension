@@ -1,0 +1,100 @@
+{
+  "kind": "execute",
+  "suite": "execute/hooks.yml",
+  "description": "The six phases run in order around two cases, with beforeEach and afterEach once per case.",
+  "exitCode": 0,
+  "trace": [
+    {
+      "phase": "suite-setup",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "before-each",
+      "case": "first",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case-setup",
+      "case": "first",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "first",
+      "step": "when the first case does its work (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "first",
+      "step": "then the marker came back (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case-cleanup",
+      "case": "first",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "after-each",
+      "case": "first",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "first",
+      "status": "passed"
+    },
+    {
+      "phase": "before-each",
+      "case": "second",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "second",
+      "step": "when the second case does its work (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "second",
+      "step": "then the marker came back (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "after-each",
+      "case": "second",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "second",
+      "status": "passed"
+    },
+    {
+      "phase": "suite-teardown",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    }
+  ]
+}

@@ -30,6 +30,8 @@ export interface CatalogParam {
 
 export interface CatalogAction {
   name: string;
+  /** The catalog file that declares it, when that is an imported one (DEC-S10); the root catalog's otherwise. */
+  file?: string;
   nameRange: Range;
   entryRange: Range;
   summary: string;
@@ -47,6 +49,8 @@ export interface Catalog {
   bindings: BindingName[];
   actions: Map<string, CatalogAction>;
   errors: CoreError[];
+  /** Every catalog file it imports, directly or not, in reading order (DEC-S10). */
+  imports?: string[];
 }
 
 export type HookName = 'setup' | 'teardown' | 'beforeEach' | 'afterEach' | 'cleanup';

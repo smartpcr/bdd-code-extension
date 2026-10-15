@@ -1,0 +1,30 @@
+{
+  "kind": "execute",
+  "suite": "execute/hung-step.yml",
+  "description": "A step that would run for half a minute is cancelled at its own one-second limit, and the cleanup still runs.",
+  "exitCode": 1,
+  "maxSeconds": 20.0,
+  "trace": [
+    {
+      "phase": "step",
+      "case": "a-step-that-runs-past-its-limit",
+      "step": "given a step that will not finish on its own (core.sleep)",
+      "action": "core.sleep",
+      "status": "failed",
+      "reason": "timeout"
+    },
+    {
+      "phase": "case-cleanup",
+      "case": "a-step-that-runs-past-its-limit",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "a-step-that-runs-past-its-limit",
+      "status": "failed",
+      "reason": "timeout"
+    }
+  ]
+}

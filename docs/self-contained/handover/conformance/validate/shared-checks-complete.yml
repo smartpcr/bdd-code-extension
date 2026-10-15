@@ -1,0 +1,14 @@
+suite: shared-checks-complete
+imports:
+  - _lib/shared-checks.yml
+sharedChecks:
+  skip: [check-r5-ownership]
+  reason: This phase creates nothing another lab could own.
+tests:
+  - name: calls-the-other-four
+    steps:
+      - meta: check-r1-preview
+        with: { submit: /labs }
+      - meta: check-r2-noop
+      - meta: check-r3-interrupted-retry
+      - meta: check-r4-rollback-forward

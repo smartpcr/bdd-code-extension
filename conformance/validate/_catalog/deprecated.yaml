@@ -1,0 +1,9 @@
+# Merged over test/e2e/schema/actions.catalog.yaml by action name, so that
+# W302 can be proved without deprecating an action the suites still call.
+#
+# Merge rule: for each action named here, every key given replaces the key in
+# the committed catalog, and a params entry replaces the one with the same name
+# or is appended when there is none.
+actions:
+  - name: invoke
+    deprecated: true

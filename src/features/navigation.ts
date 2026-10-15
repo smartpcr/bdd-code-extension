@@ -26,7 +26,7 @@ export function definitionsAt(indexer: FolderIndexer, file: string, position: vs
   // as PowerShell's script block is. The catalog entry comes first.
   const out: vscode.Location[] = [];
   const entry = index.catalog?.actions.get(step.action);
-  if (entry) out.push(loc(index.catalog!.file, entry.nameRange));
+  if (entry) out.push(loc(entry.file ?? index.catalog!.file, entry.nameRange));
   for (const site of index.sitesFor(step.action)) out.push(loc(site.file, site.handlerRange ?? site.range));
   return out;
 }

@@ -1,0 +1,38 @@
+suite: case-own
+tests:
+  - name: brings-its-own-everything
+    params:
+      - { name: caseOnly }
+    vars:
+      caseVar: ${param.caseOnly}
+    setup:
+      - given: a cluster to work with
+        action: fixture.state
+        captureAs: cs
+    steps:
+      - when: something that is not there is read
+        action: fixture.suspend
+        node: ${capture.nobodyMakesThis}
+        target: ${var.caseVar}
+        captureAs: suspended
+        asserts:
+          - var: cs.State.Deeper
+            equals: Up
+      - and: a path into a capture that the action does not declare
+        action: fixture.move
+        group: ${capture.cs.Stat}
+        toNode: HOST-N2
+        captureAs: moved
+      - then: each node in turn reports nothing useful
+        action: fixture.state
+        target: ${row}
+        captureAs: views
+        table:
+          - { node: HOST-N1 }
+    asserts:
+      - var: suspended.State
+        equals: Paused
+      - var: moved.State
+        equals: Online
+      - var: views
+        count: 1

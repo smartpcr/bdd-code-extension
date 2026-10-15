@@ -1,0 +1,38 @@
+suite: setup-fails
+description: A suite setup that fails leaves no case runnable, and the teardown still runs.
+tags: [conformance]
+
+setup:
+  - action: core.record
+    marker: setup-started
+  - action: core.fail
+    message: the precondition could not be built
+
+teardown:
+  - action: core.record
+    marker: teardown-ran-anyway
+
+tests:
+  - name: first
+    steps:
+      - when: this case would do its work
+        action: core.record
+        marker: never-reached
+        captureAs: mark
+      - then: it would have asserted
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: never-reached
+
+  - name: second
+    steps:
+      - when: this case would do its work too
+        action: core.record
+        marker: also-never-reached
+        captureAs: mark
+      - then: it would have asserted
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: also-never-reached

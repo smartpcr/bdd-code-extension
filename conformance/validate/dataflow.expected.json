@@ -1,0 +1,56 @@
+{
+  "kind": "validate",
+  "suite": "validate/dataflow.yml",
+  "description": "References that resolve to nothing, one read before it is produced, a path outside a capture's shape, and a pattern one binding cannot run.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 8,
+      "column": 15
+    },
+    {
+      "code": "E303",
+      "severity": "error",
+      "line": 12,
+      "column": 16
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 13,
+      "column": 17
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 14,
+      "column": 17
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 18,
+      "column": 14
+    },
+    {
+      "code": "E308",
+      "severity": "error",
+      "line": 21,
+      "column": 18
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 22,
+      "column": 14
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 24,
+      "column": 14
+    }
+  ]
+}

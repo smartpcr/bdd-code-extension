@@ -1,0 +1,31 @@
+{
+  "description": "How the corpus was made product-neutral when it moved from os-context (commit 7633e176, worktree typescript-binding) to this repository (DEC-S02). Each action is replaced by a fixture action of the same name length, so every expected line and column is unchanged; conformance/schema/actions.catalog.yaml declares each fixture action with exactly the parameters, types, captures and bindings of the action it replaces. Suite fields and context keys (cluster, target, requires, labId, apiUrl) keep their names: the corpus declares them itself, in conformance/schema/fixture.suite.json and in each runtime's corpus harness extension.",
+  "actions": {
+    "cluster.state": "fixture.state",
+    "cluster.suspend": "fixture.suspend",
+    "cluster.suspned": "fixture.suspned",
+    "cluster.resume": "fixture.resume",
+    "cluster.move": "fixture.move",
+    "lifecycle.get": "inventory.get"
+  },
+  "handedOver": {
+    "description": "Entries that test os-context's own rules, not the core format. They move to os-context's tests in D10 and are kept until then under docs/self-contained/handover/conformance.",
+    "entries": [
+      "validate/lifecycle-case-limit.yml",
+      "validate/lifecycle-clean.yml",
+      "validate/lifecycle-default-limit.yml",
+      "validate/lifecycle-missing-limit.yml",
+      "validate/shared-checks-missing.yml",
+      "validate/shared-checks-complete.yml",
+      "validate/shared-checks-all-five.yml"
+    ],
+    "support": [
+      "validate/_lib/shared-checks.yml"
+    ]
+  },
+  "values": {
+    "WSFC": "HOST",
+    "wsfc": "host",
+    "description": "Host names in test values (WSFC-N1, WSFC-CL01) become HOST-N1 and HOST-CL01, case preserved and the same length, so every assertion, expression result and position is unchanged."
+  }
+}

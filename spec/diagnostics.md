@@ -56,7 +56,6 @@ typos should see four diagnostics.
 | `E211` | error | An imported library declares `tests` or a hook. A library declares `params`, `vars`, `metaSteps` and `defaults`, and nothing that runs. |
 | `E212` | error | Gherkin keywords are misused: two on one step, an `and` with nothing before it to continue, or a keyword that goes backwards through the `given`, `when`, `then` order. |
 | `E213` | error | A table or an `examples` block is empty, has rows whose columns differ, repeats a column, repeats a row, or is a step table inside a case that is already an outline. |
-| `E214` | error | A suite imports the shared checks library (`_lib/shared-checks.yml`, step 3.3) and neither calls one of its five checks nor lists it in `sharedChecks.skip`; or it skips a check without a `sharedChecks.reason`, or skips a name that is not a shared check. |
 
 ### Dataflow and expressions
 
@@ -83,37 +82,17 @@ A warning does not fail a lint. `--strict` promotes every warning to an error.
 | `W303` | warning | A parameter is declared and never read. |
 | `W304` | warning | A step list labels some of its steps with a Gherkin keyword and not others, so the report reads half as a scenario and half as a list of calls. A suite can be labelled a case at a time, which is why this is a warning. |
 
-### Not in this contract: the catalog lint
-
-The scenario catalog has its own lint over this repository's suites (codes
-`E401` to `E405`, described in [test/e2e/suites/README.md](../suites/README.md#the-catalog-lint)).
-It is PowerShell-only and deliberately not tabled here: every code tabled in
-this file is one all four bindings produce and the conformance corpus
-compares, and the catalog lint is about the repository's corpus rather than
-about what a suite means.
-
 ## What a limit's ceiling is
 
-`E205` needs one number to compare against, and the number depends on the
-suite (DEC-Y08, and R1.8 as the runner enforces it since Y2.3).
+`E205` needs one number to compare against. These are the core ceilings; a
+runtime extension may add a stricter rule (for example a lower, required
+ceiling for suites with a given tag), which it documents with its own codes.
 
 | Limit | Where | Ceiling |
 | --- | --- | --- |
-| `timeoutSec` | a case, or `defaults` | 14400 seconds, in a suite not tagged `lifecycle` |
-| `timeoutSec` | a case in a suite tagged `lifecycle` | 900 seconds, and **required**: every such case declares its own limit (R1.8 plus the SF-10 user override) |
-| `timeoutSec` | `defaults` in a suite tagged `lifecycle` | refused: a default would hide which cases fit the fifteen-minute budget, and which do is what the rule exists to state |
+| `timeoutSec` | a case, or `defaults` | 14400 seconds |
 | `cleanupTimeoutSec` | a case, or `defaults` | 14400 seconds |
 | `setupTimeoutSec`, `teardownTimeoutSec`, `beforeEachTimeoutSec`, `afterEachTimeoutSec` | the suite | 14400 seconds |
-
-The lifecycle rule is the one the runner enforces before it executes anything,
-so a suite that lints clean cannot then be refused at run time. Until Y2.3 it
-was the other way round - no lifecycle case could declare a limit, because
-nothing enforced one and the number would have been read by nobody. Y2.3 made a
-limit enforceable by cancelling the step that runs past it, so the rule became
-R1.8's, with the SF-09 operator override: every lifecycle case declares its own,
-between 1 and 900. R3.6 removes
-the temporary budget skip mechanism: tags only perform ordinary selection.
-A selected case that exceeds its declared limit fails.
 
 ## The two output formats
 
@@ -121,14 +100,14 @@ A human line is `file:line:column  CODE  message`, with the suggestion
 indented on the following line when there is one:
 
 ```
-test/e2e/suites/drain.yml:38:15  E301  ${origOwner} resolves to nothing.
+suites/orders.yml:38:15  E301  ${origOwner} resolves to nothing.
     Captures are read as ${capture.origOwner}. Did you mean that?
 ```
 
 `--json` writes the array defined by `diagnostic.schema.json`, sorted by file,
 then line, then column, then code, then message. The sort is total, so two
 bindings that find the same set of problems write byte-identical documents
-apart from their message wording. Paths are relative to the repository root
+apart from their message wording. Paths are relative to the workspace root
 and use forward slashes, for the same reason.
 
 ## Exit codes

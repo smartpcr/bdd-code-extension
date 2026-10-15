@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/lifecycle-missing-limit.yml",
+  "description": "A lifecycle case that declares no limit, which R1.8 requires.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 4,
+      "column": 5
+    }
+  ]
+}

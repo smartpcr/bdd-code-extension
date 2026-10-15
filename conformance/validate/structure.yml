@@ -1,0 +1,7 @@
+suite: structure
+tags: smoke
+tests:
+  - steps:
+      - action: fixture.suspend
+        nodee: HOST-N2
+      - captureAs: nothing

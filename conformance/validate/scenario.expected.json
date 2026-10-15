@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/scenario.yml",
+  "description": "Clean. A case labelled all the way through reads as one scenario.",
+  "exitCode": 0,
+  "diagnostics": []
+}

@@ -1,0 +1,17 @@
+suite: stable-vars
+description: A vars block that cannot be the same twice, and a function called wrong.
+vars:
+  runId: ${uuid()}
+  startedAt: ${nowIso()}
+  fromTheShell: ${env('PATH')}
+  fine: ${upper('stable')}
+tests:
+  - name: a-case-that-calls-a-function-wrong
+    steps:
+      - action: core.set
+        value: ${lower()}
+        captureAs: shouted
+      - action: core.noop
+        asserts:
+          - var: shouted
+            equals: stable

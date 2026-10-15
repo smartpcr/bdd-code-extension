@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/lifecycle-clean.yml",
+  "description": "Clean. Every lifecycle case declares its own limit inside the ceiling.",
+  "exitCode": 0,
+  "diagnostics": []
+}

@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/shared-checks-complete.yml",
+  "description": "Clean. Step 3.3: a suite that imports the shared checks calls four and skips the fifth with a reason.",
+  "exitCode": 0,
+  "diagnostics": []
+}

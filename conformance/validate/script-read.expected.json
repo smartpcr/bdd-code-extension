@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/script-read.yml",
+  "description": "Clean. A script assertion reads the bag directly, and that counts as reading the capture.",
+  "exitCode": 0,
+  "diagnostics": []
+}

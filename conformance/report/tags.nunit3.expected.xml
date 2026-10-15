@@ -1,0 +1,21 @@
+<test-run asserts="0" failed="0" inconclusive="0" passed="2" result="Passed" skipped="1" testcasecount="3" total="3">
+  <test-suite asserts="0" classname="tags" failed="0" fullname="tags" inconclusive="0" name="tags" passed="2" result="Passed" runstate="Runnable" skipped="1" testcasecount="3" total="3" type="TestFixture">
+    <test-case asserts="0" classname="tags" fullname="tags.the-selected-one" methodname="the-selected-one" name="the-selected-one" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"selected-ran"}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="tags" fullname="tags.the-unselected-one" methodname="the-unselected-one" name="the-unselected-one" result="Skipped" runstate="Runnable">
+      <reason>
+        <message>tag filter</message>
+      </reason>
+    </test-case>
+    <test-case asserts="0" classname="tags" fullname="tags.the-one-over-budget" methodname="the-one-over-budget" name="the-one-over-budget" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"budget-tag-ran"}
+        {"ok":true}
+      </output>
+    </test-case>
+  </test-suite>
+</test-run>

@@ -1,0 +1,49 @@
+suite: step-why
+setup:
+  - action: fixture.state
+    why: The suite reads the cluster once so every case starts from a known state.
+    requires: { storage: s2d }
+    captureAs: agent
+afterEach:
+  - action: fixture.state
+    why: Each case leaves the cluster as it found it.
+metaSteps:
+  - name: read-state
+    params:
+      - { name: node, required: true }
+    exports: [state]
+    steps:
+      - given: the state one node reports
+        why: A meta definition's own steps carry a reason too.
+        requires: { features: [cau] }
+        action: fixture.state
+        target: ${param.node}
+        captureAs: state
+tests:
+  - name: every-step-says-why
+    steps:
+      - given: a cluster that is up
+        why: Nothing after this step means anything on a cluster that is down.
+        action: fixture.state
+        captureAs: before
+        asserts:
+          - var: before.State
+            equals: Up
+      - when: one node reports its own state
+        why: A meta use site carries a reason and a requirement like any step.
+        requires: { family: azureLocal, identity: workgroup, rollbackPoint: true }
+        meta: read-state
+        with: { node: HOST-N2 }
+      - then: that node is up
+        why: The state the meta step exported is what the case asserts on.
+        requires: { storage: san, features: [dhcp, testWorkload] }
+        action: fixture.state
+        target: ${capture.state.Name}
+        captureAs: after
+    asserts:
+      - var: after.State
+        equals: Up
+    cleanup:
+      - action: fixture.state
+        why: Cleanup steps say why they run as well.
+        requires: { storage: s2d }

@@ -14,3 +14,6 @@ out/**
 .claude/**
 .gitignore
 .github/**
+spec/**
+conformance/**
+runtimes/**

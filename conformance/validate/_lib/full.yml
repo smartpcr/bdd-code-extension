@@ -1,0 +1,12 @@
+params:
+  - { name: fixtureDir, default: scripts/e2e/fixtures }
+vars:
+  libraryVar: from-the-library
+defaults:
+  target: HOST-N1
+metaSteps:
+  - name: library-meta
+    exports: [cs]
+    steps:
+      - action: fixture.state
+        captureAs: cs

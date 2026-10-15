@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/from-library.yml",
+  "description": "A local declaration reusing an imported name without saying it overrides it.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E209",
+      "severity": "error",
+      "line": 5,
+      "column": 3
+    }
+  ]
+}

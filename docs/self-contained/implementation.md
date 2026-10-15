@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: implementation plan
 
-Status: **plan, for review; no stage started.** The design, its outcomes
+Status: **stage S1 built (2026-10-15), evidence in [docs/evidence/self-contained-s1.md](../evidence/self-contained-s1.md); S2 to S7 not started.** The design, its outcomes
 (O1–O5), decisions (DEC-S01–DEC-S10) and scenarios (E1–E8) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -50,14 +50,16 @@ pinned). Priority orders the work; it never weakens a completion condition.
   file; a duplicate name is an error naming both files; an import cycle is an
   error) and `suiteSchema` to the catalog schema and to the generator. Open
   the binding-name list in the catalog schema to a name pattern (DEC-S10). Leave
-  os-context's other 93 actions and its scenario-catalog schema in os-context.
+  os-context's other 94 actions and its scenario-catalog schema in os-context.
 * **Files.** `spec/*`.
 * **Depends on.** Nothing.
 * **Done when.** `Schema.Tests.ps1` passes, including imports, duplicates,
   cycles and an extension that tries to redefine a core field; a catalog of
-  os-context's 93 actions that imports `core.catalog.yaml`, with its
-  suite-schema extension, generates a `suite.schema.json` identical to
-  os-context's today (recorded diff: empty).
+  os-context's 94 actions that imports `core.catalog.yaml`, with its
+  suite-schema extension, generates a `suite.schema.json` that validates
+  exactly like os-context's today: every definition and branch equal once
+  descriptions, comments and the order of the action list are set aside
+  (recorded diff: empty).
 * **Proved by.** E1, E5, E8.
 
 ### <a id="d2"></a>D2. The corpus and its neutral catalog in `conformance/` (P0)
@@ -280,24 +282,24 @@ and exit evidence.
 Result: D1, D2, D3, D13. Entry: none. Exit evidence: E2 for TypeScript; E3
 for TypeScript; generator byte-for-byte check; D13 unit tests.
 
-- [ ] S1.1 Record the os-context source commit; copy the spec files (D1).
-- [ ] S1.2 `suite.core.json` without product fields; those fields written as os-context's suite-schema extension (hand-over).
-- [ ] S1.3 `core.catalog.yaml`; `imports` and `suiteSchema` in the catalog schema, extension schema, generator; schema tests (imports, duplicates, cycles, redefinition refused).
-- [ ] S1.4 os-context's 93 actions importing the core, with its extension, generate its `suite.schema.json` unchanged (empty diff).
-- [ ] S1.5 Copy `conformance/`; write `rename.json` and the rename script (D2).
-- [ ] S1.6 Write `conformance/catalog.yaml` with core, wait and fixture actions.
-- [ ] S1.7 Apply the rename; record the replacement report; hand over lifecycle and E214 entries.
-- [ ] S1.8 Copy the TypeScript runtime; remove `src/lifecycle` (D3).
-- [ ] S1.9 Rename the package; point corpus tests at `conformance/`.
-- [ ] S1.10 Add the `Extension` type: actions, context keys, options, rules, prefix.
-- [ ] S1.11 Make expression roots and dataflow keys come from extensions.
-- [ ] S1.12 Turn the lifecycle ceiling into an extension rule; default prefix `BDD_SUITE_`.
-- [ ] S1.13 Fix `--schema-root` to work without a repository walk.
-- [ ] S1.14 `main(argv, extensions)` and `createLinter({..., extensions})`.
-- [ ] S1.15 Example extension and E3's TypeScript test.
-- [ ] S1.16 `npm test` at 100% line coverage; corpus passes (E2, TypeScript).
-- [ ] S1.17 CI job for the TypeScript runtime.
-- [ ] S1.18 VS Code extension resolves catalog imports (D13), unit tests at 100%.
+- [x] S1.1 Record the os-context source commit; copy the spec files (D1).
+- [x] S1.2 `suite.core.json` without product fields; those fields written as os-context's suite-schema extension (hand-over).
+- [x] S1.3 `core.catalog.yaml`; `imports` and `suiteSchema` in the catalog schema, extension schema, generator; schema tests (imports, duplicates, cycles, redefinition refused).
+- [x] S1.4 os-context's 94 actions importing the core, with its extension, generate a `suite.schema.json` that validates exactly like its own (empty diff).
+- [x] S1.5 Copy `conformance/`; write `rename.json` and the rename script (D2).
+- [x] S1.6 Write `conformance/schema/actions.catalog.yaml` with core, wait and fixture actions.
+- [x] S1.7 Apply the rename; record the replacement report; hand over lifecycle and E214 entries.
+- [x] S1.8 Copy the TypeScript runtime; remove `src/lifecycle` (D3).
+- [x] S1.9 Rename the package; point corpus tests at `conformance/`.
+- [x] S1.10 Add the `Extension` type: actions, context keys, options, rules, prefix.
+- [x] S1.11 Make expression roots and dataflow keys come from extensions.
+- [x] S1.12 Turn the lifecycle ceiling into an extension rule; default prefix `BDD_SUITE_`.
+- [x] S1.13 Fix `--schema-root` to work without a repository walk.
+- [x] S1.14 `main(argv, extensions)` and `createLinter({..., extensions})`.
+- [x] S1.15 Example extension and E3's TypeScript test.
+- [x] S1.16 `npm test` at 100% line coverage; corpus passes (E2, TypeScript).
+- [ ] S1.17 CI job for the TypeScript runtime. (Built: jobs `spec` and `runtime-typescript` in `ci.yml`, YAML-parsed; open until they pass on GitHub, which needs a push.)
+- [x] S1.18 VS Code extension resolves catalog imports (D13), unit tests at 100%.
 
 ### Stage S2: Go and Rust runtimes (P0)
 
@@ -396,8 +398,8 @@ Result: D11. Entry: S6 and a lab. Exit evidence: E6 with cleanup.
 | Scenario | Deliverables | Stage | Needs a lab | Status |
 | --- | --- | --- | --- | --- |
 | [E1](design.md#e1) | D1–D9 | S5 | no | not run |
-| [E2](design.md#e2) | D2–D7 | S1–S4 | no | not run |
-| [E3](design.md#e3) | D3–D7 | S1–S4 | no | not run |
+| [E2](design.md#e2) | D2–D7 | S1–S4 | no | TypeScript part passed locally (2026-10-15); C#, Go, Rust, PowerShell and the divergence check not run |
+| [E3](design.md#e3) | D3–D7 | S1–S4 | no | TypeScript part passed locally (2026-10-15); other languages not run |
 | [E4](design.md#e4) | D8, D9 | S5 | no | not run |
 | [E5](design.md#e5) | D10 | S6 | no | not run |
 | [E6](design.md#e6) | D11 | S7 | yes | not run |

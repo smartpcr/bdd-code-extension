@@ -1,0 +1,8 @@
+suite: lifecycle-clean
+tags: [lifecycle]
+tests:
+  - name: declares-its-own-limit
+    timeoutSec: 900
+    steps:
+      - action: lifecycle.get
+        route: /labs

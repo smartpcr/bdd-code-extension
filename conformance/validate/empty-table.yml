@@ -1,0 +1,11 @@
+suite: empty-table
+tests:
+  - name: a-table-with-no-rows
+    steps:
+      - given: nothing at all
+        action: fixture.state
+        captureAs: cs
+        table: []
+    asserts:
+      - var: cs.State
+        equals: Up

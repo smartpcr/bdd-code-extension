@@ -1,0 +1,14 @@
+suite: later-guard
+tests:
+  - name: guards-on-a-later-capture
+    steps:
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up
+    cleanup:
+      - action: fixture.resume
+        node: HOST-N2
+        ifCapture: resumed
+        captureAs: resumed

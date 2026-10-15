@@ -1,0 +1,38 @@
+{
+  "kind": "validate",
+  "suite": "validate/case-own.yml",
+  "description": "A case with parameters of its own, reading captures and paths that are not there.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E210",
+      "severity": "error",
+      "line": 5,
+      "column": 9
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 15,
+      "column": 15
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 19,
+      "column": 18
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 23,
+      "column": 16
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 28,
+      "column": 17
+    }
+  ]
+}

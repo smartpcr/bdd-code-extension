@@ -1,0 +1,79 @@
+{
+  "$schema": "../../spec/suite.extension.schema.json",
+  "description": "The corpus's own suite fields, added to the core by import exactly as a workspace adds its own (DEC-S10): requires on a suite, case or step, and cluster and target on defaults and cases. The validate corpus checks that extension fields are accepted where declared and refused elsewhere.",
+  "suite": {
+    "requires": {
+      "$ref": "#/$defs/requires"
+    }
+  },
+  "defaults": {
+    "cluster": {
+      "$ref": "#/$defs/exprString"
+    },
+    "target": {
+      "$ref": "#/$defs/exprString"
+    }
+  },
+  "case": {
+    "requires": {
+      "$ref": "#/$defs/requires"
+    },
+    "cluster": {
+      "$ref": "#/$defs/exprString"
+    },
+    "target": {
+      "$ref": "#/$defs/exprString"
+    }
+  },
+  "step": {
+    "requires": {
+      "$ref": "#/$defs/requires"
+    }
+  },
+  "$defs": {
+    "requires": {
+      "description": "What a case or step needs from the environment it runs against. Fixture field: the corpus checks that it validates where declared.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "description": "The storage the lab was built with.",
+          "enum": [
+            "s2d",
+            "san"
+          ]
+        },
+        "features": {
+          "description": "Plan features that must be on.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "cau",
+              "dhcp",
+              "testWorkload"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "family": {
+          "description": "The lab's image family. A plan without one is windowsServer.",
+          "enum": [
+            "windowsServer",
+            "azureLocal"
+          ]
+        },
+        "identity": {
+          "description": "The lab's identity mode. A plan without one is domain.",
+          "enum": [
+            "domain",
+            "workgroup"
+          ]
+        },
+        "rollbackPoint": {
+          "description": "true: the lab holds at least one verified, restorable rollback point.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

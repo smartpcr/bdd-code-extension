@@ -1,0 +1,347 @@
+# Every conformance entry, and what it is for.
+#
+# A binding enumerates this file rather than a directory. A directory walk that
+# finds nothing looks the same as a directory walk that finds everything and
+# skips it, and the whole point of the corpus is that a binding cannot quietly
+# run less of it than the others. The corpus test asserts both ways: every
+# entry named here exists, and every file in validate/ and execute/ is either
+# an entry or named under support.
+#
+# Paths are relative to this file and use forward slashes.
+
+version: 1
+
+# The schema folder the corpus is validated against: its own catalog (the core
+# plus fixture actions) and the suite.schema.json generated from it.
+schemaRoot: schema
+
+entries:
+  # --- validate: the file is refused, at these codes and these positions -----
+  
+  - kind: validate
+    suite: validate/typos.yml
+    expectation: validate/typos.expected.json
+    description: 'A misspelled key, a misspelled action and a misspelled assertion block.'
+
+  - kind: validate
+    suite: validate/silent-assert.yml
+    expectation: validate/silent-assert.expected.json
+    description: 'An operator typo, which is both an unknown key and an assertion that asserts nothing.'
+
+  - kind: validate
+    suite: validate/structure.yml
+    expectation: validate/structure.expected.json
+    description: 'A wrong type, three missing keys and a parameter the action does not declare.'
+
+  - kind: validate
+    suite: validate/shapes.yml
+    expectation: validate/shapes.expected.json
+    description: 'Wrong types and unresolvable paths at many places in one file, to pin the sort order.'
+
+  - kind: validate
+    suite: validate/broken.yml
+    expectation: validate/broken.expected.json
+    description: 'A file that is not YAML at all.'
+
+  - kind: validate
+    suite: validate/not-a-mapping.yml
+    expectation: validate/not-a-mapping.expected.json
+    description: 'A document that parses but is a list rather than a suite.'
+
+  - kind: validate
+    suite: validate/semantics.yml
+    expectation: validate/semantics.expected.json
+    description: 'Two cases with one name, two steps with one capture, limits out of range and an undeclared meta step.'
+
+  - kind: validate
+    suite: validate/meta.yml
+    expectation: validate/meta.expected.json
+    description: 'A meta cycle, an export no step captures, and two use sites with the wrong parameters.'
+
+  - kind: validate
+    suite: validate/deep.yml
+    expectation: validate/deep.expected.json
+    description: 'Meta steps nested one level past the limit, which is refused for depth rather than for a cycle.'
+
+  - kind: validate
+    suite: validate/imports.yml
+    expectation: validate/imports.expected.json
+    description: 'A library that declares things that run, two shadowed names, a parameter with no value and one nothing reads.'
+
+  - kind: validate
+    suite: validate/from-library.yml
+    expectation: validate/from-library.expected.json
+    description: 'A local declaration reusing an imported name without saying it overrides it.'
+
+  - kind: validate
+    suite: validate/overridden.yml
+    expectation: validate/overridden.expected.json
+    description: 'A parameter given on the command line that the suite does not declare.'
+    params:
+      regionn: x
+
+  - kind: validate
+    suite: validate/bad-import.yml
+    expectation: validate/bad-import.expected.json
+    description: 'An import that is not YAML, and one that imports the file that imported it.'
+
+  - kind: validate
+    suite: validate/dataflow.yml
+    expectation: validate/dataflow.expected.json
+    description: 'References that resolve to nothing, one read before it is produced, a path outside a capture''s shape, and a pattern one binding cannot run.'
+
+  - kind: validate
+    suite: validate/cross-case.yml
+    expectation: validate/cross-case.expected.json
+    description: 'A capture read from the case that did not produce it.'
+
+  - kind: validate
+    suite: validate/case-own.yml
+    expectation: validate/case-own.expected.json
+    description: 'A case with parameters of its own, reading captures and paths that are not there.'
+
+  - kind: validate
+    suite: validate/expressions.yml
+    expectation: validate/expressions.expected.json
+    description: 'An unknown function, a syntax error inside the braces, and a path outside a capture''s shape.'
+
+  - kind: validate
+    suite: validate/stable-vars.yml
+    expectation: validate/stable-vars.expected.json
+    description: 'Three non-deterministic functions in a vars block, and a function called with no arguments.'
+
+  - kind: validate
+    suite: validate/guard.yml
+    expectation: validate/guard.expected.json
+    description: 'A guard naming a capture no step in the case produces, which would silently disable a cleanup.'
+
+  - kind: validate
+    suite: validate/later-guard.yml
+    expectation: validate/later-guard.expected.json
+    description: 'Clean. A guard may name a capture a later step produces, which is what a cleanup needs.'
+
+  - kind: validate
+    suite: validate/unread.yml
+    expectation: validate/unread.expected.json
+    description: 'A capture nothing reads, which is either a pointless step or a missing assertion.'
+
+  - kind: validate
+    suite: validate/empty-assert.yml
+    expectation: validate/empty-assert.expected.json
+    description: 'An assertion entry with a subject and no comparison, beside a capture nobody reads.'
+
+  - kind: validate
+    suite: validate/script-read.yml
+    expectation: validate/script-read.expected.json
+    description: 'Clean. A script assertion reads the bag directly, and that counts as reading the capture.'
+
+  - kind: validate
+    suite: validate/step-assert.yml
+    expectation: validate/step-assert.expected.json
+    description: 'A step''s own assertions, wrong four ways: a path outside a shape, a silent assertion, an unknown key and an unportable pattern.'
+
+  - kind: validate
+    suite: validate/gherkin.yml
+    expectation: validate/gherkin.expected.json
+    description: 'Keywords out of order, two on one step, an and with nothing before it, and a half-labelled list.'
+
+  - kind: validate
+    suite: validate/scenario.yml
+    expectation: validate/scenario.expected.json
+    description: 'Clean. A case labelled all the way through reads as one scenario.'
+
+  - kind: validate
+    suite: validate/tables.yml
+    expectation: validate/tables.expected.json
+    description: 'Every table rule broken at once: differing columns, a repeated column, a repeated row, and a step table inside an outline.'
+
+  - kind: validate
+    suite: validate/empty-table.yml
+    expectation: validate/empty-table.expected.json
+    description: 'A step table with no rows, which would run the step no times and say nothing.'
+
+  - kind: validate
+    suite: validate/row-scope.yml
+    expectation: validate/row-scope.expected.json
+    description: 'Clean. A row column is bound for the step that carries the table.'
+
+  - kind: validate
+    suite: validate/row-scope-wrong.yml
+    expectation: validate/row-scope-wrong.expected.json
+    description: 'A path into a table''s capture that forgets the step ran once per row.'
+
+  - kind: validate
+    suite: validate/list-capture.yml
+    expectation: validate/list-capture.expected.json
+    description: 'The same mistake from the other side: a list capture indexed as though it were one result.'
+
+  - kind: validate
+    suite: validate/outline.yml
+    expectation: validate/outline.expected.json
+    description: 'Clean. A scenario outline binds its columns for the whole case.'
+
+  - kind: validate
+    suite: validate/hooks.yml
+    expectation: validate/hooks.expected.json
+    description: 'A hook limit past its ceiling, and a hook capture nothing reads.'
+
+  - kind: validate
+    suite: validate/hook-rules.yml
+    expectation: validate/hook-rules.expected.json
+    description: 'A hook labelled with a Gherkin keyword, a silent assertion in one, and a path outside a shape.'
+
+  - kind: validate
+    suite: validate/everywhere.yml
+    expectation: validate/everywhere.expected.json
+    description: 'A file wrong at all three levels at once, which is what proves the validator does not stop at the first error.'
+
+  - kind: validate
+    suite: validate/portability.yml
+    expectation: validate/portability.expected.json
+    description: 'A step only the PowerShell binding implements, reported only when the portability check asks.'
+    binding: rust
+    bindingCheck: true
+
+  - kind: validate
+    suite: validate/uses-deprecated.yml
+    expectation: validate/uses-deprecated.expected.json
+    description: 'An action the catalog marks deprecated, which is a warning rather than a refusal.'
+    catalogOverlay: validate/_catalog/deprecated.yaml
+
+  - kind: validate
+    suite: validate/new-parameter.yml
+    expectation: validate/new-parameter.expected.json
+    description: 'Clean against an overlay that declares the parameter, which is what makes the catalog the vocabulary rather than a list in the validator.'
+    catalogOverlay: validate/_catalog/new-parameter.yaml
+
+  - kind: validate
+    suite: validate/input-parameter.yml
+    expectation: validate/input-parameter.expected.json
+    description: 'Parameters marked input: true have no default on purpose: the script that starts the run supplies them, so E210 does not fire.'
+
+  - kind: validate
+    suite: validate/step-why.yml
+    expectation: validate/step-why.expected.json
+    description: 'Clean. Every kind of step carries a why and a requires: a hook, a meta definition''s step, a meta use site, a case step and a cleanup step.'
+
+  - kind: validate
+    suite: validate/step-why-multiline.yml
+    expectation: validate/step-why-multiline.expected.json
+    description: 'A why that runs onto a second line, which the format refuses as a value of the wrong shape.'
+
+  # --- execute: the run does these things, in this order ---------------------
+  - kind: execute
+    suite: execute/capture-path-guard.yml
+    expectation: execute/capture-path-guard.expected.json
+    description: Nested capture guards test presence, not truthiness.
+
+  - kind: execute
+    suite: execute/hooks.yml
+    expectation: execute/hooks.expected.json
+    description: The six phases run in order around two cases, with beforeEach and afterEach once per case.
+
+  - kind: execute
+    suite: execute/setup-fails.yml
+    expectation: execute/setup-fails.expected.json
+    description: A failed suite setup errors every case, runs none of their steps, and the teardown still runs.
+
+  - kind: execute
+    suite: execute/case-setup-fails.yml
+    expectation: execute/case-setup-fails.expected.json
+    description: A failed case setup fails that case only, its cleanup still runs, and the next case is unaffected.
+
+  - kind: execute
+    suite: execute/hung-step.yml
+    expectation: execute/hung-step.expected.json
+    description: A step that would run for half a minute is cancelled at its own one-second limit, and the cleanup still runs.
+    maxSeconds: 20
+
+  - kind: execute
+    suite: execute/meta.yml
+    expectation: execute/meta.expected.json
+    description: A meta step expands at each use site, with its parameters bound and its own steps named.
+
+  - kind: execute
+    suite: execute/params.yml
+    expectation: execute/params.expected.json
+    description: A parameter takes its value from the highest level that names it, the command line first.
+    params:
+      fromCommandLine: the-command-line
+
+  - kind: execute
+    suite: execute/capture-scope.yml
+    expectation: execute/capture-scope.expected.json
+    description: A capture belongs to the case that produced it, and what the suite setup captured reaches every case.
+
+  - kind: execute
+    suite: execute/tags.yml
+    expectation: execute/tags.expected.json
+    description: A tag filter selects both wanted cases, including a formerly reserved budget tag, and skips only the unwanted case.
+    tags: wanted
+
+  - kind: execute
+    suite: execute/teardown-fails.yml
+    expectation: execute/teardown-fails.expected.json
+    description: A teardown that fails is its own report entry and fails the run, without changing the result of a case that passed.
+
+  - kind: execute
+    suite: execute/gherkin.yml
+    expectation: execute/gherkin.expected.json
+    description: A scenario reads as one, a table runs a step once per row in row order, an outline names its entries by their columns, and a failure carries the keyword and the sentence.
+
+support:
+  # Libraries the validate entries import, and catalog overlays they validate
+  # against. They have no expectation of their own: what they are for is what
+  # the entry that names them reports.
+  - validate/_lib/library.yml
+  - validate/_lib/runs-things.yml
+  - validate/_lib/full.yml
+  - validate/_lib/bad.yml
+  - validate/_catalog/deprecated.yaml
+  - validate/_catalog/new-parameter.yaml
+
+tables:
+  # Two tables that are the specification rather than a description of one.
+  - kind: expressions
+    context: expressions/context.yaml
+    cases: expressions/cases.yaml
+    description: 'Every function, operator, precedence rule, coercion and refusal of the expression language, evaluated against one fixed context.'
+
+  - kind: asserts
+    cases: asserts/cases.yaml
+    description: 'Every assertion operator against every operand pair that says something, stated as pass, fail or a diagnostic code.'
+reports:
+  # How two reports are compared, and the canonical form of three runs in both
+  # formats. A report says which cases passed; the trace beside it says how.
+  definition: report/canonicalise.md
+  entries:
+    - suite: execute/hooks.yml
+      format: NUnit3
+      expected: report/hooks.nunit3.expected.xml
+      description: 'A run where everything passed, in NUnit 3.'
+    - suite: execute/hooks.yml
+      format: JUnit
+      expected: report/hooks.junit.expected.xml
+      description: 'The same run in JUnit, which names the same cases with different elements.'
+    - suite: execute/tags.yml
+      format: NUnit3
+      expected: report/tags.nunit3.expected.xml
+      description: 'A run where only the unwanted case is skipped; the former budget tag runs normally.'
+      tags: wanted
+    - suite: execute/tags.yml
+      format: JUnit
+      expected: report/tags.junit.expected.xml
+      description: 'The same run in JUnit, where a skip is an element rather than a result.'
+      tags: wanted
+    - suite: execute/gherkin.yml
+      format: NUnit3
+      expected: report/gherkin.nunit3.expected.xml
+      description: 'A run with a failing case, whose message names the step that failed.'
+    - suite: execute/gherkin.yml
+      format: JUnit
+      expected: report/gherkin.junit.expected.xml
+      description: 'The same run in JUnit.'
+    - suite: execute/teardown-fails.yml
+      format: NUnit3
+      expected: report/teardown-fails.nunit3.expected.xml
+      description: 'A run whose cases passed and whose teardown did not, which is one entry more than it has cases.'

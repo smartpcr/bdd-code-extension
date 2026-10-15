@@ -1,0 +1,20 @@
+{
+  "kind": "validate",
+  "suite": "validate/bad-import.yml",
+  "description": "An import that is not YAML, and one that imports the file that imported it.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E100",
+      "severity": "error",
+      "line": 3,
+      "column": 5
+    },
+    {
+      "code": "E207",
+      "severity": "error",
+      "line": 4,
+      "column": 5
+    }
+  ]
+}

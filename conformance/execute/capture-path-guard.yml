@@ -1,0 +1,11 @@
+suite: capture-path-guard
+description: Nested capture guards test presence, not truthiness.
+tags: [conformance]
+tests:
+  - name: optional-context-branches
+    steps:
+      - { action: core.set, value: { wave: { enabled: false, empty: null }, scalar: 3 }, captureAs: context }
+      - { action: core.noop, ifCapture: context.wave.enabled }
+      - { action: core.noop, ifCapture: context.wave.empty }
+      - { action: core.fail, ifCapture: context.isolated, message: absent branch must not run }
+      - { action: core.fail, ifCapture: context.scalar.child, message: scalar has no child }

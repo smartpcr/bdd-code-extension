@@ -1,0 +1,16 @@
+suite: shared-checks-missing
+imports:
+  - _lib/shared-checks.yml
+sharedChecks:
+  skip: [check-r5-ownership, check-r9-nothing]
+  reason: ''
+tests:
+  - name: calls-three-of-five
+    steps:
+      - meta: check-r1-preview
+      - meta: check-r2-noop
+      - meta: check-r4-rollback-forward
+  - name: calls-r1-without-its-parameter
+    steps:
+      - meta: check-r1-preview
+        with: {}

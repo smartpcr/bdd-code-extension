@@ -1,0 +1,18 @@
+suite: list-capture
+tests:
+  - name: a-table-capture-is-a-list
+    steps:
+      - given: every node in turn
+        action: fixture.state
+        target: ${row.node}
+        captureAs: views
+        table:
+          - { node: HOST-N1 }
+          - { node: HOST-N2 }
+    asserts:
+      - var: views.0.State
+        equals: Up
+      - var: views.1.Nodes
+        count: 4
+      - var: views.State
+        equals: Up

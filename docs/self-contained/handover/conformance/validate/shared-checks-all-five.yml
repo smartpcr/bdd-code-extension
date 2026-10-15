@@ -1,0 +1,14 @@
+suite: shared-checks-all-five
+imports:
+  - _lib/shared-checks.yml
+tests:
+  - name: calls-all-five
+    steps:
+      - meta: check-r1-preview
+        with: { submit: /labs }
+      - meta: check-r2-noop
+      - meta: check-r3-interrupted-retry
+  - name: calls-the-rest
+    steps:
+      - meta: check-r4-rollback-forward
+      - meta: check-r5-ownership

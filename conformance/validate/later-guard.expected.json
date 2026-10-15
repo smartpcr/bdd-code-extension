@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/later-guard.yml",
+  "description": "Clean. A guard may name a capture a later step produces, which is what a cleanup needs.",
+  "exitCode": 0,
+  "diagnostics": []
+}

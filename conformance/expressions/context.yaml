@@ -1,0 +1,42 @@
+# The one evaluation context every expression row is evaluated against.
+#
+# Fixed so that a row can state a value rather than a rule. The roots are the
+# ones the language allows: capture, param, var, row, and the bare context keys
+# cluster, target, timeoutSec, labId, apiUrl and defaults. Anything else is E301.
+
+cluster: HOST-CL01
+target: HOST-N1
+timeoutSec: 300
+labId: lab1
+apiUrl: http://api/api/v1
+
+defaults:
+  target: HOST-N1
+  timeoutSec: 600
+
+capture:
+  cs:
+    State: Up
+    Count: 3
+    Nodes: [N1, N2, N3]
+    Empty: []
+    Deep:
+      inner:
+        leaf: found
+  run:
+    id: abc
+    ok: true
+
+param:
+  labId: lab1
+  budget: '120'
+  blank: ''
+  num: '7'
+
+var:
+  deadline: 240
+  region: west
+
+row:
+  node: N2
+  expected: Paused

@@ -1,0 +1,25 @@
+suite: dataflow
+defaults:
+  cluster: HOST-CL01
+tests:
+  - name: reads-what-is-not-there
+    steps:
+      - action: fixture.suspend
+        node: ${origOwner}
+      - action: fixture.state
+        captureAs: cs
+      - action: fixture.move
+        group: ${capture.later}
+        toNode: ${param.nope}
+        target: ${var.nope}
+      - action: fixture.state
+        captureAs: later
+    asserts:
+      - var: cs.Stat
+        equals: Up
+      - var: cs.State
+        matches: '^(?=Up)'
+      - var: nobodyCaptures.State
+        equals: Up
+      - var: cluster
+        equals: HOST-CL01

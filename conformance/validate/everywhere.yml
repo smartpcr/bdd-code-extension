@@ -1,0 +1,27 @@
+suit: everywhere
+suite: everywhere
+defaults:
+  clustr: HOST-CL01
+params:
+  - { name: labId, defualt: lab1 }
+metaSteps:
+  - name: uses-an-undeclared-meta
+    stepps: []
+    steps:
+      - meta: nobody-declares-this
+  - name: takes-a-parameter
+    params:
+      - { name: labId, requried: true }
+    steps:
+      - action: fixture.state
+        captureAs: cs
+tests:
+  - name: a-meta-use-site-with-an-unknown-key
+    steps:
+      - meta: takes-a-parameter
+        withh: { labId: x }
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up

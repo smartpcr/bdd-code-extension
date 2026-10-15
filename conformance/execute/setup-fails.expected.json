@@ -1,0 +1,39 @@
+{
+  "kind": "execute",
+  "suite": "execute/setup-fails.yml",
+  "description": "A failed suite setup errors every case, runs none of their steps, and the teardown still runs.",
+  "exitCode": 1,
+  "trace": [
+    {
+      "phase": "suite-setup",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "suite-setup",
+      "step": "step 2 (core.fail)",
+      "action": "core.fail",
+      "status": "failed",
+      "reason": "action"
+    },
+    {
+      "phase": "case",
+      "case": "first",
+      "status": "error",
+      "reason": "suite-setup"
+    },
+    {
+      "phase": "case",
+      "case": "second",
+      "status": "error",
+      "reason": "suite-setup"
+    },
+    {
+      "phase": "suite-teardown",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    }
+  ]
+}

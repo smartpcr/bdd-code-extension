@@ -183,6 +183,23 @@ async function applyAndGenerate(host: ScaffoldHost, ix: FolderIndexer, edits: Fi
 }
 
 /** *Declare action* (B5.1): the catalog entry, the PowerShell stub, the regenerated schema. */
+/**
+ * The keys every step may carry, from the first schema beside the catalog that
+ * lists them: the generated suite.schema.json (extension fields included), or
+ * the older suite.base.json. Undefined when neither does, or neither can be read.
+ */
+export function stepEnvelopeKeys(catalogFile: string): string[] | undefined {
+  for (const name of ['suite.schema.json', 'suite.base.json']) {
+    try {
+      const keys = commonStepKeys(fs.readFileSync(path.join(path.dirname(catalogFile), name), 'utf8'));
+      if (keys) return keys;
+    } catch {
+      // Missing, or unreadable for now (EMFILE while a window starts): try the next.
+    }
+  }
+  return undefined;
+}
+
 export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?: string): Promise<ScaffoldResult> {
   const editor = vscode.window.activeTextEditor;
   const docUri = uri ?? editor?.document.uri;
@@ -195,15 +212,16 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
   if (!action) return report(host, refused('Declare action: put the cursor on a step whose action is not declared.'));
   const catalogFile = ix.layout.catalogPath;
   const catalogDoc = await vscode.workspace.openTextDocument(vscode.Uri.file(catalogFile));
-  const base = path.join(path.dirname(catalogFile), 'suite.base.json');
   const stubFile = path.join(ix.layout.root, powershellStubFile(action));
   const plan = planDeclare({
     catalogFile,
     catalogText: catalogDoc.getText(),
-    declared: n => parseCatalog(catalogDoc.getText(), catalogFile).actions.has(n),
+    // Declared in this catalog's current text, or in a catalog it imports (DEC-S10): either way it needs no
+    // declaring. Only imported entries come from the index, which lags an edit or an undo of this file.
+    declared: n => parseCatalog(catalogDoc.getText(), catalogFile).actions.has(n) || !!ix.index.catalog?.actions.get(n)?.file,
     name: action,
     stepParams: step?.params.map(p => ({ name: p.name, value: p.value })) ?? [],
-    commonKeys: fs.existsSync(base) ? commonStepKeys(fs.readFileSync(base, 'utf8')) : undefined,
+    commonKeys: stepEnvelopeKeys(catalogFile),
     stubFile,
     stubExists: fs.existsSync(stubFile),
     stubText: renderTemplate(template(host, ix, 'powershell.ps1.tmpl'), action),
@@ -232,6 +250,8 @@ export async function implementAction(host: ScaffoldHost, action?: string, bindi
   const catalogDoc = await vscode.workspace.openTextDocument(vscode.Uri.file(catalogFile));
   const current = parseCatalog(catalogDoc.getText(), catalogFile);
   const entry = current.actions.get(chosen);
+  const imported = catalog.actions.get(chosen)?.file;
+  if (!entry && imported) return report(host, refused(`Implement action: ${chosen} is declared in the imported catalog ${imported}, which this workspace does not edit.`));
   if (!entry) return report(host, refused(`Implement action: ${chosen} is not in the catalog; declare it first.`));
   const target = stubTarget(binding, chosen);
   if (!target) return report(host, refused(`Implement action: there is no stub template for the ${binding} binding.`));

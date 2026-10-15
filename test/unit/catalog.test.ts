@@ -3,7 +3,8 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { test } from 'node:test';
-import { flattenShape, parseCatalog, parseShape } from '../../src/core/catalog';
+import { flattenShape, parseCatalog, parseShape, resolveCatalog } from '../../src/core/catalog';
+import { fileKey } from '../../src/core/paths';
 import { actionHoverMarkdown } from '../../src/core/hoverText';
 import { parseYaml } from '../../src/core/yamlPositions';
 import { RegistrationSite } from '../../src/core/types';
@@ -177,4 +178,49 @@ test('parseYaml.range of a missing node is the start of the text; helpers on non
   assert.strictEqual(stringOf(undefined, 'a'), undefined);
   assert.deepStrictEqual(itemsOf(undefined, 'a'), []);
   assert.deepStrictEqual(stringItems(undefined), []);
+});
+
+// DEC-S10: a workspace catalog imports others; the index sees one catalog.
+const W = path.resolve('/ws/test/e2e/schema');
+const k = (f: string) => fileKey(path.join(W, f));
+const entry = (name: string, bindings = '[go]') => `  - name: ${name}\n    summary: ${name}.\n    bindings: ${bindings}\n    interruptible: true\n    captures: { type: any }\n`;
+const files = (map: Record<string, string>) => (file: string) => {
+  const hit = Object.entries(map).find(([f]) => k(f) === fileKey(file));
+  return hit?.[1];
+};
+
+test('resolveCatalog: imports first, depth first; each imported action keeps its file; a diamond is read once; bindings merge', () => {
+  const read = files({
+    'core.yaml': `catalogVersion: 1\nbindings: [powershell]\nactions:\n${entry('core.set', '[powershell]')}`,
+    'team/base.yaml': `catalogVersion: 1\nimports: [../core.yaml]\nbindings: [rust]\nactions:\n${entry('team.list')}`,
+  });
+  const c = resolveCatalog(`catalogVersion: 1\nimports: [core.yaml, team/base.yaml, { not: a path }]\nbindings: [go]\nactions:\n${entry('shop.order')}`, k('actions.catalog.yaml'), read);
+  assert.deepStrictEqual([...c.actions.keys()], ['core.set', 'team.list', 'shop.order']);
+  assert.deepStrictEqual([c.actions.get('core.set')!.file, c.actions.get('team.list')!.file, c.actions.get('shop.order')!.file], [k('core.yaml'), k('team/base.yaml'), undefined]);
+  assert.deepStrictEqual(c.imports, [k('core.yaml'), k('team/base.yaml')]);
+  assert.deepStrictEqual(c.bindings, ['go', 'powershell', 'rust']);
+  assert.deepStrictEqual(c.errors, []);
+});
+
+test('resolveCatalog: a name declared twice, a cycle, a missing import and a broken one are errors at the root import', () => {
+  const read = files({
+    'core.yaml': `catalogVersion: 1\nactions:\n${entry('core.set')}`,
+    'again.yaml': `catalogVersion: 1\nactions:\n${entry('core.set')}`,
+    'a.yaml': 'catalogVersion: 1\nimports: [b.yaml]\n',
+    'b.yaml': 'catalogVersion: 1\nimports: [a.yaml]\n',
+    'broken.yaml': 'actions: [\n',
+  });
+  const root = `catalogVersion: 1\nimports: [core.yaml, again.yaml, a.yaml, gone.yaml, broken.yaml]\nactions:\n${entry('core.set')}`;
+  const c = resolveCatalog(root, k('actions.catalog.yaml'), read);
+  const codes = c.errors.map(e => `${e.code} ${e.range.start.line}:${e.range.start.character}`);
+  assert.deepStrictEqual(codes, ['BDD020 1:21', 'BDD023 1:33', 'BDD024 1:41', 'BDD022 1:52', 'BDD020 3:10']);
+  assert.match(c.errors[0]!.message, /core\.set is declared in both .*core\.yaml and .*again\.yaml; the first is used/);
+  assert.match(c.errors[1]!.message, /import cycle: .*a\.yaml -> .*b\.yaml -> .*a\.yaml/);
+  assert.match(c.errors[3]!.message, /^broken\.yaml: The catalog is not valid YAML/);
+  assert.equal(c.actions.get('core.set')!.file, k('core.yaml'), 'the first declaration is used');
+});
+
+test('resolveCatalog: a catalog that is not YAML has no imports to follow', () => {
+  const c = resolveCatalog('imports: [x.yaml\n', k('actions.catalog.yaml'), () => { throw new Error('never read'); });
+  assert.deepStrictEqual([c.errors.map(e => e.code), c.imports, c.actions.size], [['BDD022'], [], 0]);
 });

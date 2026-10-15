@@ -1,0 +1,7 @@
+params:
+  - { name: region, default: lib }
+metaSteps:
+  - name: shared
+    steps:
+      - action: fixture.state
+        captureAs: cs

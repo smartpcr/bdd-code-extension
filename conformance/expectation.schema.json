@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/conformance/expectation.schema.json",
+  "title": "Conformance expectation",
+  "description": "What one corpus entry must produce. A validate entry expects a sorted diagnostic array; an execute entry expects an ordered trace. Both carry the exit code, because a binding that finds the right problems and then exits 0 has not conformed. Message text is never expected: codes, positions, phases, actions and statuses are the contract (diagnostics.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "suite", "description", "exitCode"],
+  "properties": {
+    "kind": {
+      "description": "validate runs the entry through the validator and compares diagnostics. execute runs it through the runner and compares the trace.",
+      "enum": ["validate", "execute"]
+    },
+    "suite": {
+      "description": "The suite file this expectation is for, relative to the conformance root, with forward slashes.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "What this entry is for, in one sentence. Read by a person, not compared.",
+      "type": "string",
+      "minLength": 1
+    },
+    "exitCode": {
+      "description": "0 clean or warnings only, 1 a case failed, 2 a validation error or a harness error. Exit 1 is never a validate result.",
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "strict": {
+      "description": "validate only: run the validator with warnings promoted to errors.",
+      "type": "boolean"
+    },
+    "bindingCheck": {
+      "description": "validate only: run the validator with the portability check on, which is what reports E201.",
+      "type": "boolean"
+    },
+    "binding": {
+      "description": "validate only: which binding the portability check is made against. Only meaningful with bindingCheck.",
+      "enum": ["powershell", "csharp", "go", "rust", "typescript"]
+    },
+    "catalogOverlay": {
+      "description": "validate only: a corpus file whose actions are merged over the committed action catalog before the entry is validated, so that a rule the catalog drives can be proved without changing the catalog every binding ships. Relative to the conformance root.",
+      "type": "string",
+      "minLength": 1
+    },
+    "params": {
+      "description": "Parameter overrides the run is given, as name to value, in the form the --param flag takes. A validate entry uses them to prove E210 for a parameter the suite does not declare.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tags": {
+      "description": "execute only: the tag filter the runner is given, in the same comma-separated form the command line takes. Absent means no filter.",
+      "type": "string"
+    },
+    "maxSeconds": {
+      "description": "execute only: the wall clock the entry must finish inside. A cancellation fixture is only proved by finishing quickly, so this is an assertion rather than a note.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "diagnostics": {
+      "description": "validate only: every finding the validator must report, sorted by line, then column, then code. The whole set, not a sample: a binding that reports one extra finding has not conformed either.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "trace": {
+      "description": "execute only: every entry the run must emit, in order.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/traceEntry" }
+    }
+  },
+  "$defs": {
+    "diagnostic": {
+      "description": "One expected finding. The same shape as diagnostic.schema.json minus the file, which the entry already names, and minus the message and the suggestion, which are not part of the contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "line", "column"],
+      "properties": {
+        "code": {
+          "description": "A code from diagnostics.md.",
+          "type": "string",
+          "pattern": "^[EW][0-9]{3}$"
+        },
+        "severity": {
+          "description": "error fails the validation; warning fails it only under strict.",
+          "enum": ["error", "warning"]
+        },
+        "line": {
+          "description": "One-based line of the offending node.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "description": "One-based column of the same node.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "file": {
+          "description": "Only for a finding in a file other than the entry's own suite, such as a library it imports. Relative to the conformance root, with forward slashes.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "traceEntry": {
+      "description": "One thing the runner did, in the order it did it. A trace is what makes hook order, tag selection, cancellation and row order checkable without a lab.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "status"],
+      "properties": {
+        "phase": {
+          "description": "Where in the run this happened. The eight execution phases in the order they can occur, plus case, which carries the result the report will show.",
+          "enum": [
+            "suite-setup",
+            "before-each",
+            "case-setup",
+            "step",
+            "case-cleanup",
+            "after-each",
+            "suite-teardown",
+            "case"
+          ]
+        },
+        "case": {
+          "description": "The case this entry belongs to. Absent for a suite-level hook, which runs outside every case.",
+          "type": "string",
+          "minLength": 1
+        },
+        "step": {
+          "description": "What the runner calls this step: the Gherkin sentence when it has one, the provenance when it came from a meta step, and the row when it came from a table. Absent on a case entry.",
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "description": "The action the step called. Absent on a case entry.",
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "description": "passed, failed, skipped for something not selected or not reached, and error for a case that could not run at all.",
+          "enum": ["passed", "failed", "skipped", "error"]
+        },
+        "reason": {
+          "description": "Why, for anything that is not passed. A closed list so that four bindings categorise a failure the same way, or a diagnostic code when one applies.",
+          "type": "string",
+          "enum": [
+            "assertion",
+            "timeout",
+            "action",
+            "hook",
+            "cleanup",
+            "suite-setup",
+            "tag",
+            "guard"
+          ]
+        }
+      }
+    }
+  }
+}

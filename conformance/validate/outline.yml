@@ -1,0 +1,31 @@
+suite: outline
+tests:
+  - name: each-node-reports-its-own-view
+    steps:
+      - given: every node in the cluster
+        action: fixture.state
+        target: ${row.node}
+        captureAs: views
+        table:
+          - { node: HOST-N1 }
+          - { node: HOST-N2 }
+          - { node: HOST-N3 }
+    asserts:
+      - var: views
+        count: 3
+  - name: a-suspended-node-drains-its-roles
+    examples:
+      - { node: HOST-N2, failback: NoFailback }
+      - { node: HOST-N3, failback: Immediate }
+    steps:
+      - when: the node is suspended
+        action: fixture.suspend
+        node: ${row.node}
+        captureAs: suspended
+        asserts:
+          - var: suspended.State
+            equals: Paused
+    cleanup:
+      - action: fixture.resume
+        node: ${row.node}
+        failback: ${row.failback}

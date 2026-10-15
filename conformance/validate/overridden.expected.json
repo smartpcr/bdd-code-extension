@@ -1,0 +1,17 @@
+{
+  "kind": "validate",
+  "suite": "validate/overridden.yml",
+  "description": "A parameter given on the command line that the suite does not declare.",
+  "exitCode": 2,
+  "params": {
+    "regionn": "x"
+  },
+  "diagnostics": [
+    {
+      "code": "E210",
+      "severity": "error",
+      "line": 1,
+      "column": 1
+    }
+  ]
+}

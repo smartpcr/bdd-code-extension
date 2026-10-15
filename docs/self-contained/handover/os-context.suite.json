@@ -1,0 +1,102 @@
+{
+  "$schema": "../../../spec/suite.extension.schema.json",
+  "description": "os-context's suite fields, added to the core by import (DEC-S10): what a case needs from the lab (requires), the shared checks a suite skips (sharedChecks), and the cluster and target every case runs against. Hand-over for D10: this file moves to os-context/test/e2e/schema/os-context.suite.json, and os-context's catalog lists it under suiteSchema.",
+  "suite": {
+    "requires": {
+      "$ref": "#/$defs/requires"
+    },
+    "sharedChecks": {
+      "description": "Step 3.3: which of the five shared checks (_lib/shared-checks.yml) this suite does not call, and why. A suite that imports the library calls every check it does not list here (E214).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skip",
+        "reason"
+      ],
+      "properties": {
+        "skip": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "defaults": {
+    "cluster": {
+      "$ref": "#/$defs/exprString"
+    },
+    "target": {
+      "$ref": "#/$defs/exprString"
+    }
+  },
+  "case": {
+    "requires": {
+      "$ref": "#/$defs/requires"
+    },
+    "cluster": {
+      "$ref": "#/$defs/exprString"
+    },
+    "target": {
+      "$ref": "#/$defs/exprString"
+    }
+  },
+  "step": {
+    "requires": {
+      "$ref": "#/$defs/requires",
+      "description": "What this step needs from the lab. The lab runner skips the step, not the case, when the lab does not meet it (ST-DEC14); the other bindings accept it and do not evaluate it."
+    }
+  },
+  "$defs": {
+    "requires": {
+      "description": "What a case needs from the lab it runs against (scenarios design ST-O8). On a suite it applies to every case; a case adds to it: a case value replaces a scalar, features are united. A lab that does not meet it makes the case Not applicable on the lab page and skipped by the runner, with the reason.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "description": "The storage the lab was built with.",
+          "enum": [
+            "s2d",
+            "san"
+          ]
+        },
+        "features": {
+          "description": "Plan features that must be on.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "cau",
+              "dhcp",
+              "testWorkload"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "family": {
+          "description": "The lab's image family. A plan without one is windowsServer.",
+          "enum": [
+            "windowsServer",
+            "azureLocal"
+          ]
+        },
+        "identity": {
+          "description": "The lab's identity mode. A plan without one is domain.",
+          "enum": [
+            "domain",
+            "workgroup"
+          ]
+        },
+        "rollbackPoint": {
+          "description": "true: the lab holds at least one verified, restorable rollback point.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

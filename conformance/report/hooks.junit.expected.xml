@@ -1,0 +1,16 @@
+<testsuites>
+  <testsuite failures="0" name="hooks" skipped="0" tests="2">
+    <testcase classname="hooks" name="first">
+      <system-out>
+        {"marker":"first-step"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+    <testcase classname="hooks" name="second">
+      <system-out>
+        {"marker":"second-step"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

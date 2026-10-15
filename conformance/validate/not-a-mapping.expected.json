@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/not-a-mapping.yml",
+  "description": "A document that parses but is a list rather than a suite.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E100",
+      "severity": "error",
+      "line": 1,
+      "column": 1
+    }
+  ]
+}

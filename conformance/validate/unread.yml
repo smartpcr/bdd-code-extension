@@ -1,0 +1,6 @@
+suite: unread
+tests:
+  - name: captures-for-nobody
+    steps:
+      - action: fixture.state
+        captureAs: cs

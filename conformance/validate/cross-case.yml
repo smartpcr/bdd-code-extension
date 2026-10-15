@@ -1,0 +1,14 @@
+suite: cross-case
+tests:
+  - name: captures-it
+    steps:
+      - action: invoke
+        script: 'Get-Date'
+        captureAs: origOwner
+    asserts:
+      - var: origOwner
+        isNotNull: true
+  - name: reads-it
+    steps:
+      - action: fixture.suspend
+        node: ${origOwner}

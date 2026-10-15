@@ -188,8 +188,10 @@ export class WorkspaceIndex {
   }
 
   catalogActionAt(file: string, pos: Pos): CatalogAction | undefined {
-    if (!this.catalog || fileKey(file) !== fileKey(this.catalog.file)) return undefined;
-    for (const a of this.catalog.actions.values()) if (contains(a.nameRange, pos)) return a;
+    if (!this.catalog) return undefined;
+    const key = fileKey(file);
+    // An imported action is found in the file that declares it (DEC-S10).
+    for (const a of this.catalog.actions.values()) if (fileKey(a.file ?? this.catalog.file) === key && contains(a.nameRange, pos)) return a;
     return undefined;
   }
 

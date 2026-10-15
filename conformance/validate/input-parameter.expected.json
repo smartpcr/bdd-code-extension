@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/input-parameter.yml",
+  "description": "Parameters marked input: true, at the suite and in a case, with no default: the caller supplies them at run time, so E210 does not fire.",
+  "exitCode": 0,
+  "diagnostics": []
+}

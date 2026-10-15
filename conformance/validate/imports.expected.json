@@ -1,0 +1,44 @@
+{
+  "kind": "validate",
+  "suite": "validate/imports.yml",
+  "description": "A library that declares things that run, two shadowed names, a parameter with no value and one nothing reads.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E211",
+      "severity": "error",
+      "line": 4,
+      "column": 5
+    },
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 5,
+      "column": 5
+    },
+    {
+      "code": "E209",
+      "severity": "error",
+      "line": 7,
+      "column": 7
+    },
+    {
+      "code": "E210",
+      "severity": "error",
+      "line": 8,
+      "column": 5
+    },
+    {
+      "code": "W303",
+      "severity": "warning",
+      "line": 9,
+      "column": 13
+    },
+    {
+      "code": "E209",
+      "severity": "error",
+      "line": 11,
+      "column": 5
+    }
+  ]
+}

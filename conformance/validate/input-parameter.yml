@@ -1,0 +1,16 @@
+suite: input-parameter
+params:
+  - { name: report, type: string, input: true, description: The file the calling script produced. }
+tests:
+  - name: reads-what-its-caller-supplies
+    params:
+      - { name: caseInput, input: true }
+    steps:
+      - when: the node the caller names is suspended
+        action: fixture.suspend
+        node: ${param.report}
+        target: ${param.caseInput}
+        captureAs: suspended
+    asserts:
+      - var: suspended.State
+        equals: Paused

@@ -1,0 +1,14 @@
+{
+  "kind": "execute",
+  "suite": "execute/capture-path-guard.yml",
+  "description": "Nested capture guards test presence, not truthiness.",
+  "exitCode": 0,
+  "trace": [
+    { "phase": "step", "case": "optional-context-branches", "step": "step 1 (core.set)", "action": "core.set", "status": "passed" },
+    { "phase": "step", "case": "optional-context-branches", "step": "step 2 (core.noop)", "action": "core.noop", "status": "passed" },
+    { "phase": "step", "case": "optional-context-branches", "step": "step 3 (core.noop)", "action": "core.noop", "status": "passed" },
+    { "phase": "step", "case": "optional-context-branches", "step": "step 4 (core.fail)", "action": "core.fail", "status": "skipped", "reason": "guard" },
+    { "phase": "step", "case": "optional-context-branches", "step": "step 5 (core.fail)", "action": "core.fail", "status": "skipped", "reason": "guard" },
+    { "phase": "case", "case": "optional-context-branches", "status": "passed" }
+  ]
+}

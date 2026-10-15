@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/lifecycle-case-limit.yml",
+  "description": "A lifecycle case asking for longer than the fifteen-minute ceiling.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 5,
+      "column": 17
+    }
+  ]
+}

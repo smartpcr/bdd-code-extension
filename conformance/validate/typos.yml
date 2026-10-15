@@ -1,0 +1,10 @@
+suite: typos
+tests:
+  - name: a-case-with-four-mistakes
+    timeout: 30
+    steps:
+      - action: fixture.suspned
+        node: HOST-N2
+    assert:
+      - var: suspended.State
+        equal: Paused

@@ -1,0 +1,40 @@
+suite: hooks
+setupTimeoutSec: 30
+beforeEachTimeoutSec: 30
+afterEachTimeoutSec: 30
+teardownTimeoutSec: 0
+setup:
+  - given: an agent on the host
+    action: fixture.state
+    captureAs: agent
+beforeEach:
+  - action: fixture.state
+    captureAs: perCase
+afterEach:
+  - action: fixture.state
+teardown:
+  - action: fixture.state
+    target: ${capture.agent.Name}
+tests:
+  - name: reads-the-suite-setup-capture
+    steps:
+      - action: fixture.move
+        group: TestWorkload01
+        toNode: ${capture.agent.Nodes.0.Name}
+        target: ${capture.perCase.Name}
+        captureAs: moved
+      - action: wait
+        intervalSec: 1
+        timeoutSec: 5
+        forStep:
+          action: fixture.state
+          captureAs: polled
+        until:
+          var: polled.State
+          equals: Up
+        captureAs: waited
+    asserts:
+      - var: moved.State
+        equals: Online
+      - var: waited.waited
+        isTrue: true

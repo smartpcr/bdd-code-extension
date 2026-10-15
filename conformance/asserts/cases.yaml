@@ -1,0 +1,138 @@
+# The assertion operators, as data.
+#
+# One row per operator per pair of operands that says something. Each row states
+# `result: pass`, `result: fail`, or `result: error` for a pair the comparer
+# refuses to compare at all; an error row may also name the `code` when the
+# refusal is one a validator reports for the same thing before the run.
+#
+# `contains` being case-insensitive and `equals` comparing 3 with "3" as equal
+# are decisions, not accidents of the language this binding is written in, which
+# is why they are written down here rather than left to each binding's idea of
+# equality.
+#
+# `present: false` is a subject no step captured. Absent and null are different
+# things to isNull and isNotNull, and the same to nothing else.
+#
+# `script` is not here. It runs a fragment of the host language against the
+# capture bag, the catalog marks it as implemented by the PowerShell binding
+# only, and there is nothing for four bindings to agree about.
+
+version: 1
+
+cases:
+  # --- equals and notEquals: compared as text, ignoring case ---------------
+  - { op: equals, actual: Up, expected: Up, result: pass }
+  - { op: equals, actual: Up, expected: up, result: pass }
+  - { op: equals, actual: Up, expected: Down, result: fail }
+  - { op: equals, actual: 3, expected: '3', result: pass }
+  - { op: equals, actual: '3', expected: 3, result: pass }
+  - { op: equals, actual: 3, expected: 4, result: fail }
+  - { op: equals, actual: true, expected: 'True', result: pass }
+  - { op: equals, actual: null, expected: '', result: pass }
+  - { op: equals, actual: '', expected: '', result: pass }
+  - { op: notEquals, actual: Up, expected: Down, result: pass }
+  - { op: notEquals, actual: Up, expected: UP, result: fail }
+  - { op: notEquals, actual: 3, expected: '3', result: fail }
+  - { op: notEquals, actual: 3, expected: 4, result: pass }
+
+  # --- contains and notContains: a list by membership, a string by substring
+  - { op: contains, actual: [N1, N2], expected: N2, result: pass }
+  - { op: contains, actual: [N1, N2], expected: N9, result: fail }
+  - { op: contains, actual: [], expected: N1, result: fail }
+  - { op: contains, actual: HOST-N1, expected: N1, result: pass }
+  - { op: contains, actual: HOST-N1, expected: n1, result: pass }
+  - { op: contains, actual: HOST-N1, expected: N9, result: fail }
+  - { op: contains, actual: HOST-N1, expected: '', result: pass }
+  - { op: notContains, actual: HOST-N1, expected: N9, result: pass }
+  - { op: notContains, actual: HOST-N1, expected: N1, result: fail }
+  - { op: notContains, actual: [N1], expected: N1, result: fail }
+  - { op: notContains, actual: [N1], expected: N2, result: pass }
+
+  # --- startsWith and endsWith: text, ignoring case ------------------------
+  - { op: startsWith, actual: HOST-N1, expected: host, result: pass }
+  - { op: startsWith, actual: HOST-N1, expected: HOST, result: pass }
+  - { op: startsWith, actual: HOST-N1, expected: N1, result: fail }
+  - { op: startsWith, actual: HOST-N1, expected: '', result: pass }
+  - { op: endsWith, actual: HOST-N1, expected: n1, result: pass }
+  - { op: endsWith, actual: HOST-N1, expected: N1, result: pass }
+  - { op: endsWith, actual: HOST-N1, expected: HOST, result: fail }
+
+  # --- matches: the regular expression subset all four engines share -------
+  - { op: matches, actual: HOST-N1, expected: '^HOST-N\d+$', result: pass }
+  - { op: matches, actual: HOST-N1, expected: '^host', result: pass }
+  - { op: matches, actual: lab, expected: '^HOST', result: fail }
+  - { op: matches, actual: HOST-N1, expected: 'N[0-9]', result: pass }
+  - { op: matches, actual: HOST-N1, expected: '(HOST|LAB)-', result: pass }
+  - { op: matches, actual: aa, expected: '(a)\1', result: error, code: E308 }
+  - { op: matches, actual: ab, expected: 'a(?=b)', result: error, code: E308 }
+  - { op: matches, actual: ab, expected: 'a(?!c)', result: error, code: E308 }
+  - { op: matches, actual: ab, expected: '(?<=a)b', result: error, code: E308 }
+
+  # --- in: the subject is one of a list ------------------------------------
+  - { op: in, actual: N2, expected: [N1, N2, N3], result: pass }
+  - { op: in, actual: N9, expected: [N1, N2, N3], result: fail }
+  - { op: in, actual: 3, expected: ['3', '4'], result: pass }
+  - { op: in, actual: N1, expected: [], result: fail }
+  - { op: in, actual: N1, expected: N1, result: error }
+  - { op: in, actual: N1, expected: 3, result: error }
+
+  # --- the four numeric comparisons ----------------------------------------
+  - { op: gt, actual: 3, expected: 2, result: pass }
+  - { op: gt, actual: 2, expected: 3, result: fail }
+  - { op: gt, actual: 3, expected: 3, result: fail }
+  - { op: gt, actual: '10', expected: '9', result: pass }
+  - { op: gt, actual: 3.5, expected: 3, result: pass }
+  - { op: gt, actual: abc, expected: 1, result: error }
+  - { op: gt, actual: 1, expected: abc, result: error }
+  - { op: gt, actual: null, expected: 1, result: error }
+  - { op: gte, actual: 3, expected: 3, result: pass }
+  - { op: gte, actual: 4, expected: 3, result: pass }
+  - { op: gte, actual: 2, expected: 3, result: fail }
+  - { op: gte, actual: 0, expected: 0, result: pass }
+  - { op: lt, actual: 2, expected: 3, result: pass }
+  - { op: lt, actual: 3, expected: 3, result: fail }
+  - { op: lt, actual: '9', expected: '10', result: pass }
+  - { op: lt, actual: abc, expected: 1, result: error }
+  - { op: lte, actual: 3, expected: 3, result: pass }
+  - { op: lte, actual: 2, expected: 3, result: pass }
+  - { op: lte, actual: 4, expected: 3, result: fail }
+
+  # --- count: how many entries a list has ----------------------------------
+  - { op: count, actual: [N1, N2, N3], expected: 3, result: pass }
+  - { op: count, actual: [N1, N2, N3], expected: 2, result: fail }
+  - { op: count, actual: [], expected: 0, result: pass }
+  - { op: count, actual: [], expected: 1, result: fail }
+  - { op: count, actual: [N1], expected: '1', result: pass }
+  - { op: count, actual: HOST-N1, expected: 7, result: error }
+  - { op: count, actual: 3, expected: 1, result: error }
+  - { op: count, actual: [N1], expected: many, result: error }
+
+  # --- isTrue and isFalse: a real boolean, not the word ---------------------
+  - { op: isTrue, actual: true, expected: true, result: pass }
+  - { op: isTrue, actual: false, expected: true, result: fail }
+  - { op: isTrue, actual: 'true', expected: true, result: fail }
+  - { op: isTrue, actual: 1, expected: true, result: fail }
+  - { op: isTrue, actual: false, expected: false, result: pass }
+  - { op: isTrue, actual: 'true', expected: false, result: pass }
+  - { op: isFalse, actual: false, expected: true, result: pass }
+  - { op: isFalse, actual: true, expected: true, result: fail }
+  - { op: isFalse, actual: 'false', expected: true, result: fail }
+  - { op: isFalse, actual: 0, expected: true, result: fail }
+  - { op: isFalse, actual: true, expected: false, result: pass }
+
+  # --- isNull and isNotNull: absent and null are both null, and differ from
+  # --- each other nowhere else ---------------------------------------------
+  - { op: isNull, actual: null, expected: true, result: pass }
+  - { op: isNull, present: false, expected: true, result: pass }
+  - { op: isNull, actual: Up, expected: true, result: fail }
+  - { op: isNull, actual: '', expected: true, result: fail }
+  - { op: isNull, actual: Up, expected: false, result: pass }
+  - { op: isNull, actual: null, expected: false, result: fail }
+  - { op: isNotNull, actual: Up, expected: true, result: pass }
+  - { op: isNotNull, actual: '', expected: true, result: pass }
+  - { op: isNotNull, actual: null, expected: true, result: fail }
+  - { op: isNotNull, present: false, expected: true, result: fail }
+  - { op: isNotNull, actual: null, expected: false, result: pass }
+
+  # --- an operator nobody implements ---------------------------------------
+  - { op: isNearly, actual: 3, expected: 3, result: error }

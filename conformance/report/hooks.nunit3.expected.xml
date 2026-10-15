@@ -1,0 +1,16 @@
+<test-run asserts="0" failed="0" inconclusive="0" passed="2" result="Passed" skipped="0" testcasecount="2" total="2">
+  <test-suite asserts="0" classname="hooks" failed="0" fullname="hooks" inconclusive="0" name="hooks" passed="2" result="Passed" runstate="Runnable" skipped="0" testcasecount="2" total="2" type="TestFixture">
+    <test-case asserts="0" classname="hooks" fullname="hooks.first" methodname="first" name="first" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"first-step"}
+        {"ok":true}
+      </output>
+    </test-case>
+    <test-case asserts="0" classname="hooks" fullname="hooks.second" methodname="second" name="second" result="Passed" runstate="Runnable">
+      <output>
+        {"marker":"second-step"}
+        {"ok":true}
+      </output>
+    </test-case>
+  </test-suite>
+</test-run>

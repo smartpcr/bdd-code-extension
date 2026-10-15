@@ -1,0 +1,21 @@
+# Step 3.3 conformance: a stand-in for test/e2e/suites/_lib/shared-checks.yml.
+# E214 is decided by the file name and the five check names, not by what the
+# checks do, so each one here is a single action every binding implements.
+metaSteps:
+  - name: check-r1-preview
+    params:
+      - { name: submit, required: true }
+    steps:
+      - action: core.noop
+  - name: check-r2-noop
+    steps:
+      - action: core.noop
+  - name: check-r3-interrupted-retry
+    steps:
+      - action: core.noop
+  - name: check-r4-rollback-forward
+    steps:
+      - action: core.noop
+  - name: check-r5-ownership
+    steps:
+      - action: core.noop

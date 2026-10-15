@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/os-context/test/e2e/schema/diagnostic.schema.json",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/spec/diagnostic.schema.json",
   "title": "Suite lint diagnostics",
   "description": "The JSON document every binding's `lint --json` writes to standard output. An array, sorted by file, then line, then column, then code, then message, so two bindings cannot disagree by ordering. Codes and positions are the contract; message text is not.",
   "type": "array",
@@ -21,7 +21,7 @@
           "enum": ["error", "warning"]
         },
         "file": {
-          "description": "The suite file the finding is in, relative to the repository root, with forward slashes and no backslash anywhere. Relative and slash-normalised so four bindings on three operating systems produce the same string. The rule is asserted by each binding's own tests rather than by a pattern here, because a pattern matching a backslash has to be escaped twice and is the sort of corner four JSON Schema libraries disagree about.",
+          "description": "The suite file the finding is in, relative to the workspace root, with forward slashes and no backslash anywhere. Relative and slash-normalised so every binding on every operating system produce the same string. The rule is asserted by each binding's own tests rather than by a pattern here, because a pattern matching a backslash has to be escaped twice and is the sort of corner JSON Schema libraries disagree about.",
           "type": "string",
           "minLength": 1
         },

@@ -1,0 +1,43 @@
+suite: tags
+description: A tag filter selects cases, and what it leaves out is reported as skipped rather than dropped.
+tags: [conformance]
+
+tests:
+  - name: the-selected-one
+    tags: [wanted]
+    steps:
+      - when: the selected case runs
+        action: core.record
+        marker: selected-ran
+        captureAs: mark
+      - then: it asserts
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: selected-ran
+
+  - name: the-unselected-one
+    tags: [unwanted]
+    steps:
+      - when: this case would run
+        action: core.record
+        marker: never-reached
+        captureAs: mark
+      - then: it would assert
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: never-reached
+
+  - name: the-one-over-budget
+    tags: [wanted, overbudget]
+    steps:
+      - when: the former budget tag runs
+        action: core.record
+        marker: budget-tag-ran
+        captureAs: mark
+      - then: it asserts
+        action: core.noop
+        asserts:
+          - var: mark.marker
+            equals: budget-tag-ran

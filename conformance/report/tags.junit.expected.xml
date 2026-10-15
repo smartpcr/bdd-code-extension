@@ -1,0 +1,20 @@
+<testsuites>
+  <testsuite failures="0" name="tags" skipped="1" tests="3">
+    <testcase classname="tags" name="the-selected-one">
+      <system-out>
+        {"marker":"selected-ran"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+    <testcase classname="tags" name="the-unselected-one">
+      <skipped message="tag filter"/>
+      <system-out/>
+    </testcase>
+    <testcase classname="tags" name="the-one-over-budget">
+      <system-out>
+        {"marker":"budget-tag-ran"}
+        {"ok":true}
+      </system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

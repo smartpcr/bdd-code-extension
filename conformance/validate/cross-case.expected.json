@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/cross-case.yml",
+  "description": "A capture read from the case that did not produce it.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E301",
+      "severity": "error",
+      "line": 14,
+      "column": 15
+    }
+  ]
+}

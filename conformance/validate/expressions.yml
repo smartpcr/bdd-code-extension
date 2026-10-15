@@ -1,0 +1,24 @@
+suite: expressions
+tests:
+  - name: expressions-in-a-step
+    steps:
+      - action: fixture.state
+        captureAs: cs
+      - action: fixture.suspend
+        node: ${upper(capture.cs.Name)}
+        target: ${lowercase(capture.cs.Name)}
+        captureAs: suspended
+      - action: fixture.resume
+        node: ${len(capture.cs.Nodes) + }
+        captureAs: resumed
+      - action: fixture.move
+        group: ${capture.cs.Nomes}
+        toNode: ${len(capture.cs.Nodes)}
+        captureAs: moved
+    asserts:
+      - var: suspended.State
+        equals: Paused
+      - var: resumed.State
+        equals: Up
+      - var: moved.State
+        equals: Online

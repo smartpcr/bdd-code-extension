@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/step-why.yml",
+  "description": "Clean. Every kind of step carries a why and a requires: a hook, a meta definition's step, a meta use site, a case step and a cleanup step.",
+  "exitCode": 0,
+  "diagnostics": []
+}

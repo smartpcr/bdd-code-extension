@@ -1,0 +1,14 @@
+{
+  "kind": "validate",
+  "suite": "validate/list-capture.yml",
+  "description": "The same mistake from the other side: a list capture indexed as though it were one result.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 17,
+      "column": 14
+    }
+  ]
+}

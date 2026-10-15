@@ -1,0 +1,27 @@
+suite: meta
+metaSteps:
+  - name: first
+    exports: [never]
+    steps:
+      - meta: second
+  - name: second
+    steps:
+      - meta: first
+  - name: takes-a-parameter
+    params:
+      - { name: labId, required: true }
+      - { name: other }
+    steps:
+      - action: inventory.get
+        route: /labs/${param.labId}
+        captureAs: response
+tests:
+  - name: uses-them
+    steps:
+      - meta: takes-a-parameter
+        with: { labid: wrong-case }
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up

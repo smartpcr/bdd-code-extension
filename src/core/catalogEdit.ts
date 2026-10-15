@@ -41,7 +41,7 @@ export function inferType(value: unknown): { type: string; todo: boolean } {
   return { type: 'any', todo: true };
 }
 
-/** The keys every step may carry, from `suite.base.json` (B5.1-4); undefined when the file does not say. */
+/** The keys every step may carry, from the generated `suite.schema.json` or `suite.base.json` (B5.1-4); undefined when the file does not say. */
 export function commonStepKeys(baseSchemaText: string): string[] | undefined {
   try {
     const props = JSON.parse(baseSchemaText)?.$defs?.stepEnvelope?.properties;
@@ -122,7 +122,7 @@ export function planDeclare(input: DeclareInput): EditPlan {
   const { name } = input;
   if (!ACTION_NAME.test(name)) return { refused: `\`${name}\` is not an action name the catalog can hold.` };
   if (input.declared(name)) return { refused: `${name} is already in the catalog.` };
-  if (!input.commonKeys) return { refused: 'suite.base.json does not list `$defs.stepEnvelope.properties`, so the common step keys are unknown.' };
+  if (!input.commonKeys) return { refused: 'suite.schema.json (or suite.base.json) does not list `$defs.stepEnvelope.properties`, so the common step keys are unknown.' };
   if (input.stubExists) return { refused: `${input.stubFile} already exists.` };
   const at = findCatalogInsertOffset(input.catalogText, name);
   if ('refused' in at) return at;

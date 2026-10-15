@@ -1,0 +1,18 @@
+suite: from-library
+imports:
+  - _lib/full.yml
+vars:
+  libraryVar: shadowed
+tests:
+  - name: uses-the-library
+    steps:
+      - meta: library-meta
+      - action: invoke
+        script: 'Get-Date'
+        args: ['${param.fixtureDir}', '${var.libraryVar}']
+        captureAs: now
+    asserts:
+      - var: cs.State
+        equals: Up
+      - var: now
+        isNotNull: true

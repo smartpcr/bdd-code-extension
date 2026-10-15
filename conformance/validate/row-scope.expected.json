@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/row-scope.yml",
+  "description": "Clean. A row column is bound for the step that carries the table.",
+  "exitCode": 0,
+  "diagnostics": []
+}

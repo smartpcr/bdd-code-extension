@@ -1,0 +1,53 @@
+{
+  "kind": "execute",
+  "suite": "execute/tags.yml",
+  "description": "A tag filter selects both wanted cases, including a formerly reserved budget tag, and skips only the unwanted case.",
+  "exitCode": 0,
+  "tags": "wanted",
+  "trace": [
+    {
+      "phase": "step",
+      "case": "the-selected-one",
+      "step": "when the selected case runs (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-selected-one",
+      "step": "then it asserts (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-selected-one",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-unselected-one",
+      "status": "skipped",
+      "reason": "tag"
+    },
+    {
+      "phase": "step",
+      "case": "the-one-over-budget",
+      "step": "when the former budget tag runs (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-one-over-budget",
+      "step": "then it asserts (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-one-over-budget",
+      "status": "passed"
+    }
+  ]
+}

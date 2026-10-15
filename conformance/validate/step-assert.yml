@@ -1,0 +1,14 @@
+suite: step-assert
+tests:
+  - name: a-step-assertion-is-checked-too
+    steps:
+      - then: the cluster reports itself
+        action: fixture.state
+        captureAs: cs
+        asserts:
+          - var: cs.Stat
+            equals: Up
+          - var: cs.State
+            equal: Up
+          - var: cs.Name
+            matches: '^(?!HOST)'

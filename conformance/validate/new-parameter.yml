@@ -1,0 +1,11 @@
+suite: new-parameter
+tests:
+  - name: uses-a-parameter-the-copy-declares
+    steps:
+      - action: fixture.suspend
+        node: HOST-N2
+        newParameter: x
+        captureAs: suspended
+    asserts:
+      - var: suspended.State
+        equals: Paused

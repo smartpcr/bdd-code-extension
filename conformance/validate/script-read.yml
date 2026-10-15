@@ -1,0 +1,8 @@
+suite: script-read
+tests:
+  - name: reads-it-from-a-script
+    steps:
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - script: '$Ctx.capture.cs.State -eq ''Up'''

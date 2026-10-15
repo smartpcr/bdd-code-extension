@@ -1,0 +1,26 @@
+{
+  "kind": "validate",
+  "suite": "validate/hook-rules.yml",
+  "description": "A hook labelled with a Gherkin keyword, a silent assertion in one, and a path outside a shape.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E212",
+      "severity": "error",
+      "line": 3,
+      "column": 5
+    },
+    {
+      "code": "E204",
+      "severity": "error",
+      "line": 7,
+      "column": 9
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 12,
+      "column": 14
+    }
+  ]
+}

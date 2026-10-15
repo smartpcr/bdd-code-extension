@@ -1,0 +1,28 @@
+suite: scenario
+tests:
+  - name: a-suspended-owner-drains-its-workload
+    steps:
+      - given: a cluster with a clustered workload
+        action: fixture.state
+        captureAs: before
+        asserts:
+          - var: before.State
+            equals: Up
+      - and: the node that owns the workload
+        action: invoke
+        script: '(Get-ClusterGroup -Name TestWorkload01).OwnerNode.Name'
+        captureAs: owner
+      - when: that node is suspended with a drain
+        action: fixture.suspend
+        node: ${capture.owner}
+        captureAs: suspended
+        asserts:
+          - var: suspended.State
+            equals: Paused
+      - then: the workload has moved
+        action: invoke
+        script: '(Get-ClusterGroup -Name TestWorkload01).OwnerNode.Name'
+        captureAs: after
+        asserts:
+          - var: after
+            notEquals: ${capture.owner}

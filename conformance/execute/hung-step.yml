@@ -1,0 +1,18 @@
+suite: hung-step
+description: A step that would run for half a minute is cancelled at its own one-second limit.
+tags: [conformance]
+
+tests:
+  - name: a-step-that-runs-past-its-limit
+    timeoutSec: 60
+    steps:
+      - given: a step that will not finish on its own
+        action: core.sleep
+        seconds: 30
+        timeoutSec: 1
+      - then: nothing after it runs
+        action: core.record
+        marker: never-reached
+    cleanup:
+      - action: core.record
+        marker: cleanup-ran-after-the-cancellation

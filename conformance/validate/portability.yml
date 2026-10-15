@@ -1,0 +1,13 @@
+suite: portability
+description: One step no binding but PowerShell can run, which only the portability check reports.
+tests:
+  - name: a-case-that-only-one-binding-can-run
+    steps:
+      - action: invoke
+        target: HOST-N1
+        script: Get-Date
+        captureAs: whatever
+      - action: core.noop
+        asserts:
+          - var: whatever
+            isNotNull: true

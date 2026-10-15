@@ -1,0 +1,23 @@
+suite: imports
+imports:
+  - _lib/library.yml
+  - _lib/runs-things.yml
+  - _lib/missing.yml
+params:
+  - { name: region, default: file }
+  - { name: needsAValue }
+  - { name: neverRead, default: x }
+metaSteps:
+  - name: shared
+    steps:
+      - action: fixture.state
+        captureAs: cs
+tests:
+  - name: reads-the-parameters
+    steps:
+      - action: fixture.state
+        target: ${param.region}
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: ${param.needsAValue}

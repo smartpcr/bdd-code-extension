@@ -1,0 +1,20 @@
+{
+  "kind": "validate",
+  "suite": "validate/hooks.yml",
+  "description": "A hook limit past its ceiling, and a hook capture nothing reads.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E205",
+      "severity": "error",
+      "line": 5,
+      "column": 21
+    },
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 31,
+      "column": 22
+    }
+  ]
+}

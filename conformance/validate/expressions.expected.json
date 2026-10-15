@@ -1,0 +1,26 @@
+{
+  "kind": "validate",
+  "suite": "validate/expressions.yml",
+  "description": "An unknown function, a syntax error inside the braces, and a path outside a capture's shape.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E306",
+      "severity": "error",
+      "line": 9,
+      "column": 17
+    },
+    {
+      "code": "E305",
+      "severity": "error",
+      "line": 12,
+      "column": 15
+    },
+    {
+      "code": "E302",
+      "severity": "error",
+      "line": 15,
+      "column": 16
+    }
+  ]
+}

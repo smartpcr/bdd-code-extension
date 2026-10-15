@@ -1,0 +1,12 @@
+suite: bad-import
+imports:
+  - _lib/bad.yml
+  - bad-import.yml
+tests:
+  - name: a-case
+    steps:
+      - action: fixture.state
+        captureAs: cs
+    asserts:
+      - var: cs.State
+        equals: Up

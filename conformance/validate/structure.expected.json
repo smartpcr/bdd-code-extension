@@ -1,0 +1,44 @@
+{
+  "kind": "validate",
+  "suite": "validate/structure.yml",
+  "description": "A wrong type, three missing keys and a parameter the action does not declare.",
+  "exitCode": 2,
+  "diagnostics": [
+    {
+      "code": "E103",
+      "severity": "error",
+      "line": 2,
+      "column": 7
+    },
+    {
+      "code": "E102",
+      "severity": "error",
+      "line": 4,
+      "column": 5
+    },
+    {
+      "code": "E102",
+      "severity": "error",
+      "line": 5,
+      "column": 9
+    },
+    {
+      "code": "E105",
+      "severity": "error",
+      "line": 6,
+      "column": 9
+    },
+    {
+      "code": "E102",
+      "severity": "error",
+      "line": 7,
+      "column": 9
+    },
+    {
+      "code": "W301",
+      "severity": "warning",
+      "line": 7,
+      "column": 20
+    }
+  ]
+}

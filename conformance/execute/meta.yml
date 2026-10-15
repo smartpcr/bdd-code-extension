@@ -1,0 +1,39 @@
+suite: meta
+description: A meta step expands with provenance, once per use site, with its parameters bound.
+tags: [conformance]
+
+metaSteps:
+  - name: mark-twice
+    description: Two markers, so an expansion is visible as two steps rather than one.
+    params:
+      - { name: label, type: string, default: unnamed }
+    exports: [second]
+    steps:
+      - given: the first marker of ${param.label}
+        action: core.record
+        marker: ${param.label}-one
+      - given: the second marker of ${param.label}
+        action: core.record
+        marker: ${param.label}-two
+        captureAs: second
+
+tests:
+  - name: one-use-site-with-a-default
+    steps:
+      - meta: mark-twice
+      - then: the second marker came back under the default label
+        action: core.noop
+        asserts:
+          - var: second.marker
+            equals: unnamed-two
+
+  - name: one-use-site-with-an-argument
+    steps:
+      - meta: mark-twice
+        with:
+          label: chosen
+      - then: the second marker came back under the chosen label
+        action: core.noop
+        asserts:
+          - var: second.marker
+            equals: chosen-two

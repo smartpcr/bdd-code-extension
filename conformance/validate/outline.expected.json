@@ -1,0 +1,7 @@
+{
+  "kind": "validate",
+  "suite": "validate/outline.yml",
+  "description": "Clean. A scenario outline binds its columns for the whole case.",
+  "exitCode": 0,
+  "diagnostics": []
+}

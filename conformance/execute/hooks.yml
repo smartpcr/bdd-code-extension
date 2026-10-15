@@ -1,0 +1,50 @@
+suite: hooks
+description: The six phases, in order, around two cases.
+tags: [conformance]
+
+setup:
+  - action: core.record
+    marker: suite-setup
+
+beforeEach:
+  - action: core.record
+    marker: before-each
+
+afterEach:
+  - action: core.record
+    marker: after-each
+
+teardown:
+  - action: core.record
+    marker: suite-teardown
+
+tests:
+  - name: first
+    setup:
+      - action: core.record
+        marker: first-case-setup
+    steps:
+      - when: the first case does its work
+        action: core.record
+        marker: first-step
+        captureAs: firstMark
+      - then: the marker came back
+        action: core.noop
+        asserts:
+          - var: firstMark.marker
+            equals: first-step
+    cleanup:
+      - action: core.record
+        marker: first-cleanup
+
+  - name: second
+    steps:
+      - when: the second case does its work
+        action: core.record
+        marker: second-step
+        captureAs: secondMark
+      - then: the marker came back
+        action: core.noop
+        asserts:
+          - var: secondMark.marker
+            equals: second-step
