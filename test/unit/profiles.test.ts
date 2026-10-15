@@ -4,7 +4,7 @@ import * as path from 'path';
 import { test } from 'node:test';
 import { DEFAULT_SETTINGS } from '../../src/config/defaults';
 import { ResolvedBinding, WorkspaceLayout } from '../../src/config/layout';
-import { actionsCommand, buildCommand, lintCommand, listCommand, programPath, psQuote } from '../../src/tools/profiles';
+import { actionsCommand, buildCommand, lintCommand, listCommand, OFFLINE_API_URL, programPath, psQuote, runCommand } from '../../src/tools/profiles';
 
 const root = path.resolve('/repo');
 const catalog = path.join(root, 'test', 'e2e', 'schema', 'actions.catalog.yaml');
@@ -58,6 +58,31 @@ test('list: with and without tags', () => {
   assert.deepStrictEqual(listCommand(b('go'), R, 's.yml', ['a', 'b']).argv.slice(1), ['list', '--path', 's.yml', '--tags', 'a,b']);
   assert.match(listCommand(b('powershell'), R, 's.yml', []).argv[4], /-DryRun$/);
   assert.match(listCommand(b('powershell'), R, 's.yml', ['x']).argv[4], /-Tags 'x'$/);
+});
+
+test('B6.2-B6.4 run: suiterun flags, dry run, tags, each lab value; no timeout, output streamed', () => {
+  const o = { traceFile: 't.json', resultsFile: 'r.xml' };
+  const go = runCommand(b('go'), R, 's.yml', o);
+  assert.deepStrictEqual(go.argv.slice(1), ['run', '--path', 's.yml', '--trace-file', 't.json', '--results', 'r.xml', '--format', 'nunit3']);
+  assert.deepStrictEqual([go.timeoutMs, go.streamOnly, go.cwd], [0, true, R]);
+  assert.deepStrictEqual(runCommand(b('rust'), R, 's.yml', { ...o, dryRun: true, tags: ['a', 'b'], testName: 'ignored' }).argv.slice(10),
+    ['--tags', 'a,b', '--dry-run']);
+  assert.deepStrictEqual(runCommand(b('csharp'), R, 's.yml', { ...o, lab: { apiUrl: 'https://api', labId: 'lab1', connectionFile: 'C:/c.json' } }).argv.slice(10),
+    ['--api-url', 'https://api', '--lab-id', 'lab1', '--connection-file', 'C:/c.json']);
+  assert.deepStrictEqual(runCommand(b('go'), R, 's.yml', { ...o, lab: { labId: 'lab1' } }).argv.slice(10), ['--lab-id', 'lab1']);
+  assert.deepStrictEqual(runCommand(b('go'), R, 's.yml', { ...o, tags: [] }).argv.length, 10, 'no --tags for an empty list');
+});
+
+test('B6.2-B6.4 run under PowerShell: -File with named parameters; offline gets the corpus\'s unreachable API', () => {
+  const o = { traceFile: 't.json', resultsFile: 'r.xml' };
+  const off = runCommand(b('powershell'), R, 's.yml', o).argv;
+  assert.deepStrictEqual(off.slice(0, 5), ['pwsh', '-NoProfile', '-NonInteractive', '-File', path.join(R, 'scripts', 'e2e', 'Invoke-LabTestSuite.ps1')]);
+  assert.deepStrictEqual(off.slice(5), ['-Path', 's.yml', '-TraceFile', 't.json', '-ResultsFile', 'r.xml', '-ApiUrl', OFFLINE_API_URL]);
+  assert.deepStrictEqual(runCommand(b('powershell'), R, 's.yml', { ...o, dryRun: true, tags: ['p'], testName: 'one case' }).argv.slice(11),
+    ['-Tags', 'p', '-TestName', 'one case', '-DryRun']);
+  assert.deepStrictEqual(runCommand(b('powershell'), R, 's.yml', { ...o, lab: { apiUrl: 'https://api', labId: 'lab1', connectionFile: 'C:/c.json' } }).argv.slice(11),
+    ['-ApiUrl', 'https://api', '-LabId', 'lab1', '-ConnectionFile', 'C:/c.json']);
+  assert.deepStrictEqual(runCommand(b('powershell'), R, 's.yml', { ...o, lab: {} }).argv.length, 11, 'a lab run passes only the values it has');
 });
 
 test('build: a shell command in the binding folder; storage quoted when it has spaces; none for powershell', () => {

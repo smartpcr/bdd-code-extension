@@ -105,6 +105,8 @@ export interface CaseInfo {
   tags: string[];
   examplesColumns?: string[];
   examplesRows: number;
+  /** Each examples row, its columns in written order. */
+  examples: Record<string, unknown>[];
   params: string[];
 }
 
@@ -116,6 +118,8 @@ export interface ImportRef {
 
 export interface SuiteFile {
   file: string;
+  /** The suite-level `tags:`, which every case carries for a tag filter. */
+  tags: string[];
   /** True when the root mapping has a `suite:` key. */
   hasSuiteKey: boolean;
   /** The document parsed but its root is not a mapping (lint reports E100). */

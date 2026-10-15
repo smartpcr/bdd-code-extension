@@ -128,7 +128,7 @@ class Walker {
 }
 
 function emptySuite(file: string): SuiteFile {
-  return { file, hasSuiteKey: false, imports: [], params: [], vars: [], metaSteps: [], cases: [], steps: [] };
+  return { file, tags: [], hasSuiteKey: false, imports: [], params: [], vars: [], metaSteps: [], cases: [], steps: [] };
 }
 
 export function parseSuite(text: string, file: string): SuiteFile {
@@ -146,6 +146,7 @@ export function parseSuite(text: string, file: string): SuiteFile {
   const w = new Walker(y, text, file);
   suite.hasSuiteKey = root.items.some(p => isScalar(p.key) && p.key.value === 'suite');
   suite.suiteName = stringOf(root, 'suite');
+  suite.tags = stringItems(valueOf(root, 'tags'));
   for (const item of itemsOf(root, 'imports')) {
     if (!isScalar(item)) continue;
     const p = String(item.value);
@@ -181,6 +182,7 @@ export function parseSuite(text: string, file: string): SuiteFile {
       tags: stringItems(valueOf(item, 'tags')),
       examplesRows: isSeq(examples) ? examples.items.length : 0,
       examplesColumns: isSeq(examples) ? namedKeys(examples.items[0], y).map(k => k.name) : undefined,
+      examples: isSeq(examples) ? examples.items.filter(isMap).map(row => row.toJSON() as Record<string, unknown>) : [],
       params: namesOfItems(valueOf(item, 'params')),
     };
     suite.cases.push(info);

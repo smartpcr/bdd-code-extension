@@ -157,3 +157,25 @@ test('an error event other than ENOENT is a spawn failure', async () => {
   fake.emit('error', Object.assign(new Error('denied'), { code: 'EACCES' }));
   assert.deepStrictEqual(await p, { kind: 'failure', reason: 'spawn', detail: 'denied', stderrTail: '' });
 });
+
+test('timeoutMs 0 is no limit: a run ends when the program does (plan 2.6, B6.2)', async () => {
+  const r = await runTool(cmd(['--sleep=300', '--print=done'], { timeoutMs: 0 }));
+  assert.deepStrictEqual(r.kind === 'exited' && [r.code, r.stdout], [0, 'done']);
+});
+
+test('streamOnly passes output to onOutput only, never kept and never capped', async () => {
+  let seen = 0;
+  const r = await runTool(cmd(['--bytes=5000'], { maxStdout: 100, streamOnly: true, onOutput: t => { seen += t.length; } }));
+  assert.deepStrictEqual(r.kind === 'exited' && [r.code, r.stdout], [0, '']);
+  assert.strictEqual(seen, 5000);
+  const quiet = await runTool(cmd(['--print=x'], { streamOnly: true }));
+  assert.ok(quiet.kind === 'exited' && quiet.stdout === '');
+});
+
+test('onSpawn hears the child\'s pid once it starts', async () => {
+  const pids: number[] = [];
+  const r = await runTool(cmd(['--print=x'], { onSpawn: pid => pids.push(pid) }));
+  assert.ok(r.kind === 'exited');
+  assert.strictEqual(pids.length, 1);
+  assert.ok(pids[0] > 0);
+});

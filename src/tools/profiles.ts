@@ -55,6 +55,51 @@ export function listCommand(binding: ResolvedBinding, root: string, rel: string,
   return { argv, cwd: root, timeoutMs: LIST_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
 }
 
+export interface LabValues {
+  apiUrl?: string;
+  labId?: string;
+  connectionFile?: string;
+}
+
+export interface RunOptions {
+  traceFile: string;
+  resultsFile: string;
+  dryRun?: boolean;
+  tags?: string[];
+  /** One case by name; only the PowerShell runner can run one case (B6.2 item 3). */
+  testName?: string;
+  /** Set for a lab suite (B6.4); each value is passed when it is given. */
+  lab?: LabValues;
+}
+
+/**
+ * The address the PowerShell runner gets for an offline suite. It refuses to
+ * start without -ApiUrl or -ConfigPath, and os-context's own corpus harness
+ * (Conformance.Tests.ps1) passes this deliberately unreachable one.
+ */
+export const OFFLINE_API_URL = 'http://conformance.invalid/api/v1';
+
+/** A suite run: no timeout (plan 2.6), output streamed and never capped. */
+export function runCommand(binding: ResolvedBinding, root: string, rel: string, o: RunOptions): ToolCommand {
+  const tags = o.tags?.length ? o.tags.join(',') : undefined;
+  let argv: string[];
+  if (binding.kind === 'powershell') {
+    const lab = o.lab ?? (o.dryRun ? {} : { apiUrl: OFFLINE_API_URL });
+    argv = [...binding.tool, '-File', path.join(root, 'scripts', 'e2e', 'Invoke-LabTestSuite.ps1'),
+      '-Path', rel, '-TraceFile', o.traceFile, '-ResultsFile', o.resultsFile,
+      ...(tags ? ['-Tags', tags] : []), ...(o.testName ? ['-TestName', o.testName] : []), ...(o.dryRun ? ['-DryRun'] : []),
+      ...(lab.apiUrl ? ['-ApiUrl', lab.apiUrl] : []), ...(lab.labId ? ['-LabId', lab.labId] : []),
+      ...(lab.connectionFile ? ['-ConnectionFile', lab.connectionFile] : [])];
+  } else {
+    const lab = o.lab ?? {};
+    argv = [...program(binding, root), 'run', '--path', rel, '--trace-file', o.traceFile, '--results', o.resultsFile, '--format', 'nunit3',
+      ...(tags ? ['--tags', tags] : []), ...(o.dryRun ? ['--dry-run'] : []),
+      ...(lab.apiUrl ? ['--api-url', lab.apiUrl] : []), ...(lab.labId ? ['--lab-id', lab.labId] : []),
+      ...(lab.connectionFile ? ['--connection-file', lab.connectionFile] : [])];
+  }
+  return { argv, cwd: root, timeoutMs: 0, maxStdout: MAX_TOOL_OUTPUT_BYTES, streamOnly: true };
+}
+
 /** A build is a fixed string from settings run by a shell (plan 2.4: npm.cmd needs one on Windows). */
 export function buildCommand(binding: ResolvedBinding, root: string): ToolCommand | undefined {
   if (!binding.build) return undefined;

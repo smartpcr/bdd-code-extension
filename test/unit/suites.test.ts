@@ -252,3 +252,10 @@ test('an empty action, meta or captureAs is not the string "null"', () => {
   assert.strictEqual(s.steps[0].meta, undefined);
   assert.strictEqual(s.steps[0].captureAs, undefined);
 });
+
+test('B6.1 each examples row keeps its values in written order; suite-level tags are read', () => {
+  const s = parseSuite('suite: s\ntags: [conformance, slow]\ntests:\n  - name: o\n    examples:\n      - { node: N1, n: 2, ok: true }\n      - { node: N2, n: 3, ok: false }\n    steps: []\n  - name: plain\n    steps: []\n', 'C:/r/s.yml');
+  assert.deepStrictEqual(s.tags, ['conformance', 'slow']);
+  assert.deepStrictEqual(s.cases.map(c => c.examples), [[{ node: 'N1', n: 2, ok: true }, { node: 'N2', n: 3, ok: false }], []]);
+  assert.deepStrictEqual(Object.keys(s.cases[0].examples[0]), ['node', 'n', 'ok']);
+});

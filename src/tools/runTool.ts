@@ -5,10 +5,15 @@ export interface ToolCommand {
   argv: string[];
   cwd: string;
   env?: NodeJS.ProcessEnv;
+  /** 0 is no limit: a suite run (plan 2.6) ends when the suite does. */
   timeoutMs: number;
   maxStdout: number;
+  /** Output goes to onOutput only, neither kept nor capped: a run must never be killed for printing (B6.2). */
+  streamOnly?: boolean;
   /** Only buildCommand() sets this (plan 2.4): a fixed command string from settings. */
   shell?: boolean;
+  /** Called once with the child's pid when it starts (a suite run records it, B6.5). */
+  onSpawn?: (pid: number) => void;
   /** Called with each chunk of output, for streaming a build to the output channel. */
   onOutput?: (text: string) => void;
 }
@@ -94,17 +99,24 @@ export function runTool(cmd: ToolCommand, token?: CancellationLike, partial: Par
     let stderr = '';
     let settled: ToolResult | undefined;
     const pid = child.pid;
-    if (pid !== undefined) liveChildren.add(pid);
+    if (pid !== undefined) {
+      liveChildren.add(pid);
+      cmd.onSpawn?.(pid);
+    }
     const stop = (result: ToolResult) => {
       if (settled) return;
       settled = result;
       if (pid !== undefined) killTree(pid, deps);
     };
-    const timer = setTimeout(() => stop({
+    const timer = cmd.timeoutMs > 0 ? setTimeout(() => stop({
       kind: 'failure', reason: 'timeout', detail: `exceeded ${cmd.timeoutMs} ms`, stderrTail: stderr,
-    }), cmd.timeoutMs);
+    }), cmd.timeoutMs) : undefined;
     const sub = token?.onCancellationRequested(() => stop({ kind: 'cancelled' }));
     child.stdout!.on('data', (b: Buffer) => {
+      if (cmd.streamOnly) {
+        cmd.onOutput?.(b.toString('utf8'));
+        return;
+      }
       outBytes += b.length;
       if (outBytes > cmd.maxStdout) {
         stop({ kind: 'failure', reason: 'oversize', detail: `more than ${cmd.maxStdout} bytes of output`, stderrTail: stderr });
