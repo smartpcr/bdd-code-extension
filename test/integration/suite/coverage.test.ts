@@ -42,7 +42,8 @@ describe('E-B7 the binding table matches the catalog and the programs', () => {
 
   it('Copy binding table puts the Markdown table on the clipboard', async () => {
     const text = await vscode.commands.executeCommand<string>('bddSuite.copyBindingTable');
-    assert.strictEqual(await vscode.env.clipboard.readText(), text);
+    // The system clipboard is shared with every program on the machine; another one holding it reads as ''.
+    await within(2000, async () => (await vscode.env.clipboard.readText()) === text);
     assert.match(text, /^\| Binding \| Source \| Declared \| Found \| Drift \|/);
     assert.match(text, /\| PowerShell \| `scripts\/e2e\/actions\/` \| 100 \| 100 \| 0 \|/);
   });

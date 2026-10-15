@@ -7,7 +7,7 @@ Scenario: [E-B9](../design.md#e-b9-an-offline-suite-runs-under-each-binding-and-
 
 | What | Value |
 | --- | --- |
-| This repository | working tree on top of `77f0667` (stage B4) plus the uncommitted stage B5, not committed |
+| This repository | `95db4a4` ("stage B6: wip", committed by the user during the stage), plus an uncommitted change to `test/integration/suite/coverage.test.ts` (the clipboard retry) |
 | `os-context` | `E:\work\os\os-context` at `e9da5ab5`, read only: every run wrote its trace and report under the extension's storage and `core.record` only to a temporary file; the cancellation and lab-path tests ran in a disposable worktree the harness removed |
 | Programs | as in [stage B2](stage-b2.md); PowerShell `Invoke-LabTestSuite.ps1` through `pwsh` 7.6.7 |
 | VS Code | Insiders `4c6cba1504` |
@@ -23,7 +23,7 @@ Scenario: [E-B9](../design.md#e-b9-an-offline-suite-runs-under-each-binding-and-
 
 ## Unit gate
 
-`npm run test:unit` with `OS_CONTEXT_ROOT` set, exit 0: __UNIT__. New for B6:
+`npm run test:unit` with `OS_CONTEXT_ROOT` set, exit 0: 179 tests, none skipped, 100 % of statements, branches, functions and lines over `src/core`, `src/config` and `src/tools`. New for B6:
 * `trace.test.ts`: `outlineRowName` with strings, numbers, booleans, null, arrays; `parseTrace` refusing every non-trace (B6.2-2); `parseNUnit` with entities, CDATA and self-closing cases; `mapTrace` over **every real expected trace of the execute corpus**, read at test time, giving each `case` entry's state; the gherkin failure message; suite setup and teardown failures on the file; hook failures named by hook; the report's message added once; a partial trace (B6.5); `mapDryRun`; `aggregate`; `selectionTags`; `isLabSuite`.
 * `profiles.test.ts`: `runCommand` for suiterun and PowerShell, with dry run, tags, one case, and with and without each lab value; no timeout; output streamed.
 * `runTool.test.ts`: a timeout of 0 is no limit; `streamOnly` passes output on without keeping or capping it.
@@ -33,19 +33,19 @@ Scenario: [E-B9](../design.md#e-b9-an-offline-suite-runs-under-each-binding-and-
 
 | Session | Result |
 | --- | --- |
-| `oscontext` | __OSCONTEXT__ |
-| `worktree` | __WORKTREE__ |
-| `empty` | __EMPTY__ |
-| `untrusted` | __UNTRUSTED__ |
+| `oscontext` | 31 passing, 1 pending (PowerShell E-B1, blocked as recorded in stage B2), 1 failing: B4's *Copy binding table* read `''` back from the system clipboard (see the defects table); `coverage.test.ts` re-run alone after the fix: 3 passing, 1 failing, the same check: the clipboard still read empty after 2 s of retries. **Blocked by the environment, not passed:** a shell's `Set-Clipboard` then `Get-Clipboard` on this machine also read back empty at the same time, so no program could use the system clipboard. The B4 clipboard check passed on the B4 build ([stage B4](stage-b4.md)); for this build it stays open until it is re-run with a working clipboard. The other three B4 tests in the file passed. |
+| `worktree` | 37 passing |
+| `empty` | 1 passing |
+| `untrusted` | 4 passing |
 
 **E-B9** (`testing.test.ts`, `oscontext`), through the TestController's run profiles (`runHandler` with a `TestRunRequest`):
-* **B6.1, B6.1-1:** __DISCOVERY__ The outline's rows are named exactly as the expected trace names them (`an-outline-named-by-its-columns [node=N1, expected=N1]`, `... [node=N2, expected=N2]`); suite-level tags are on each case; a refresh keeps each item object.
+* **B6.1, B6.1-1:** 129 suite files are items, one per file the index holds as a suite, and no library is one. The outline's rows are named exactly as the expected trace names them (`an-outline-named-by-its-columns [node=N1, expected=N1]`, `... [node=N2, expected=N2]`); suite-level tags are on each case; a refresh keeps each item object.
 * **B6.2-1 and B6.3, for each of Go, Rust, C# and PowerShell as target:** a dry run of `gherkin.yml` with `HCI_SUITE_RECORD_PATH` set marks every case and row skipped "would run (dry run)" and **no record file appears** (B6.3-1); the normal runs of `gherkin.yml` and `case-setup-fails.yml` give every item (seven) the state of its `case` entry in the expected trace, and the normal run does write the record file (the control). The outline aggregates to passed; the failing case's message carries `then it reads Paused, which it does not (core.noop)` and the report's `got 'Up'`; the failed case setup names `case setup: step 1 (core.fail) failed (action)`. **The four bindings produce the same item results.**
 * **B6.2-2:** with the Go tool replaced by a program that exits 1 and writes nothing, every item is errored "no trace".
 * **B6.2 item 3:** one case under PowerShell runs that case only (`-TestName`) and only it gets a result; under Go the file runs and the other cases it reports get results too.
 
 **Cancellation and the lab path** (`testingCancel.test.ts`, `worktree`, scratch suites removed afterwards):
-* **B6.5-1, Go and PowerShell:** a case sleeping 600 s is cancelled three seconds in; __CANCEL__; the extension's live-child set is empty and the case is skipped "cancelled".
+* **B6.5-1, Go and PowerShell:** a case sleeping 600 s is cancelled three seconds in; the run's own process (its pid recorded when it started) was gone at the first check after the cancel, well inside `KILL_GRACE_MS` (124 ms to the result under Go, 179 ms under PowerShell); the extension's live-child set is empty and the case is skipped "cancelled".
 * **B6.4-1, B6.4-2 (local, fake program):** a suite using `lifecycle.get` is a lab suite; with the API URL and connection file in settings, only the lab id is asked; the confirmation shows binding Go, the lab id, the API URL and exactly the two lines the program's `list` printed; answering *Cancel* starts no run (the fake program's run log stays absent, no child) and both cases are skipped "not run: the lab run was not confirmed".
 * **B6.4 item 4, B6.5-2 (local, fake program):** after *Run*, the program receives `--api-url`, `--lab-id` and `--connection-file`, and the command line is in the output channel; a cancel answered *No* leaves the run's process alive and the Test Explorer run active; a cancel answered *Stop* kills it within `KILL_GRACE_MS` and marks the cases skipped "cancelled".
 
@@ -53,7 +53,14 @@ These two lab-path tests drive the confirmation through `SuiteTesting.ui`, not t
 
 ## Manual check (B6.4)
 
-__MANUAL__
+Not done. It needs a person at the editor, and stays open until one records it. The steps:
+
+1. In a VS Code window on an `os-context` checkout with this extension, set `bddSuite.lab.apiUrl`, `bddSuite.lab.labId` and `bddSuite.lab.connectionFile` to any values (no lab is reached), and `bddSuite.targetBinding` to `go`.
+2. In Test Explorer, under *Suites*, run `test/e2e/suites/lifecycle-stage0.yml`.
+3. Expect a modal titled "Run N case(s) against lab <id>?" listing the binding, lab, API and the cases `suiterun list` printed; press *Cancel*.
+4. Expect the cases marked skipped, no "Run (Go, lab)" line in the *Suite Authoring* output channel, and no `suiterun` process.
+
+Record: date, who, the commit, and what was seen.
 
 ## Departures
 
@@ -68,4 +75,8 @@ __MANUAL__
 | Found | Cause | Fix | The decision that was missing |
 | --- | --- | --- | --- |
 | `createTestRun` threw "reading 'parent'" after a settings change | each refresh replaced every test item, so an item fetched before the rebuild was detached | items are reused by id and updated in place | A test item's identity outlives a refresh |
+| Activation failed: "Attempted to insert a duplicate test item ID" | `validate/tables.yml` repeats an examples row on purpose (E213), and `children.replace` throws on a repeated id where `add` overwrote | repeated ids are left out | A suite lint rejects still lists, without its repeats |
+| A held test item went stale after any settings change | each rebuild refreshed the items from a new, still empty index, dropping every item before the scan re-created them | items refresh once the new index is scanned (or at once when there is no catalog) | Test items follow a complete index, never an empty one |
+| In full sessions the cancel tests watched the wrong processes | the extension's live-child set also holds the lints other tests start | `runTool` reports the pid it spawned (`onSpawn`) and each file's run records its own | A test follows the process it started, not every child |
+| B4's clipboard check read `''` | the machine's clipboard was unavailable to every program (a shell round trip read empty too); a clipboard briefly held by another program would look the same | the test retries the read for 2 s, which covers a brief holder but not an unavailable clipboard; recorded as blocked | A check of a shared system resource says when the machine, not the code, failed it |
 | `python3` in a shell step hung the turn | on this machine `python3` is the Store stub, which waits for input | not used | Scripts use node |

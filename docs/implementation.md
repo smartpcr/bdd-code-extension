@@ -567,7 +567,7 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 | [B3](#stage-b3-completion-that-knows-the-scope) | Completion that knows the scope | P1 | B1.2, B1.3, B1.6 | 5 | 5 of 5 | 5 of 5 |
 | [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 3 of 3 | 3 of 3 (E-B7 TypeScript half deferred by name to B7) |
 | [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 4 of 5 | 3 of 5 (B5.1 open only for `SuiteLint.Tests.ps1` as a whole, blocked in `os-context`; B5.5 blocked on B7.5 and B7.7) |
-| [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 0 of 5 | 0 of 5 |
+| [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 5 of 5 | 4 of 5 (B6.4 awaits its manual check, and its lab scenario is B9.3; TypeScript halves of B6.2 and B6.3 deferred by name to B7.6) |
 | [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 0 of 8 | 0 of 8 |
 | [B8](#stage-b8-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B7.4 | 3 | 0 of 3 | 0 of 3 |
 | [B9](#stage-b9-package-and-accept) | Package and accept | P0 | all above | 3 | 0 of 3 | 0 of 3 |
@@ -596,7 +596,7 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 | [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor) | B5.1-B5.5 | no | four-binding part passed 2026-10-14 except `SuiteLint.Tests.ps1` as a whole (blocked in `os-context`); TypeScript part open (B5.5) |
 | [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | four-binding half passed 2026-10-14; TypeScript half open (B7.1, B7.5, B7.7) |
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | passed 2026-10-14 |
-| [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | not run |
+| [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | four-binding part passed 2026-10-15; TypeScript part open (B7.6) |
 | [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
 | [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B8.1 | no | program half passed 2026-10-14; library half open (B8.1) |
 | [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B7.1-B8.6, B7.8 | no | not run |
@@ -1961,11 +1961,11 @@ offline and lab paths.
 
 **Checklist.**
 
-- [ ] B6.1 Cases and outline rows as test items
-- [ ] B6.2 Offline run under the target binding, mapped from the trace
-- [ ] B6.3 Dry-run profile
-- [ ] B6.4 Lab run: parameters, list preview and confirmation
-- [ ] B6.5 Cancellation that says what it leaves behind
+- [x] B6.1 Cases and outline rows as test items
+- [x] B6.2 Offline run under the target binding, mapped from the trace
+- [x] B6.3 Dry-run profile
+- [ ] B6.4 Lab run: parameters, list preview and confirmation (built; manual check outstanding; E-B10 in B9.3)
+- [x] B6.5 Cancellation that says what it leaves behind
 
 ### B6.1 Cases and outline rows as test items
 
@@ -1988,7 +1988,10 @@ offline and lab paths.
 * **E2E.** The discovery half of
   [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result).
 * **Depends on.** B1.3.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15.
+  - [x] code. `src/features/testing.ts` (`SuiteTesting`: files, cases and outline rows, suite and case tags, refreshed after each index change, items kept by id); `outlineRowName` and `reportedNames` in `src/core/trace.ts`; `CaseInfo.examples` and `SuiteFile.tags` in the parser.
+  - [x] unit tests green at 100 percent: `outlineRowName` with strings, numbers, booleans, null and arrays; examples rows in written order.
+  - [x] scenario. E-B9 discovery half: every suite file is an item and no library is; the gherkin outline's rows are named exactly as the expected trace names them (B6.1-1); a suite with a repeated row (E213) still lists without the repeat; a refresh keeps each item. Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
 
 ### B6.2 Offline run under the target binding, mapped from the trace
 
@@ -2015,7 +2018,11 @@ offline and lab paths.
   traces. 100 percent of `trace.ts`.
 * **E2E.** [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result).
 * **Depends on.** B6.1, B2.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15 for the four existing bindings; the TypeScript half is named below.
+  - [x] code. `runCommand` in `src/tools/profiles.ts` (PowerShell offline gets `OFFLINE_API_URL`, as the corpus harness does); `parseTrace`, `parseNUnit`, `mapTrace`, `aggregate`, `selectionTags` in `src/core/trace.ts`; `runTool` with `timeoutMs: 0` and `streamOnly`.
+  - [x] unit tests green at 100 percent: `mapTrace` over every real expected trace of the execute corpus, read at test time, plus synthetic hook, setup and teardown failures; B6.2-2's refusals.
+  - [x] scenario. E-B9: under Go, Rust, C# and PowerShell, every item of `gherkin.yml` and `case-setup-fails.yml` has its expected trace's state, with the failing step's keyword and sentence in the message; the four bindings agree (B6.2-1). A run that leaves no trace errors every item "no trace" (B6.2-2). One case under PowerShell runs alone (`-TestName`); under Go the file runs and every case it reports gets its result (item 3). Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
+  - [-] scenario, TypeScript half: the TypeScript run is closed by B7.6, which re-runs E-B9 with five bindings.
 
 ### B6.3 Dry-run profile
 
@@ -2033,7 +2040,11 @@ offline and lab paths.
   [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result)
   (dry-run variant).
 * **Depends on.** B6.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15 for the four existing bindings; the TypeScript half is named below.
+  - [x] code. The *Dry run* profile; `mapDryRun` (a dry run's trace is empty, so the cases that would run are read from its report).
+  - [x] unit tests green at 100 percent: argument construction with `--dry-run` and `-DryRun`; `mapDryRun`.
+  - [x] scenario. Under each of the four bindings a dry run of `gherkin.yml` with `HCI_SUITE_RECORD_PATH` set marks every item skipped "would run (dry run)" and no record file appears, while the normal run writes it (B6.3-1). Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
+  - [-] scenario, TypeScript half: the TypeScript run is closed by B7.6, which re-runs E-B9 with five bindings.
 
 ### B6.4 Lab run: parameters, list preview and confirmation
 
@@ -2067,7 +2078,13 @@ offline and lab paths.
   manual check that the confirmation appears and *Cancel* starts nothing
   (labelled `manual`; it does not tick the scenario box).
 * **Depends on.** B6.2.
-* **Status.** [ ] code [ ] unit [-] scenario, closed by B9.3
+* **Status.** Built 2026-10-15; the recorded manual check is outstanding.
+  - [x] code. Lab suites (`isLabSuite`), missing values asked and offered for saving, `list` with the run's tags shown in a modal confirmation, the command line printed, the lab values passed (`runCommand`).
+  - [x] unit tests green at 100 percent: lab-suite classification; argument construction with and without each lab value, for suiterun and PowerShell.
+  - Item 5 record: `Invoke-LabTestSuite.ps1` at `e9da5ab5` takes `-ApiUrl`, `-LabId`, `-ConnectionFile` (and `-JumpConnectionFile`, unused), `-Tags`, `-TestName`, `-DryRun`, `-TraceFile`, `-ResultsFile`.
+  - Local evidence, not the scenario: with a fake program and the questions answered through `SuiteTesting.ui`, only the missing lab id was asked, the confirmation listed exactly the `list` output (B6.4-2), *Cancel* started nothing (B6.4-1), and *Run* passed the three lab values and printed the command line (item 4). Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
+  - [ ] manual check (`manual`): the real modal appears with binding, lab, API and case list, and *Cancel* starts nothing. Not yet done; it needs a person at the editor.
+  - [-] scenario, closed by B9.3 (E-B10 against a lab).
 
 ### B6.5 Cancellation that says what it leaves behind
 
@@ -2093,7 +2110,11 @@ offline and lab paths.
   cancel `execute/hung-step.yml` (a 600 s `core.sleep`) and check B6.5-1. The
   lab path is checked as part of B6.4's manual check and not run against a lab.
 * **Depends on.** B6.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15 for the offline path; the lab path is covered as named below.
+  - [x] code. Cancellation in `src/features/testing.ts`: offline cancels the run's token at once; a lab run asks *Stop anyway?* and is killed only on *Stop*; a partial trace is mapped and the rest skipped "cancelled".
+  - [x] unit tests green at 100 percent: partial-trace mapping.
+  - [x] scenario. A 600 s `core.sleep` cancelled three seconds in, under Go and under PowerShell: the run's process was gone within `KILL_GRACE_MS` (measured 0 ms) and the case was skipped "cancelled" (B6.5-1). With a fake program on the lab path: a declined stop left the process running and the run active, *Stop* killed it (B6.5-2, local). Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
+  - Departure: VS Code's cancellation token fires once, so a declined stop is final for that run; the output says so.
 
 ---
 
