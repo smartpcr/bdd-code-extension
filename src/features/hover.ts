@@ -1,5 +1,6 @@
 // Hover on a step's action value (plan B1.2, B1.4) and on a ${capture...} path (B3.4).
 import * as vscode from 'vscode';
+import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { fileKey } from '../core/paths';
 import { actionHoverMarkdown, captureHoverMarkdown } from '../core/hoverText';
 import { capturePathAt, scopeAt, shapeAt } from '../core/scope';
@@ -11,7 +12,7 @@ export function siteLink(file: string, line: number): string {
 }
 
 export function registerHover(owner: (uri: vscode.Uri) => FolderIndexer | undefined): vscode.Disposable {
-  return vscode.languages.registerHoverProvider({ scheme: 'file', language: 'yaml' }, {
+  return vscode.languages.registerHoverProvider(SUITE_DOCUMENTS, {
     async provideHover(doc, position) {
       const indexer = owner(doc.uri);
       await indexer?.ready;

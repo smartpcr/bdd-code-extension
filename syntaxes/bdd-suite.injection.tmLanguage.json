@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "bdd-suite.injection",
+  "injectionSelector": "L:source.bdd-suite -comment",
+  "patterns": [
+    { "include": "#gherkin-key" },
+    { "include": "#suite-key" },
+    { "include": "#reference-key" },
+    { "include": "#expression" }
+  ],
+  "repository": {
+    "gherkin-key": {
+      "comment": "given / when / then / and: the step's Gherkin keyword; the sentence after it reads as prose.",
+      "match": "^(\\s*(?:-\\s+)?)(given|when|then|and)(:)(?=\\s|$)",
+      "captures": {
+        "2": { "name": "keyword.control.gherkin.bdd-suite" },
+        "3": { "name": "punctuation.separator.key-value.mapping.yaml" }
+      }
+    },
+    "suite-key": {
+      "comment": "The keys that give a suite its structure.",
+      "match": "^(\\s*(?:-\\s+)?)(suite|tests|steps|metaSteps|imports|setup|teardown|beforeEach|afterEach|cleanup|examples|table|asserts|exports|params|vars|defaults)(:)(?=\\s|$)",
+      "captures": {
+        "2": { "name": "keyword.other.structure.bdd-suite" },
+        "3": { "name": "punctuation.separator.key-value.mapping.yaml" }
+      }
+    },
+    "reference-key": {
+      "comment": "action: and meta: name what runs; the name itself is coloured by the extension from the catalog and the code.",
+      "match": "^(\\s*(?:-\\s+)?)(action|meta)(:)\\s+([A-Za-z][\\w.-]*)",
+      "captures": {
+        "2": { "name": "keyword.other.reference.bdd-suite" },
+        "3": { "name": "punctuation.separator.key-value.mapping.yaml" },
+        "4": { "name": "entity.name.function.bdd-suite" }
+      }
+    },
+    "expression": {
+      "comment": "${capture.order.id}, ${param.item}, ${upper(x)}: resolved when the step runs.",
+      "begin": "\\$\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.template-expression.begin.bdd-suite" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.template-expression.end.bdd-suite" } },
+      "contentName": "meta.embedded.expression.bdd-suite",
+      "patterns": [
+        { "match": "\\b(capture|param|var|row)\\b(?=\\.)", "name": "variable.language.namespace.bdd-suite" },
+        { "match": "\\b[A-Za-z_]\\w*(?=\\()", "name": "support.function.bdd-suite" },
+        { "match": "\\b[A-Za-z_]\\w*\\b", "name": "variable.other.property.bdd-suite" },
+        { "match": "'[^']*'|\"[^\"]*\"", "name": "string.quoted.bdd-suite" },
+        { "match": "\\b\\d+(\\.\\d+)?\\b", "name": "constant.numeric.bdd-suite" }
+      ]
+    }
+  }
+}

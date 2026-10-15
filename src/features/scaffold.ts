@@ -4,16 +4,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { TrustGate } from '../config/trust';
 import { parseCatalog } from '../core/catalog';
 import { addBindingEdit, commonStepKeys, FileEdit, planDeclare } from '../core/catalogEdit';
+import { missingImplementations } from '../core/coverage';
 import { planStub, powershellStubFile, renderTemplate, stubTarget } from '../core/stubs';
 import { parseSuite } from '../core/suites';
 import { Pos, StepInfo } from '../core/types';
 import { contains } from '../core/workspaceIndex';
 import { MAX_STDERR_BYTES, MAX_TOOL_OUTPUT_BYTES, SCHEMA_TIMEOUT_MS } from '../limits';
 import { runTool } from '../tools/runTool';
-import { FolderIndexer } from './indexer';
+import { FolderIndexer, toRange } from './indexer';
 
 /** What a scaffolding command did, for its caller and for the tests. */
 export interface ScaffoldResult {
@@ -54,7 +56,7 @@ function stepAt(steps: StepInfo[], pos: Pos): StepInfo | undefined {
 
 /** The quick fix *Declare action* on E104 (any source) and *Implement in* on a declared action's step. */
 export function registerScaffoldActions(owner: Owner): vscode.Disposable {
-  return vscode.languages.registerCodeActionsProvider({ scheme: 'file', language: 'yaml' }, {
+  return vscode.languages.registerCodeActionsProvider(SUITE_DOCUMENTS, {
     provideCodeActions(doc, range, context) {
       const ix = owner(doc.uri);
       const catalog = ix?.index.catalog;
@@ -88,6 +90,43 @@ export function registerScaffoldActions(owner: Owner): vscode.Disposable {
       return out;
     },
   }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.Refactor] });
+}
+
+/**
+ * Above each step whose action is missing somewhere: which languages lack it,
+ * and one click to implement it in each language with a stub template, or to
+ * declare it when the catalog does not have it (setting `codeLens.implement`).
+ */
+export function registerImplementLens(owner: Owner, changed: vscode.Event<void>): vscode.Disposable {
+  return vscode.languages.registerCodeLensProvider(SUITE_DOCUMENTS, {
+    onDidChangeCodeLenses: changed,
+    async provideCodeLenses(doc) {
+      const ix = owner(doc.uri);
+      await ix?.ready;
+      const catalog = ix?.index.catalog;
+      if (!ix || !catalog || !ix.layout.settings['codeLens.implement'] || !ix.index.isSuiteOrLibrary(doc.uri.fsPath)) return [];
+      const rank = (b: string) => (catalog.bindings.includes(b) ? catalog.bindings.indexOf(b) : catalog.bindings.length);
+      const bindings = [...ix.layout.bindings].sort((a, b) => rank(a.name) - rank(b.name));
+      const out: vscode.CodeLens[] = [];
+      for (const step of liveSteps(doc)) {
+        if (!step.action || !step.actionRange) continue;
+        const action = step.action;
+        const range = toRange(step.actionRange);
+        if (!catalog.actions.has(action)) {
+          out.push(new vscode.CodeLens(range, { title: `$(lightbulb) Declare action ${action}`, command: 'bddSuite.declareAction', arguments: [doc.uri, action] }));
+          continue;
+        }
+        const registered = ix.index.sitesFor(action).map(s => s.binding);
+        const { missing, generate } = missingImplementations(registered, bindings, b => !!stubTarget(b, action));
+        if (!missing.length) continue;
+        out.push(new vscode.CodeLens(range, { title: `Not implemented in ${missing.map(b => b.label).join(', ')}`, command: '' }));
+        for (const b of generate) {
+          out.push(new vscode.CodeLens(range, { title: `$(add) Implement in ${b.label}`, command: 'bddSuite.implementAction', arguments: [action, b.name] }));
+        }
+      }
+      return out;
+    },
+  });
 }
 
 export function registerScaffoldCommands(host: ScaffoldHost): vscode.Disposable[] {

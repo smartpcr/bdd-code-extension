@@ -9,7 +9,8 @@ import { LintResults } from './core/diagnostics';
 import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
 import { CoverageView } from './features/coverageView';
-import { registerScaffoldActions, registerScaffoldCommands } from './features/scaffold';
+import { registerImplementLens, registerScaffoldActions, registerScaffoldCommands } from './features/scaffold';
+import { registerSuiteLanguage } from './features/suiteLanguage';
 import { SuiteTesting } from './features/testing';
 import { registerCompletion } from './features/completion';
 import { registerHover } from './features/hover';
@@ -126,8 +127,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
     const hintsChanged = new vscode.EventEmitter<void>();
     session.push(hintsChanged, ...api.indexers.map(ix => ix.onDidChangeIndex(() => hintsChanged.fire())));
     const providers = [registerHover(owner), ...registerNavigation(owner, () => api.indexers),
-      registerInlayHints(owner, hintsChanged.event), registerCompletion(owner), registerScaffoldActions(owner)];
-    api.providerCount = 7;
+      registerInlayHints(owner, hintsChanged.event), registerCompletion(owner), registerScaffoldActions(owner), registerImplementLens(owner, hintsChanged.event),
+      ...registerSuiteLanguage(owner, hintsChanged.event)];
+    api.providerCount = 10;
     session.push(...providers);
     const first = api.indexers[0].layout.settings;
     if (gate.canRunWorkspaceCode()) status.setOk(first.lintTool, first.targetBinding);

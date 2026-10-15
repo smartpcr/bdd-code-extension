@@ -2,8 +2,8 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Navigation, hover and lint for the os-context YAML test suites and their PowerShell, C#, Go, Rust and TypeScript bindings.",
-  "version": "0.1.0",
-  "publisher": "local",
+  "version": "0.3.0",
+  "publisher": "asz",
   "license": "MIT",
   "private": true,
   "engines": {
@@ -15,10 +15,8 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "workspaceContains:**/test/e2e/schema/actions.catalog.yaml"
-  ],
-  "extensionDependencies": [
-    "redhat.vscode-yaml"
+    "workspaceContains:**/test/e2e/schema/actions.catalog.yaml",
+    "onLanguage:bdd-suite"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -32,6 +30,152 @@
     }
   },
   "contributes": {
+    "languages": [
+      {
+        "id": "bdd-suite",
+        "aliases": [
+          "BDD Suite",
+          "bdd-suite"
+        ],
+        "filenamePatterns": [
+          "*suite*.yml",
+          "*suite*.yaml",
+          "*Suite*.yml",
+          "*Suite*.yaml",
+          "*feature*.yml",
+          "*feature*.yaml",
+          "*Feature*.yml",
+          "*Feature*.yaml",
+          "*test*.yml",
+          "*test*.yaml",
+          "*Test*.yml",
+          "*Test*.yaml"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bdd-suite",
+        "scopeName": "source.bdd-suite",
+        "path": "./syntaxes/bdd-suite.tmLanguage.json"
+      },
+      {
+        "scopeName": "bdd-suite.injection",
+        "path": "./syntaxes/bdd-suite.injection.tmLanguage.json",
+        "injectTo": [
+          "source.bdd-suite"
+        ]
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "action",
+        "superType": "function",
+        "description": "An action named by a suite step."
+      },
+      {
+        "id": "metaStep",
+        "superType": "function",
+        "description": "A meta step used by a suite step."
+      }
+    ],
+    "semanticTokenModifiers": [
+      {
+        "id": "implemented",
+        "description": "The target binding implements this action."
+      },
+      {
+        "id": "notInTarget",
+        "description": "Some binding implements this action, the target binding does not."
+      },
+      {
+        "id": "unimplemented",
+        "description": "The catalog declares this action and no binding implements it."
+      },
+      {
+        "id": "undeclared",
+        "description": "The catalog does not declare this action, or no meta step of this name is declared or imported."
+      },
+      {
+        "id": "required",
+        "description": "A required parameter."
+      },
+      {
+        "id": "unknown",
+        "description": "A parameter the action or meta step does not take."
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "bdd-suite",
+        "scopes": {
+          "action": [
+            "entity.name.function.action.bdd-suite"
+          ],
+          "action.undeclared": [
+            "invalid.illegal.action.bdd-suite"
+          ],
+          "metaStep": [
+            "entity.name.type.meta.bdd-suite"
+          ],
+          "metaStep.undeclared": [
+            "invalid.illegal.meta.bdd-suite"
+          ],
+          "parameter": [
+            "variable.parameter.bdd-suite"
+          ],
+          "parameter.unknown": [
+            "invalid.illegal.parameter.bdd-suite"
+          ],
+          "property": [
+            "support.type.property-name.bdd-suite"
+          ],
+          "variable.declaration": [
+            "variable.other.definition.bdd-suite"
+          ]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[bdd-suite]": {
+        "editor.semanticHighlighting.enabled": true,
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.autoIndent": "keep",
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": true
+        }
+      },
+      "editor.semanticTokenColorCustomizations": {
+        "rules": {
+          "action.notInTarget:bdd-suite": {
+            "italic": true
+          },
+          "action.unimplemented:bdd-suite": {
+            "italic": true,
+            "underline": true
+          },
+          "action.undeclared:bdd-suite": {
+            "foreground": "#e5534b",
+            "underline": true
+          },
+          "metaStep.undeclared:bdd-suite": {
+            "foreground": "#e5534b",
+            "underline": true
+          },
+          "parameter.required:bdd-suite": {
+            "bold": true
+          },
+          "parameter.unknown:bdd-suite": {
+            "foreground": "#e5534b",
+            "strikethrough": true
+          }
+        }
+      }
+    },
     "configuration": {
       "title": "Suite Authoring",
       "properties": {
@@ -221,6 +365,11 @@
           "default": true,
           "description": "Show which bindings implement each step's action."
         },
+        "bddSuite.codeLens.implement": {
+          "type": "boolean",
+          "default": true,
+          "description": "Above a step whose action is missing in a language, offer to declare or implement it."
+        },
         "bddSuite.templatesDir": {
           "type": "string",
           "default": "",
@@ -323,9 +472,13 @@
     "test:integration": "npm run compile && npm run build:test && node --test --test-timeout=900000 \"out-test/test/integration/node/*.test.js\" && node out-test/test/integration/runTest.js",
     "sync-defaults": "npm run build:test && node scripts/sync-defaults.mjs",
     "test:lab": "npm run compile && npm run build:test && node out-test/test/integration/runTest.js --lab",
+    "test:demo": "npm run build:test && node out-test/test/e2e-demo/run.js",
+    "demo:workspace": "node scripts/demo-workspace.mjs",
+    "install:local": "node scripts/install-local.mjs",
     "package": "node scripts/package.mjs"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "minimatch": "^9.0.5",
     "yaml": "^2.5.0"
   },

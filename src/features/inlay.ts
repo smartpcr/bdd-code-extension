@@ -1,11 +1,12 @@
 // Per-step binding badges (plan B2.3, O2).
 import * as vscode from 'vscode';
+import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { bindingTooltip, renderBindingBadge } from '../core/coverage';
 import { FolderIndexer } from './indexer';
 
 export function registerInlayHints(owner: (uri: vscode.Uri) => FolderIndexer | undefined,
   changed: vscode.Event<void>): vscode.Disposable {
-  return vscode.languages.registerInlayHintsProvider({ scheme: 'file', language: 'yaml' }, {
+  return vscode.languages.registerInlayHintsProvider(SUITE_DOCUMENTS, {
     onDidChangeInlayHints: changed,
     async provideInlayHints(doc, range) {
       const ix = owner(doc.uri);

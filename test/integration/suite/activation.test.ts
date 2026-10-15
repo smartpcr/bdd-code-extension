@@ -7,7 +7,7 @@ import { api, folder, key } from './helpers';
 
 describe('B1.1 activation in os-context', () => {
   it('B1.1-1 activates on the catalog, and the first log line names the root and the catalog', async () => {
-    const ext = vscode.extensions.getExtension('local.bdd-suite')!;
+    const ext = vscode.extensions.getExtension('asz.bdd-suite')!;
     const a = await api();
     assert.ok(ext.isActive);
     const first = a.log[0];
@@ -15,7 +15,7 @@ describe('B1.1 activation in os-context', () => {
     assert.match(first, /^Root: .+  Catalog: .+$/);
     assert.ok(key(first).includes(`root: ${key(folder())}`), first);
     assert.ok(key(first).endsWith(key(catalog)), first);
-    assert.strictEqual(a.providerCount, 7);
+    assert.strictEqual(a.providerCount, 10);
     assert.strictEqual(a.indexers.length, 1);
     console.log(`    log: ${a.log.join(' | ')}`);
   });
@@ -23,7 +23,7 @@ describe('B1.1 activation in os-context', () => {
   it('B9.2 with --vsix: the extension running is the installed package, not this source tree', function () {
     const dir = process.env.BDD_VSIX_EXTENSIONS_DIR;
     if (!dir) this.skip();
-    const ext = vscode.extensions.getExtension('local.bdd-suite')!;
+    const ext = vscode.extensions.getExtension('asz.bdd-suite')!;
     assert.ok(key(ext.extensionPath).startsWith(key(dir!)), `${ext.extensionPath} is not under ${dir}`);
     assert.strictEqual(ext.packageJSON.version, process.env.BDD_VSIX_VERSION);
     assert.ok(!require('fs').existsSync(path.join(ext.extensionPath, 'src')), 'the package has no src/');

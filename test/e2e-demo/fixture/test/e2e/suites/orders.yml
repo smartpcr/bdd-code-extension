@@ -1,0 +1,20 @@
+suite: orders
+tags: [orders]
+imports: [_lib/orders-steps.yml]
+tests:
+  - name: an-order-is-created-and-shipped
+    steps:
+      - meta: place-order
+        with: { item: book }
+      - when: the order is shipped
+        action: orders.ship
+        orderId: ${capture.order.id}
+
+  - name: a-refund-is-issued
+    steps:
+      - meta: place-order
+        with: { item: lamp }
+      - then: the order is refunded
+        action: orders.refund
+        orderId: ${capture.order.id}
+        amount: 12.5

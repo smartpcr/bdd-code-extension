@@ -36,6 +36,7 @@ export interface Settings {
   bindings: Record<string, BindingSettings>;
   schemaGenerator: string[];
   'inlayHints.bindings': boolean;
+  'codeLens.implement': boolean;
   templatesDir: string;
   'lab.apiUrl': string;
   'lab.labId': string;
@@ -122,6 +123,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: DEFAULT_BINDINGS,
   schemaGenerator: ['pwsh', '-NoProfile', '-NonInteractive', '-File', 'test/e2e/schema/Build-Schema.ps1'],
   'inlayHints.bindings': true,
+  'codeLens.implement': true,
   templatesDir: '',
   'lab.apiUrl': '',
   'lab.labId': '',
@@ -138,6 +140,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   bindings: 'Per binding: source globs, registration recognizers, program and build command.',
   schemaGenerator: 'Command that regenerates suite.schema.json after a catalog edit.',
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
+  'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',
   templatesDir: 'Workspace directory whose files override the stub templates.',
   'lab.apiUrl': 'Lifecycle API URL for lab runs; prompted when empty.',
   'lab.labId': 'Lab lineage id (32 hex characters) for lab runs; prompted when empty.',

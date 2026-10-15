@@ -192,3 +192,13 @@ test('B8.2 importersOf: direct and transitive importers, sorted; a cycle ends; a
   assert.deepStrictEqual(ix.importersOf(f('_lib/MID.yml'.toLowerCase())), [f('_lib/leaf.yml'), f('a.yml'), f('b.yml')].map(fileKey).sort());
   assert.deepStrictEqual(ix.importersOf(f('c.yml')), []);
 });
+
+test('siteAt and actionNameAt find a registration from its handler\'s declaration too', () => {
+  const ix = new WorkspaceIndex();
+  const file = '/r/go/h.go';
+  ix.updateSources(file, scanRegistrations('\t\t"demo.greet": demoGreet,\n\nfunc demoGreet(r *Request) {\n}\n', file, 'go',
+    compileRecognizers(DEFAULT_BINDINGS.go.recognizers).ok));
+  assert.strictEqual(ix.siteAt(file, { line: 2, character: 7 })?.action, 'demo.greet', 'on the handler name in `func demoGreet(`');
+  assert.strictEqual(ix.actionNameAt(file, { line: 0, character: 5 }), 'demo.greet', 'on the registration');
+  assert.strictEqual(ix.actionNameAt(file, { line: 2, character: 1 }), undefined, 'on `func`, not the name');
+});

@@ -43,7 +43,9 @@ describe('B1.3 the suite index in a real VS Code', () => {
 });
 
 describe('E-B3 Go to Definition on an action', () => {
-  it('lifecycle.get: the catalog entry and one registration in each binding', async () => {
+  // F12 and Ctrl+click land on each binding's handler where it is declared, else on its registration
+  // (a C# lambda, PowerShell's inline script block, a name list); Ctrl+F12 lists the registrations.
+  it('lifecycle.get: the catalog entry and each binding\'s handler, or its registration when the handler is inline', async () => {
     const doc = await open(at('test', 'e2e', 'suites', 'lifecycle-stage0.yml'));
     const locs = await definitions(doc.uri, find(doc, 'action: lifecycle.get', 10));
     const found = await described(locs);
@@ -51,12 +53,16 @@ describe('E-B3 Go to Definition on an action', () => {
       [path.join('test', 'e2e', 'schema', 'actions.catalog.yaml'), '- name: lifecycle.get'],
       [path.join('scripts', 'e2e', 'actions'), "Register-LabAction -Name 'lifecycle.get'"],
       [path.join('Actions', 'Lifecycle', 'LifecycleActions.cs'), '["lifecycle.get"] ='],
-      [path.join('go', 'internal', 'lifecycle', 'actions.go'), '"lifecycle.get":'],
-      [path.join('rust', 'src', 'lifecycle', 'actions.rs'), '"lifecycle.get" =>'],
+      [path.join('go', 'internal', 'lifecycle', 'actions.go'), 'func get(held *Context'],
+      [path.join('rust', 'src', 'lifecycle', 'actions.rs'), 'pub fn get(context: &Shared'],
     ];
-    if (hasTypeScript()) expected.push([path.join('typescript', 'src', 'lifecycle', 'actions.ts'), "action('lifecycle.get', lifecycleGet)"]);
+    if (hasTypeScript()) expected.push([path.join('typescript', 'src', 'lifecycle', 'actions.ts'), 'async function lifecycleGet(request: Request)']);
     assert.strictEqual(locs.length, expected.length, found.join('\n'));
     expectEach(found, expected);
+    const registrations = await described(asLocations(await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
+      'vscode.executeImplementationProvider', doc.uri, find(doc, 'action: lifecycle.get', 10))));
+    // Ctrl+F12 lists the registration lines.
+    assert.ok(registrations.some(r => r.includes('"lifecycle.get":')) && registrations.some(r => r.includes('"lifecycle.get" =>')), registrations.join('\n'));
   });
 
   it('cluster.state: exactly the catalog entry and PowerShell', async () => {
@@ -79,7 +85,7 @@ describe('E-B3 Go to Definition on an action', () => {
       ['exec.go', 'append(names, "wait")'],
       ['actions.rs', 'names.push("wait"'],
     ];
-    if (hasTypeScript()) expected.push([path.join('typescript', 'src', 'actions', 'core.ts'), "action('wait', wait)"]);
+    if (hasTypeScript()) expected.push([path.join('typescript', 'src', 'actions', 'core.ts'), 'async function wait(request: Request)']);
     assert.strictEqual(found.length, expected.length, found.join('\n'));
     expectEach(found, expected);
   });

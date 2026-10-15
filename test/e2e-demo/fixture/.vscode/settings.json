@@ -1,0 +1,17 @@
+{
+  // Lint with the fixture's stand-in program, configured as the go binding's tool,
+  // and regenerate the schema with the fixture's own generator.
+  "bddSuite.lintTool": "go",
+  "bddSuite.targetBinding": "powershell",
+  "bddSuite.bindings": {
+    "go": { "tool": ["node", "tools/fake-lint.mjs"] }
+  },
+  "bddSuite.schemaGenerator": ["node", "tools/gen-schema.mjs"],
+
+  // The suites open in the BDD Suite language mode, so the extension enforces
+  // the schema, highlights actions and parameters, and completes step keys.
+  // (Any .yml whose name contains suite, feature or test opens in it anyway.)
+  "files.associations": {
+    "**/test/e2e/suites/**/*.yml": "bdd-suite"
+  }
+}

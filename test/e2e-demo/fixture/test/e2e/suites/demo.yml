@@ -1,0 +1,25 @@
+suite: demo
+tags: [demo]
+tests:
+  - name: greets-and-counts
+    steps:
+      - given: a greeting for the world
+        action: demo.greet
+        name: world
+        captureAs: greeting
+      - when: counting to three
+        action: demo.count
+        to: 3
+
+  - name: greets-again
+    steps:
+      - given: a greeting for the team
+        action: demo.greet
+        name: team
+
+  - name: says-farewell
+    steps:
+      - then: a farewell is said
+        action: demo.farewell
+        name: world
+        loud: true

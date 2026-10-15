@@ -95,10 +95,11 @@ export function readSettings(get: Getter): SettingsResult {
     if (isStringArray(v)) s[k] = v;
     else bad(messages, k, 'string[]', v);
   }
-  const hints = get('inlayHints.bindings');
-  if (hints !== undefined) {
-    if (typeof hints === 'boolean') s['inlayHints.bindings'] = hints;
-    else bad(messages, 'inlayHints.bindings', 'boolean', hints);
+  for (const k of ['inlayHints.bindings', 'codeLens.implement'] as const) {
+    const v = get(k);
+    if (v === undefined) continue;
+    if (typeof v === 'boolean') s[k] = v;
+    else bad(messages, k, 'boolean', v);
   }
   const bindings = get('bindings');
   if (bindings !== undefined) {

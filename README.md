@@ -12,7 +12,12 @@ suites (PowerShell, C#, Go, Rust and TypeScript), and gives you:
   in the editor, at the right line and column. Lint uses one binding's own code,
   so what you see is what CI sees.
 * **Completion** of actions, parameters, `meta:` names and `${...}` references,
-  limited to what is in scope.
+  limited to what is in scope. An action shows which bindings implement it and
+  which do not, and choosing one inserts its required parameters.
+* **Assistance** above each step whose action some language lacks: a CodeLens
+  naming where it is missing, with *Implement in C#*, *Go* or *Rust* to generate
+  the registration and method stub, or *Declare action* when the catalog does
+  not have it.
 * **Scaffolding.** Declare a new action in the catalog from a step that uses it,
   and add a stub registration to a binding.
 * **A binding table** (the *Suite bindings* view): what each binding declares
@@ -28,18 +33,20 @@ The extension activates in a folder that contains
 The extension is not on the Marketplace. Install the package:
 
 ```powershell
-code --install-extension bdd-suite-0.1.0.vsix
+code --install-extension bdd-suite-0.3.0.vsix
 ```
 
 Check the package against the SHA-256 published beside it
-(`bdd-suite-0.1.0.vsix.sha256`) before installing it.
+(`bdd-suite-0.3.0.vsix.sha256`) before installing it.
 
 It needs:
 
 * **VS Code 1.95 or later.**
-* **`redhat.vscode-yaml`**, which VS Code installs with it (it is a declared
-  dependency). It checks a suite's structure while you type, from the committed
-  `suite.schema.json`.
+* **No other extension.** The extension checks suites against the schema
+  itself, in the BDD Suite language mode and in plain YAML mode. (Before 0.3.0
+  it required a YAML extension, and disabling that disabled this one too. If
+  one is installed and enabled, it is left to check plain-YAML files, so
+  nothing is reported twice.)
 * **An os-context checkout** with the binding you lint with built (below).
 * **A trusted workspace.** In an untrusted folder, navigation, hover and
   completion work, but lint, runs, builds and schema generation are disabled,
@@ -47,7 +54,35 @@ It needs:
 
 To build the package from source: `npm ci`, then `npm run package`. That writes
 the `.vsix`, its `.sha256`, and checks that the archive holds only the built
-extension.
+extension. `npm run install:local` does the same and installs it into your VS
+Code (`--force`); reload the window afterwards.
+
+## The BDD Suite language mode
+
+A suite is YAML, and a `.yml` file can be opened as plain YAML or as a **BDD
+Suite** (Change Language Mode, or the language name in the status bar).
+
+* A `.yml`/`.yaml` file whose **name contains `suite`, `feature` or `test`**
+  opens as a BDD Suite. To make a folder's files open that way too, map it in
+  your settings, e.g. `"files.associations": { "**/test/e2e/suites/**/*.yml": "bdd-suite" }`.
+* In BDD Suite mode the extension **enforces the suite schema** (the
+  workspace's generated `suite.schema.json`, beside the catalog) while you
+  type: a missing required parameter, a parameter the action does not take, a
+  wrong type, an unknown action. Findings are marked `bdd-suite schema`
+  (`BDD060`). It also completes a step's keys from the schema, the action's
+  required parameters first.
+* **Highlighting** adds what a YAML grammar cannot know: Gherkin keys and
+  `${...}` expressions are coloured by the grammar, and the extension colours
+  each action by where it is implemented (italic when the target binding lacks
+  it, underlined when no binding has it, red when the catalog does not declare
+  it), each parameter by its action (bold when required, red and struck out
+  when the action does not take it), schema keys apart from parameters, and
+  meta steps. The styles are defaults under
+  `editor.semanticTokenColorCustomizations`, which you can override.
+* In plain YAML mode a suite (a file with a top-level `suite:` key, or one a
+  suite imports) gets the same schema check and key completion, without the
+  highlighting. Every other feature (navigation, hover, lint, completion, the
+  CodeLens, code generation) works in both modes.
 
 ## Lint tools and how to build them
 
@@ -71,8 +106,8 @@ and offers that command; the extension never switches tools by itself.
 **When lint runs (DEC-B03).** A program tool (Go, Rust, C#, PowerShell) lints
 the file on disk when it is opened and each time it is saved. Between saves,
 `E2xx` and `E3xx` findings describe the saved file and may sit on lines that
-have since moved; the next save replaces them. While you type,
-`redhat.vscode-yaml` still checks the structure. The TypeScript tool has no such
+have since moved; the next save replaces them. While you type, the schema
+check still covers the structure. The TypeScript tool has no such
 gap: it lints the editor's text about 0.4 s after you stop typing, with imports
 resolved from the file's real location, and never writes the unsaved text to
 disk.
@@ -94,6 +129,7 @@ is not diagnostics), the status bar names the failure, the output channel
 | `bddSuite.bindings` | the five bindings | Per binding: source globs, the patterns that find registrations, the program, its build command and (TypeScript) its library |
 | `bddSuite.schemaGenerator` | `pwsh ... Build-Schema.ps1` | Regenerates `suite.schema.json` after a catalog edit |
 | `bddSuite.inlayHints.bindings` | `true` | Show which bindings implement each step's action |
+| `bddSuite.codeLens.implement` | `true` | Above a step whose action is missing in a language: where, with *Implement in C#/Go/Rust* (or *Declare action* when the catalog lacks it) one click away |
 | `bddSuite.templatesDir` | empty | A workspace directory whose files override the stub templates |
 | `bddSuite.lab.apiUrl` | empty | The lifecycle API URL for lab runs; asked for when empty |
 | `bddSuite.lab.labId` | empty | The lab's lineage id (32 hex characters) for lab runs; asked for when empty |
@@ -119,6 +155,40 @@ extension asks for any missing lab setting and shows the binding, lab, API and
 the cases that will run before anything starts. Cancelling asks whether to stop
 the run, because stopping may leave lab state half done. A run has no timeout
 of its own; the suite's limits apply.
+
+## A self-contained demo
+
+`npm run test:demo` (in the source repository) installs the `.vsix` into a fresh
+VS Code profile, opens a small workspace of its own, and walks through it. The
+workspace has two suites (`demo.yml`, and `orders.yml`, which imports the
+library `_lib/orders-steps.yml`), an action catalog, and actions implemented in
+PowerShell, C#, Go, Rust and TypeScript. The demo shows:
+
+* **YAML to code:** Go to Definition (F12, or Ctrl+click) on a step's action
+  opens its catalog entry and each language's handler: the C# method, the Go
+  `func`, the Rust `fn`, the TypeScript `function` (PowerShell's handler is the
+  inline script block of its registration). Go to Implementations (Ctrl+F12)
+  lists the registration lines. Hover lists who implements it.
+* **Code to YAML:** Find References (Shift+F12) on a registration, or on the
+  handler's own declaration (the C# method name), lists the steps that use the
+  action, and a CodeLens above each says how many there are.
+* **Validation and IntelliSense while typing:** the demo's generator writes a
+  per-action schema, so `demo.greet` without its required `name` is underlined
+  ("Missing property "name""), as are a parameter the action does not take and
+  a wrong type; its stand-in lint reports the same as `E102`, `E105` and
+  `E103` on open and save. Parameters complete with their descriptions.
+* **C# code generation:** the lightbulb on a declared action's step offers
+  *Implement ... in C#*, which adds the registration and a method stub; a step
+  using an undeclared action gets `E104`, whose quick fix declares it first.
+  Navigation then reaches the generated method, and back.
+
+It needs no os-context checkout and no binding built. `DEMO_KEEP=1` keeps the
+workspace so you can open the generated code; `--vsix <path>` tests another
+package.
+
+To try it by hand, `npm run demo:workspace` copies the demo workspace to
+`%TEMP%\bdd-suite-demo` (or a folder you name; `--open` opens it in VS Code)
+and prints what to try.
 
 ## Design and plan
 

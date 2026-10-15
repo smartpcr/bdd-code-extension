@@ -193,11 +193,12 @@ export class WorkspaceIndex {
     return undefined;
   }
 
+  /** The registration at `pos`: its name in the registration, or its handler's name where the handler is declared. */
   siteAt(file: string, pos: Pos): RegistrationSite | undefined {
-    return this.sitesIn(file).find(s => contains(s.range, pos));
+    return this.sitesIn(file).find(s => contains(s.range, pos) || (!!s.handlerRange && contains(s.handlerRange, pos)));
   }
 
-  /** The action named at `pos`: a step's action value, a catalog entry name, or a registration site. */
+  /** The action named at `pos`: a step's action value, a catalog entry name, a registration site or its handler's declaration. */
   actionNameAt(file: string, pos: Pos): string | undefined {
     const step = this.stepAt(file, pos);
     if (step?.action !== undefined && step.actionRange && contains(step.actionRange, pos)) return step.action;

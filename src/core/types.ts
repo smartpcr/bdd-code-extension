@@ -141,4 +141,6 @@ export interface RegistrationSite {
   file: string;
   range: Range;
   recognizer: number;
+  /** Where the handler is declared in the same file: its name in `func x(`, `fn x(`, `function x(`, a C# method. */
+  handlerRange?: Range;
 }

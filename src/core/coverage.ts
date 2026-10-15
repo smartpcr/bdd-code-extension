@@ -23,6 +23,17 @@ export function bindingTooltip(actionBindings: string[], known: BadgeBinding[], 
   return lines.join('\n');
 }
 
+/**
+ * The bindings with no registration of an action (from the code, not the
+ * catalog), in the order given, split by whether a stub can be generated for
+ * them: what the step's CodeLens offers to implement, and what it can only name.
+ */
+export function missingImplementations(registeredIn: string[], bindings: BadgeBinding[], canGenerate: (binding: string) => boolean):
+  { missing: BadgeBinding[]; generate: BadgeBinding[] } {
+  const missing = bindings.filter(b => !registeredIn.includes(b.name));
+  return { missing, generate: missing.filter(b => canGenerate(b.name)) };
+}
+
 /** Completion sort key: actions the target binding implements first, then by name (B3.1-2). */
 export function actionSortKey(name: string, actionBindings: string[], target: string): string {
   return `${actionBindings.includes(target) ? '0' : '1'}${name}`;

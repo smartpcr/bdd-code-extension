@@ -16,7 +16,7 @@ import { osContextRoot } from '../harness/worktree';
 
 const repo = path.resolve(__dirname, '../../../..');
 const root = osContextRoot();
-const storage = path.join(repo, '.vscode-test', 'user-data', 'User', 'globalStorage', 'local.bdd-suite');
+const storage = path.join(repo, '.vscode-test', 'user-data', 'User', 'globalStorage', 'asz.bdd-suite');
 const layout = WorkspaceLayout.create(root, DEFAULT_SETTINGS, storage, p => fs.existsSync(p))!;
 const TOOLS = ['go', 'rust', 'csharp', 'powershell'];
 const pwshVersion = (): string => execFileSync('pwsh', ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'], { encoding: 'utf8' }).trim();

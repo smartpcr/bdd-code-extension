@@ -1,0 +1,40 @@
+# The action catalog of the demo workspace: the vocabulary its suites may use,
+# which parameters each action takes, and which bindings implement it.
+# tools/gen-schema.mjs turns it into suite.schema.json, which checks each step's
+# parameters while you type; tools/fake-lint.mjs checks the same on open and save.
+bindings: [powershell, csharp, go, rust, typescript]
+
+actions:
+  - name: demo.greet
+    summary: Greet someone by name and capture the greeting.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: name, type: string, required: true, description: 'Who to greet.' }
+      - { name: punctuation, type: string, description: 'Ends the greeting; a full stop when absent.' }
+    captures: { type: object, additionalProperties: true }
+
+  - name: demo.count
+    summary: Count from one to a number.
+    bindings: [powershell, go]
+    interruptible: true
+    params:
+      - { name: to, type: integer, required: true, description: 'The last number counted.' }
+    captures: { type: object, additionalProperties: true }
+
+  - name: orders.create
+    summary: Create an order for an item and capture it.
+    bindings: [powershell, csharp]
+    interruptible: true
+    params:
+      - { name: item, type: string, required: true, description: 'What is ordered.' }
+      - { name: quantity, type: integer, description: 'How many; one when absent.' }
+    captures: { type: object, additionalProperties: true }
+
+  - name: orders.ship
+    summary: Ship an order.
+    bindings: [powershell]
+    interruptible: true
+    params:
+      - { name: orderId, type: string, required: true, description: 'The id orders.create captured.' }
+    captures: { type: object, additionalProperties: true }

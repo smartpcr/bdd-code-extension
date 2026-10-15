@@ -4,7 +4,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { test } from 'node:test';
 import { parseCatalog } from '../../src/core/catalog';
-import { actionPrefix, metaPrefix, withKeyPrefix } from '../../src/core/completionContext';
+import { actionPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../../src/core/completionContext';
 import { actionSortKey } from '../../src/core/coverage';
 import { captureHoverMarkdown } from '../../src/core/hoverText';
 import { capturePathAt, scopeAt, shapeAt } from '../../src/core/scope';
@@ -328,4 +328,39 @@ test('a with key with no value at all is a range over the key', () => {
   const s = parseSuite('suite: e\ntests:\n  - name: c\n    steps:\n      - meta: m\n        ? with\n', f('e.yml'));
   const r = s.steps[0].withRange!;
   assert.deepStrictEqual([r.start.line, r.start.character, r.end.line, r.end.character], [5, 10, 5, 14]);
+});
+
+test('requiredParamsSnippet: the action, then each required parameter not yet written, at the step\'s key column', () => {
+  assert.strictEqual(requiredParamsSnippet('demo.greet', ['name'], 8, new Set(['action'])), 'demo.greet\n        name: $1');
+  assert.strictEqual(requiredParamsSnippet('a.b', ['x', 'y'], 2, new Set(['x']), '\r\n'), 'a.b\r\n  y: $1');
+  assert.strictEqual(requiredParamsSnippet('a.b', [], 2, new Set()), 'a.b');
+  assert.strictEqual(requiredParamsSnippet('a$b}', ['p$'], 0, new Set()), String.raw`a\$b\}` + '\n' + String.raw`p\$: $1`, 'snippet syntax in a name is escaped');
+});
+
+test('stepKeysAround: the key column of `action:` and the step\'s keys at that column, past nested values', () => {
+  const lines = [
+    'tests:',
+    '  - name: c',
+    '    steps:',
+    '      - given: a step',
+    '        asserts:',
+    '          - subject: x',
+    '            equals: y',
+    '        action: demo.gr',
+    '        name: world',
+    '        with:',
+    '          deep: 1',
+    '        captureAs: g',
+    '      - when: the next step',
+    '        action: other',
+  ];
+  assert.deepStrictEqual(stepKeysAround(lines, 7), { keyColumn: 8, keys: new Set(['given', 'asserts', 'action', 'name', 'with', 'captureAs']) });
+  assert.deepStrictEqual(stepKeysAround(['steps:', '', '  - action: x', '', '    to: 3', '  - action: y'], 2), { keyColumn: 4, keys: new Set(['action', 'to']) },
+    'blank lines are skipped both ways');
+  assert.deepStrictEqual(stepKeysAround(['  - given: g', '', '    action: x'], 2), { keyColumn: 4, keys: new Set(['given', 'action']) });
+  assert.deepStrictEqual(stepKeysAround(['  steps:', '      action: x', '    note', '      later: 1'], 1), { keyColumn: 6, keys: new Set(['action']) },
+    'a shallower line ends the step');
+  assert.deepStrictEqual(stepKeysAround(['    plain text', '      action: x', '      a line'], 1), { keyColumn: 6, keys: new Set(['action']) },
+    'a line that is not a key ends the step');
+  assert.deepStrictEqual(stepKeysAround(['not an action line'], 0), { keyColumn: 0, keys: new Set() });
 });

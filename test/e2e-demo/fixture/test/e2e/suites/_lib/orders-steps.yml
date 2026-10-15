@@ -1,0 +1,12 @@
+metaSteps:
+  - name: place-order
+    description: Create an order for one item and publish it as `order`.
+    params:
+      - { name: item, required: true }
+    exports: [order]
+    steps:
+      - given: an order for the item
+        action: orders.create
+        item: ${param.item}
+        quantity: 1
+        captureAs: order

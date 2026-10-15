@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Demo suite (hand-written part)",
+  "type": "object",
+  "$defs": {
+    "stepEnvelope": {
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "meta": { "type": "string" },
+        "given": { "type": "string" },
+        "when": { "type": "string" },
+        "then": { "type": "string" },
+        "and": { "type": "string" },
+        "why": { "type": "string" },
+        "timeoutSec": { "type": "integer" },
+        "captureAs": { "type": "string" },
+        "asserts": { "type": "array" }
+      }
+    }
+  }
+}

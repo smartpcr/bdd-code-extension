@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { minimatch } from 'minimatch';
 import { DEFAULT_BINDINGS } from '../../src/config/defaults';
 import { parseCatalog } from '../../src/core/catalog';
-import { compileRecognizers, scanRegistrations } from '../../src/core/registrations';
+import { compileRecognizers, findHandlerDeclaration, handlerIdentifier, scanRegistrations } from '../../src/core/registrations';
 
 const scan = (binding: string, text: string) =>
   scanRegistrations(text, `/src.${binding}`, binding, compileRecognizers(DEFAULT_BINDINGS[binding].recognizers).ok);
@@ -138,4 +138,40 @@ test('B1.4-1 each default recognizer finds exactly the catalog declarations on t
 test('sites on one line are ordered by column; a prefix is prepended', () => {
   const { ok } = compileRecognizers([{ pattern: 'b(?<name>\\w)' }, { pattern: 'a(?<name>\\w)', prefix: 'p.' }]);
   assert.deepStrictEqual(scanRegistrations('ax bx\n', '/f', 'x', ok).map(s => s.action), ['p.x', 'x']);
+});
+
+test('handlerIdentifier: the name a handler expression ends with; none for a lambda or nothing', () => {
+  assert.strictEqual(handlerIdentifier('DemoGreet'), 'DemoGreet');
+  assert.strictEqual(handlerIdentifier('actions.noop '), 'noop');
+  assert.strictEqual(handlerIdentifier('Self::demo_greet'), 'demo_greet');
+  assert.strictEqual(handlerIdentifier('request => Noop(request)'), undefined);
+  assert.strictEqual(handlerIdentifier('bySuffix("lifecycle", false)'), undefined);
+  assert.strictEqual(handlerIdentifier(undefined), undefined);
+  assert.strictEqual(handlerIdentifier('   '), undefined);
+});
+
+test('findHandlerDeclaration: a C# method, a Go func and method, a Rust fn, a TypeScript function; never a call or a registration', () => {
+  const at = (text: string, id: string) => {
+    const d = findHandlerDeclaration(text, id);
+    return d && text.slice(d.start, d.end);
+  };
+  assert.strictEqual(at('    private static object? DemoGreet(ActionRequest request) =>', 'DemoGreet'), 'DemoGreet');
+  assert.strictEqual(at('    public static Task<int> Run<T>(T x) {', 'Run'), 'Run');
+  assert.strictEqual(at('func demoGreet(request *Request) (any, error) {', 'demoGreet'), 'demoGreet');
+  assert.strictEqual(at('func (s *server) demoGreet(r *Request) error {', 'demoGreet'), 'demoGreet');
+  assert.strictEqual(at('pub(crate) fn demo_greet(_r: &Request) -> Outcome {', 'demo_greet'), 'demo_greet');
+  assert.strictEqual(at('export async function demoGreet(request: Request) {', 'demoGreet'), 'demoGreet');
+  assert.strictEqual(at('    "demo.greet": demoGreet,\n    x := demoGreet(r)', 'demoGreet'), undefined);
+  assert.strictEqual(at('  action(\'demo.greet\', demoGreet),', 'demoGreet'), undefined);
+  assert.strictEqual(at('    const demoGreet = (r: Request) => r;', 'demoGreet'), undefined);
+  assert.strictEqual(at('func other(r *Request) { return demoGreet(r) }', 'demoGreet'), undefined);
+});
+
+test('scanRegistrations: each site carries where its handler is declared in the same file, when it is', () => {
+  const go = scan('go', 'func Registry() map[string]Handler {\n\treturn map[string]Handler{\n\t\t"demo.greet": demoGreet,\n\t\t"demo.gone": elsewhere,\n\t}\n}\n\nfunc demoGreet(r *Request) (any, error) {\n\treturn nil, nil\n}\n');
+  assert.deepStrictEqual(go.map(s => [s.action, s.handlerRange?.start.line ?? null, s.handlerRange?.start.character ?? null]),
+    [['demo.greet', 7, 5], ['demo.gone', null, null]]);
+  const cs = scan('csharp', '        {\n            ["demo.greet"] = DemoGreet,\n        };\n\n    private static object? DemoGreet(ActionRequest request) => null;\n');
+  assert.deepStrictEqual(cs[0].handlerRange, { start: { line: 4, character: 27 }, end: { line: 4, character: 36 } });
+  assert.strictEqual(scan('powershell', "Register-LabAction -Name 'demo.greet' -Handler {")[0].handlerRange, undefined, 'an inline script block has no declaration');
 });

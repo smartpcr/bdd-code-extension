@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import type { TestApi } from '../../../src/extension';
 
 export async function api(): Promise<TestApi> {
-  const ext = vscode.extensions.getExtension('local.bdd-suite');
+  const ext = vscode.extensions.getExtension('asz.bdd-suite');
   assert.ok(ext, 'the extension is installed in the test instance');
   const a = (await ext.activate()) as TestApi;
   await a.ready;

@@ -38,7 +38,8 @@ function zipEntries(buf) {
 }
 const entries = zipEntries(fs.readFileSync(vsix));
 const inExtension = entries.filter(e => e.startsWith('extension/')).map(e => e.slice('extension/'.length));
-const required = ['dist/extension.js', 'dist/lintWorker.js', 'package.json', 'readme.md'];
+const required = ['dist/extension.js', 'dist/lintWorker.js', 'package.json', 'readme.md', 'language-configuration.json',
+  'syntaxes/bdd-suite.tmLanguage.json', 'syntaxes/bdd-suite.injection.tmLanguage.json'];
 const problems = [
   // vsce stores the README as readme.md.
   ...required.filter(r => !inExtension.some(e => e.toLowerCase() === r.toLowerCase())).map(r => `missing ${r}`),

@@ -14,6 +14,8 @@ Scenarios re-run on the package: E-B1 to E-B9, E-B11, E-B14, E-B15. [E-B10](../d
 | Node | 24.16.0 (harness) |
 | Machine | 13th Gen Intel Core i9-13900K, 32 logical CPUs, Windows 11 |
 
+> **Superseded package (2026-10-15, later the same day).** The package has been rebuilt since, more than once, for new editor features (Go to Definition on handlers, Go to Implementations, the self-contained demo, required-parameter completion and the implement CodeLens). Everything below is for `9c302f86...`; the current package and its SHA-256 are in `bdd-suite-0.1.0.vsix.sha256`, and B9.2 has to be re-run on it before it can close.
+
 ## B9.1 Package and install
 
 `npm run package` (`scripts/package.mjs`) compiles, runs `vsce package --no-dependencies`, writes the SHA-256, and then lists the archive's own central directory (no `tar` on `PATH` is trusted to read zip; Git's GNU `tar` cannot). **B9.1-1 passed**: the 11 files under `extension/` are

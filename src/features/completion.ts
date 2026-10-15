@@ -2,8 +2,9 @@
 // `with:` parameters. Answers from the index only (INV-9).
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { actionSortKey, renderBindingBadge } from '../core/coverage';
-import { actionPrefix, metaPrefix, withKeyPrefix } from '../core/completionContext';
+import { actionPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../core/completionContext';
 import { CONTEXT_KEYS, cursorContext, ExprContext, FUNCTIONS } from '../core/exprCursor';
 import { actionHoverMarkdown } from '../core/hoverText';
 import { scopeAt, shapeAt } from '../core/scope';
@@ -22,16 +23,25 @@ function item(label: string, kind: vscode.CompletionItemKind, range: vscode.Rang
   return i;
 }
 
-function actionItems(ix: FolderIndexer, range: vscode.Range): vscode.CompletionItem[] {
+/**
+ * The catalog's actions. Each says which bindings implement it and which do
+ * not; those the target binding implements come first; choosing one also
+ * inserts the required parameters the step does not have yet.
+ */
+function actionItems(ix: FolderIndexer, range: vscode.Range, step: { keyColumn: number; keys: Set<string> }, eol: string): vscode.CompletionItem[] {
   const catalog = ix.index.catalog;
   if (!catalog) return [];
   const known = ix.layout.bindings.map(b => ({ name: b.name, abbreviation: b.abbreviation, label: b.label }));
   const labels = catalog.bindings.map(name => ({ name, label: known.find(k => k.name === name)?.label ?? name }));
   const target = ix.layout.settings.targetBinding;
   return [...catalog.actions.values()].map(a => {
-    const i = item(a.name, K.Function, range, renderBindingBadge(catalog.bindings, a.bindings, known),
+    const lacking = catalog.bindings.filter(b => !a.bindings.includes(b));
+    const badge = renderBindingBadge(catalog.bindings, a.bindings, known) + (lacking.length ? ` · not in ${renderBindingBadge(catalog.bindings, lacking, known)}` : '');
+    const i = item(a.name, K.Function, range, badge,
       new vscode.MarkdownString(actionHoverMarkdown(a, labels, ix.index.sitesFor(a.name), s => siteLink(s.file, s.range.start.line))));
     i.sortText = actionSortKey(a.name, a.bindings, target);
+    const required = a.params.filter(p => p.required).map(p => p.name);
+    i.insertText = new vscode.SnippetString(requiredParamsSnippet(a.name, required, step.keyColumn, step.keys, eol));
     if (a.deprecated) i.tags = [vscode.CompletionItemTag.Deprecated];
     return i;
   });
@@ -70,7 +80,7 @@ function expressionItems(ix: FolderIndexer, file: string, pos: vscode.Position, 
 }
 
 export function registerCompletion(owner: Owner): vscode.Disposable {
-  return vscode.languages.registerCompletionItemProvider({ scheme: 'file', language: 'yaml' }, {
+  return vscode.languages.registerCompletionItemProvider(SUITE_DOCUMENTS, {
     async provideCompletionItems(doc, pos) {
       const ix = owner(doc.uri);
       await ix?.ready;
@@ -83,7 +93,10 @@ export function registerCompletion(owner: Owner): vscode.Disposable {
       if (expr) return expressionItems(ix, doc.uri.fsPath, pos, expr, rangeFrom(expr.start));
 
       const actionTyped = actionPrefix(before);
-      if (actionTyped !== undefined) return actionItems(ix, rangeFrom(pos.character - actionTyped.length));
+      if (actionTyped !== undefined) {
+        return actionItems(ix, rangeFrom(pos.character - actionTyped.length), stepKeysAround(doc.getText().split(/\r?\n/), pos.line),
+          doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n');
+      }
 
       const metaTyped = metaPrefix(before);
       if (metaTyped !== undefined) {

@@ -667,8 +667,12 @@ same result for one binding without a protocol.
 **Choice.** With a program-based lint tool (Go, Rust, C#, PowerShell), the lint
 controller lints a suite when it is opened and each time it is saved, using the
 file on disk. While the author types, structural checking (`E101`-`E105`)
-comes from `redhat.vscode-yaml` through the committed schema mapping, which the
-extension declares as a dependency and does not duplicate. With the
+comes from the extension's own check against the generated schema, in the BDD
+Suite language mode and, for suites, in YAML mode. (Changed 2026-10-15: this
+was `redhat.vscode-yaml` through the committed schema mapping, a declared
+dependency; a user who had that extension disabled got this one disabled with
+it. From 0.3.0 no other extension is needed; an enabled YAML extension is left
+to check YAML-mode files, so nothing is reported twice.) With the
 TypeScript lint tool, DEC-B20 replaces "on save" with "on every pause in
 typing", and nothing else here changes.
 
@@ -1417,7 +1421,7 @@ unless a scenario says otherwise:
 * The Rust, Go, C# and TypeScript `suiterun` programs built from that commit
   at the paths the plan's working rules name (for TypeScript, `npm ci` and
   `npm run build` in `test/e2e/bindings/typescript`); `pwsh` 7 on the path.
-* The test workspace trusted, except in E-B15.
+* No YAML extension: the harness removes one left in its profile, so the extension's own schema check and key completion are what run (changed 2026-10-15; `redhat.vscode-yaml` was installed before).
 * `redhat.vscode-yaml` installed in the test VS Code.
 * The extension under test loaded from the `.vsix` built from a recorded commit
   of this repository (in the build stages, from the development build).
@@ -1474,20 +1478,27 @@ unless a scenario says otherwise:
   file in the worktree if none exists).
 * **When.** The harness runs `vscode.executeDefinitionProvider` at the action
   value of each.
-* **Then.** For `lifecycle.get`: exactly six locations, namely the catalog's
-  `- name: lifecycle.get` line, and one registration each in
-  `scripts/e2e/actions/` (`Register-LabAction -Name 'lifecycle.get'`),
-  `test/e2e/bindings/go/internal/lifecycle/actions.go`
-  (`"lifecycle.get": get,`), `test/e2e/bindings/rust/src/lifecycle/actions.rs`
-  (the `"lifecycle.get" =>` dispatch arm),
+* **Then.** Go to Definition (F12, Ctrl+click) lands on the code that runs:
+  each binding's handler where the file declares it (a C# method, a Go
+  `func`, a Rust `fn`, a TypeScript `function`), else the registration itself
+  (PowerShell's inline script block, a C# lambda, a name list). Go to
+  Implementations (Ctrl+F12) lists the registration lines. (Changed
+  2026-10-15 at the user's request: Definition listed the registration lines
+  before.) For `lifecycle.get`: exactly six locations, namely the catalog's
+  `- name: lifecycle.get` line, the PowerShell registration in
+  `scripts/e2e/actions/` (`Register-LabAction -Name 'lifecycle.get'`), the Go
+  handler in `test/e2e/bindings/go/internal/lifecycle/actions.go`
+  (`func get(held *Context`), the Rust handler in
+  `test/e2e/bindings/rust/src/lifecycle/actions.rs` (`pub fn get(context: &Shared`),
+  the C# registration in
   `test/e2e/bindings/dotnet/Hci.E2E.Suite/Actions/Lifecycle/LifecycleActions.cs`
-  (`["lifecycle.get"] =`), and
+  (`["lifecycle.get"] =`, a lambda), and the TypeScript handler in
   `test/e2e/bindings/typescript/src/lifecycle/actions.ts`
-  (`action('lifecycle.get', get)`). The harness checks each location's line
+  (`async function lifecycleGet(`). The harness checks each location's line
   text with the substring in parentheses. For `cluster.state`: exactly two
   (catalog and PowerShell). For `wait`: catalog, `Wait.ps1`, the `wait` lines in
   Go `exec.go`, Rust `actions.rs` and C# `Executor.cs`, and
-  `action('wait', wait)` in TypeScript `src/actions/core.ts`. Go to Definition on
+  `async function wait(` in TypeScript `src/actions/core.ts`. Go to Definition on
   `meta: select-lab` in a stage 0 case returns the definition in
   `_lib/lifecycle.yml`.
 * **Cleanup.** None.

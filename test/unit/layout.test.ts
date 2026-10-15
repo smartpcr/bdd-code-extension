@@ -42,7 +42,7 @@ test('readSettings: nothing set gives the defaults and no messages', () => {
 test('readSettings: right types are taken', () => {
   const values: Record<string, unknown> = {
     catalogPath: 'x.yaml', suiteGlobs: ['a/*.yml'], exclude: 'e', lintTool: 'rust', targetBinding: 'go',
-    schemaGenerator: ['gen'], 'inlayHints.bindings': false, templatesDir: 't',
+    schemaGenerator: ['gen'], 'inlayHints.bindings': false, 'codeLens.implement': false, templatesDir: 't',
     'lab.apiUrl': 'u', 'lab.labId': 'l', 'lab.connectionFile': 'c',
   };
   const { settings, messages } = readSettings(k => values[k]);
@@ -53,7 +53,7 @@ test('readSettings: right types are taken', () => {
 test('B1.1-4 every wrong type is ignored with a BDD010 message', () => {
   const values: Record<string, unknown> = {
     catalogPath: 1, suiteGlobs: 'x', exclude: [], lintTool: null, targetBinding: true, templatesDir: {},
-    'lab.apiUrl': 2, 'lab.labId': 3, 'lab.connectionFile': 4, schemaGenerator: [1], 'inlayHints.bindings': 'yes',
+    'lab.apiUrl': 2, 'lab.labId': 3, 'lab.connectionFile': 4, schemaGenerator: [1], 'inlayHints.bindings': 'yes', 'codeLens.implement': 1,
     bindings: [],
   };
   const { settings, messages } = readSettings(k => values[k]);

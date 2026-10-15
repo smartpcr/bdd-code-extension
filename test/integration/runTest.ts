@@ -58,7 +58,11 @@ async function main(): Promise<void> {
     const r = spawnSync(cli, [...cliArgs, '--install-extension', what, '--force'], { encoding: 'utf8', shell: process.platform === 'win32' });
     if (r.status !== 0) throw new Error(`Installing ${what} failed: ${r.stderr}`);
   };
-  install('redhat.vscode-yaml');
+  // The extension needs no other extension: in the BDD Suite mode, and in YAML
+  // mode when no YAML extension does it, it checks and completes suites against
+  // the schema itself. A YAML extension left in the reused profile by an earlier
+  // run would answer too, so it is removed (quietly when it is not there).
+  spawnSync(cli, [...cliArgs, '--uninstall-extension', 'redhat.vscode-yaml'], { encoding: 'utf8', shell: process.platform === 'win32' });
   let stub = repo;
   let packageInfo: { file: string; sha256: string; version: string } | undefined;
   if (vsix) {

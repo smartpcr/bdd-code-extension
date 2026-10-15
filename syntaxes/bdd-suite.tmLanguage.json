@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "BDD Suite",
+  "scopeName": "source.bdd-suite",
+  "comment": "A suite file is YAML; this grammar is YAML's, and syntaxes/bdd-suite.injection.tmLanguage.json adds the suite's own keys and ${...} expressions. Which keys are an action's parameters, and whether an action is implemented, need the catalog and the code, so the extension adds those as semantic tokens.",
+  "patterns": [{ "include": "source.yaml" }]
+}

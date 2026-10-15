@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Demo suite (generated from actions.catalog.yaml by tools/gen-schema.mjs)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "suite": {
+      "type": "string",
+      "description": "The suite name."
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Libraries whose meta steps this suite uses, relative to this file."
+    },
+    "metaSteps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/metaStep"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "steps"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The case name, unique in the suite."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    },
+    "metaStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "steps"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "default": {}
+            }
+          }
+        },
+        "exports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    },
+    "step": {
+      "description": "One step: an action with its parameters, or a meta step use.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "enum": [
+            "demo.greet",
+            "demo.count",
+            "orders.create",
+            "orders.ship"
+          ],
+          "description": "The action this step runs, from the catalog."
+        },
+        "meta": {
+          "type": "string",
+          "description": "A meta step declared here or in an imported library."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "meta"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/step.meta"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "demo.greet"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/step.demo.greet"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "demo.count"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/step.demo.count"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "orders.create"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/step.orders.create"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "orders.ship"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/step.orders.ship"
+          }
+        }
+      ]
+    },
+    "step.meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meta"
+      ],
+      "properties": {
+        "meta": {
+          "type": "string"
+        },
+        "with": {
+          "type": "object",
+          "description": "Values for the meta step's parameters."
+        },
+        "given": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        },
+        "and": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "timeoutSec": {
+          "type": "integer"
+        },
+        "captureAs": {
+          "type": "string"
+        },
+        "asserts": {
+          "type": "array"
+        }
+      }
+    },
+    "step.demo.greet": {
+      "description": "Greet someone by name and capture the greeting.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "name"
+      ],
+      "properties": {
+        "action": {
+          "const": "demo.greet",
+          "description": "Greet someone by name and capture the greeting."
+        },
+        "given": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        },
+        "and": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "timeoutSec": {
+          "type": "integer"
+        },
+        "captureAs": {
+          "type": "string"
+        },
+        "asserts": {
+          "type": "array"
+        },
+        "name": {
+          "type": "string",
+          "description": "(required) Who to greet."
+        },
+        "punctuation": {
+          "type": "string",
+          "description": "Ends the greeting; a full stop when absent."
+        }
+      }
+    },
+    "step.demo.count": {
+      "description": "Count from one to a number.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "to"
+      ],
+      "properties": {
+        "action": {
+          "const": "demo.count",
+          "description": "Count from one to a number."
+        },
+        "given": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        },
+        "and": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "timeoutSec": {
+          "type": "integer"
+        },
+        "captureAs": {
+          "type": "string"
+        },
+        "asserts": {
+          "type": "array"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\$\\{[^}]+\\}$",
+              "description": "A ${...} expression, resolved when the step runs."
+            }
+          ],
+          "description": "(required) The last number counted."
+        }
+      }
+    },
+    "step.orders.create": {
+      "description": "Create an order for an item and capture it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "item"
+      ],
+      "properties": {
+        "action": {
+          "const": "orders.create",
+          "description": "Create an order for an item and capture it."
+        },
+        "given": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        },
+        "and": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "timeoutSec": {
+          "type": "integer"
+        },
+        "captureAs": {
+          "type": "string"
+        },
+        "asserts": {
+          "type": "array"
+        },
+        "item": {
+          "type": "string",
+          "description": "(required) What is ordered."
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\$\\{[^}]+\\}$",
+              "description": "A ${...} expression, resolved when the step runs."
+            }
+          ],
+          "description": "How many; one when absent."
+        }
+      }
+    },
+    "step.orders.ship": {
+      "description": "Ship an order.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "orderId"
+      ],
+      "properties": {
+        "action": {
+          "const": "orders.ship",
+          "description": "Ship an order."
+        },
+        "given": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        },
+        "and": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "timeoutSec": {
+          "type": "integer"
+        },
+        "captureAs": {
+          "type": "string"
+        },
+        "asserts": {
+          "type": "array"
+        },
+        "orderId": {
+          "type": "string",
+          "description": "(required) The id orders.create captured."
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 import * as assert from 'assert';
 import { test } from 'node:test';
 import {
-  commonSource, compareProgramSet, computeCoverage, CoverageRow, driftCount, globDirectory, programAgrees, toMarkdownTable,
+  commonSource, compareProgramSet, computeCoverage, CoverageRow, driftCount, globDirectory, missingImplementations, programAgrees, toMarkdownTable,
 } from '../../src/core/coverage';
 
 const catalog = {
@@ -92,4 +92,12 @@ test('toMarkdownTable: without and with a program column', () => {
   assert.match(withProgram, /\| Go \| .* \| failed: not-found \|/);
   assert.match(withProgram, /\| X \|  \| 2 \| 2 \| 0 \|  \|/);
   assert.match(withProgram, /\| Y \| .* \| differs \|/);
+});
+
+test('missingImplementations: the bindings with no registration, and of those the ones a stub can be generated for', () => {
+  const bindings = [{ name: 'powershell', label: 'PowerShell' }, { name: 'csharp', label: 'C#' }, { name: 'go', label: 'Go' }, { name: 'typescript', label: 'TypeScript' }];
+  const r = missingImplementations(['powershell', 'go'], bindings, b => b !== 'typescript');
+  assert.deepStrictEqual(r.missing.map(b => b.name), ['csharp', 'typescript']);
+  assert.deepStrictEqual(r.generate.map(b => b.name), ['csharp']);
+  assert.deepStrictEqual(missingImplementations(bindings.map(b => b.name), bindings, () => true), { missing: [], generate: [] });
 });

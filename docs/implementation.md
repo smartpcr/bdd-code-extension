@@ -3044,6 +3044,7 @@ package already green locally.
   - [x] code. `runTest.ts --vsix` (a fresh extensions folder, an empty development stub, the result file), per-test outcomes from `suite/index.ts`, a test that the running extension is the installed package.
   - [x] unit: none, as planned.
   - [x] scenario, on `bdd-suite-0.1.0.vsix`: E-B2 to E-B9, E-B11, E-B14 and E-B15 passed, and E-B1 for Rust, Go, C# and TypeScript (`artifacts/acceptance-2026-10-15.json`).
+  - Note: the package has been rebuilt since for new editor features (see `bdd-suite-0.1.0.vsix.sha256` for the current hash); the run above is for `9c302f86...` and is re-run on the current package before this step can close.
   - [ ] scenario, E-B1's PowerShell test (B9.2-1): skipped as blocked by the PowerShell 7.6.7 `Test-Json` defect in `os-context` (stage B2), so this step stays open until it passes on the package. Evidence: [docs/evidence/stage-b9.md](evidence/stage-b9.md).
 
 ### B9.3 Lab acceptance on the package
