@@ -131,6 +131,37 @@ tests:
     }
   });
 
+  it('B6.5 Stop ends a run that waits on an unanswered question, or on the confirmation, and starts nothing', async () => {
+    const a = await api();
+    fs.rmSync(RUN_LOG, { force: true });
+    const never = new Promise<never>(() => undefined);
+    const uis: [string, RunUi][] = [
+      ['the lab values', { askLab: () => never, confirmLab: async () => true, confirmStop: async () => true }],
+      ['the confirmation', { askLab: async have => ({ ...have, labId: 'lab-x' }), confirmLab: () => never, confirmStop: async () => true }],
+    ];
+    for (const [waitingOn, answers] of uis) {
+      // Set when the run reaches the question that never answers.
+      let waiting = false;
+      a.testing.ui = {
+        ...answers,
+        askLab: (have, missing, token) => { if (waitingOn === 'the lab values') waiting = true; return answers.askLab(have, missing, token); },
+        confirmLab: d => { if (waitingOn === 'the confirmation') waiting = true; return answers.confirmLab(d); },
+      };
+      const run = await start([await item(LAB)]);
+      await within(30_000, () => waiting);
+      const t0 = Date.now();
+      run.cancel();
+      const ended = await Promise.race([run.done.then(() => true), new Promise<false>(r => setTimeout(() => r(false), 5000))]);
+      assert.ok(ended, `Stop ended the run waiting on ${waitingOn}`);
+      const results = await run.done;
+      for (const c of ['first', 'second']) {
+        assert.deepStrictEqual(results.get(`${LAB}::${c}`), { state: 'skipped', message: 'not run: stopped before it started' }, `${waitingOn}: ${c}`);
+      }
+      assert.ok(!fs.existsSync(RUN_LOG) && !a.testing.running.has(LAB), `${waitingOn}: nothing ran`);
+      console.log(`    waiting on ${waitingOn}: Stop ended the run in ${Date.now() - t0} ms`);
+    }
+  });
+
   it('B6.4 item 4 / B6.5-2 a confirmed lab run gets the lab values and is printed; a declined stop leaves it running; Stop kills it', async () => {
     const a = await api();
     let stop = false;

@@ -148,7 +148,12 @@ export function selectionTags(cases: { name: string; tags: string[] }[], include
   return exact === undefined ? undefined : [exact];
 }
 
-/** A suite needs a lab unless every action it uses is `core.*` or `wait` (B6.4 item 1). */
-export function isLabSuite(actions: string[]): boolean {
-  return actions.some(a => a !== 'wait' && !a.startsWith('core.'));
+/**
+ * A suite needs a lab unless every action it uses is offline (B6.4 item 1): an
+ * offline entry is an action name, or `prefix.*` for every action under it.
+ * os-context's are `core.*` and `wait`, the default of `bddSuite.offlineActions`.
+ */
+export function isLabSuite(actions: string[], offline: string[] = ['core.*', 'wait']): boolean {
+  const isOffline = (a: string) => offline.some(o => (o.endsWith('.*') ? a.startsWith(o.slice(0, -1)) : a === o));
+  return actions.some(a => !isOffline(a));
 }

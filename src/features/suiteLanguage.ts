@@ -85,7 +85,13 @@ export function tokenContext(ix: FolderIndexer, file: string): TokenContext {
   const catalog = ix.index.catalog;
   const target = ix.layout.settings.targetBinding;
   const base = path.join(path.dirname(ix.layout.catalogPath), 'suite.base.json');
-  const envelope = new Set((fs.existsSync(base) ? commonStepKeys(fs.readFileSync(base, 'utf8')) : undefined) ?? DEFAULT_ENVELOPE);
+  let text: string | undefined;
+  try {
+    text = fs.readFileSync(base, 'utf8');
+  } catch {
+    // Missing, or unreadable for now (EMFILE while a window starts): the default keys, never a failed provider.
+  }
+  const envelope = new Set((text === undefined ? undefined : commonStepKeys(text)) ?? DEFAULT_ENVELOPE);
   const metas = ix.index.visibleMetaSteps(file);
   return {
     envelope,

@@ -30,14 +30,23 @@ The extension activates in a folder that contains
 
 ## Install
 
-The extension is not on the Marketplace. Install the package:
+From the Visual Studio Marketplace: search for **Suite Authoring** in the
+Extensions view, or
 
 ```powershell
-code --install-extension bdd-suite-0.3.0.vsix
+code --install-extension asz.bdd-suite
 ```
 
-Check the package against the SHA-256 published beside it
-(`bdd-suite-0.3.0.vsix.sha256`) before installing it.
+Or from a GitHub release
+(https://github.com/smartpcr/bdd-code-extension/releases): download
+`bdd-suite-<version>.vsix`, check it against the SHA-256 in
+`bdd-suite-<version>.vsix.sha256` beside it, and install it with
+`code --install-extension bdd-suite-<version>.vsix`.
+
+A window that is already open keeps running the version it loaded until it
+reloads; VS Code never swaps a running extension's code. When a newer copy is
+installed, the extension says so: a **Reload for Suite Authoring &lt;version&gt;**
+button in the status bar, and a notification, reload the window to load it.
 
 It needs:
 
@@ -52,10 +61,7 @@ It needs:
   completion work, but lint, runs, builds and schema generation are disabled,
   because each of them runs code from the folder.
 
-To build the package from source: `npm ci`, then `npm run package`. That writes
-the `.vsix`, its `.sha256`, and checks that the archive holds only the built
-extension. `npm run install:local` does the same and installs it into your VS
-Code (`--force`); reload the window afterwards.
+To build it from source, see [Build, test and release](#build-test-and-release).
 
 ## The BDD Suite language mode
 
@@ -134,6 +140,7 @@ is not diagnostics), the status bar names the failure, the output channel
 | `bddSuite.lab.apiUrl` | empty | The lifecycle API URL for lab runs; asked for when empty |
 | `bddSuite.lab.labId` | empty | The lab's lineage id (32 hex characters) for lab runs; asked for when empty |
 | `bddSuite.lab.connectionFile` | empty | The lab connection file for lab runs; asked for when empty |
+| `bddSuite.offlineActions` | `["core.*", "wait"]` | Actions that run without a lab, as names or `prefix.*`; a suite using any other action is a lab suite |
 
 `bindings`, `lintTool` and `schemaGenerator` choose code that runs, so VS Code
 ignores their workspace values in an untrusted folder. The extension stores no
@@ -150,11 +157,17 @@ table*.
 
 In Test Explorer, *Run* runs a suite under the target binding and shows each
 case's result from the run's trace; *Dry run* lists what would run without
-starting an action. A suite that uses `lifecycle.*` actions is a lab suite: the
-extension asks for any missing lab setting and shows the binding, lab, API and
-the cases that will run before anything starts. Cancelling asks whether to stop
-the run, because stopping may leave lab state half done. A run has no timeout
-of its own; the suite's limits apply.
+starting an action. A suite that uses any action outside
+`bddSuite.offlineActions` (os-context's `core.*` and `wait` by default) is a
+lab suite: the extension asks for any missing lab setting and shows the binding, lab, API and
+the cases that will run before anything starts. *Stop* works at every point:
+while a run waits on a question or the confirmation it ends at once and starts
+nothing; once a lab suite has started, it asks whether to stop the run, because
+stopping may leave lab state half done. A run has no timeout
+of its own; the suite's limits apply. A run whose runner is missing (the
+PowerShell runner `scripts/e2e/Invoke-LabTestSuite.ps1`, or the target
+binding's program) fails at once with that path, before asking anything; the
+*Suite Authoring* output channel logs each step a run waits on.
 
 ## A self-contained demo
 
@@ -181,6 +194,11 @@ PowerShell, C#, Go, Rust and TypeScript. The demo shows:
   *Implement ... in C#*, which adds the registration and a method stub; a step
   using an undeclared action gets `E104`, whose quick fix declares it first.
   Navigation then reaches the generated method, and back.
+* **Running from Test Explorer:** *Run* on `demo.yml` passes the cases whose
+  actions PowerShell implements and fails `says-farewell` at the step whose
+  action it lacks. *Run* on one case runs only that case. The workspace's
+  runner is a stand-in that touches no lab, and its settings list the demo's
+  actions in `bddSuite.offlineActions`, so a run asks nothing.
 
 It needs no os-context checkout and no binding built. `DEMO_KEEP=1` keeps the
 workspace so you can open the generated code; `--vsix <path>` tests another
@@ -189,6 +207,50 @@ package.
 To try it by hand, `npm run demo:workspace` copies the demo workspace to
 `%TEMP%\bdd-suite-demo` (or a folder you name; `--open` opens it in VS Code)
 and prints what to try.
+
+## Build, test and release
+
+From the source repository, with Node.js 24:
+
+| Command | What it does |
+| --- | --- |
+| `npm ci` | Installs the build and test tools |
+| `npm run compile` | Type-checks and bundles `dist/extension.js` and `dist/lintWorker.js` |
+| `npm run test:unit` | Unit tests; fails below 100% coverage of `src/core`, `src/config` and `src/tools` |
+| `npm run package` | Writes `bdd-suite-<version>.vsix` and its `.sha256`, and checks that the archive holds only the built extension |
+| `npm run test:demo` | Installs that `.vsix` into a fresh VS Code profile and drives the self-contained demo (above) |
+| `npm run test:integration` | The integration suite; needs an os-context checkout (`OS_CONTEXT_ROOT`) |
+| `npm run install:local` | Packages and installs into your own VS Code; open windows offer the reload |
+
+**Continuous integration** (`.github/workflows/ci.yml`) runs `npm ci`, the
+unit tests, `npm run package` and the demo on Windows for every push to `main`
+and every pull request, and keeps the `.vsix` and its `.sha256` as the run's
+`vsix` artifact. The integration suite is not run there, because it needs an
+os-context checkout.
+
+**Releasing** (`.github/workflows/release.yml`):
+
+1. Bump `version` in `package.json` and commit it to `main`.
+2. Tag that commit `v<version>` and push the tag:
+   `git tag v0.4.2 && git push origin v0.4.2`.
+3. The release workflow checks that the tag matches `package.json`, runs the
+   CI pipeline above, then publishes the very `.vsix` CI built and tested: to
+   the Visual Studio Marketplace, and to a GitHub release with its `.sha256`
+   and generated release notes.
+
+It needs, once:
+
+* a Marketplace publisher whose ID is `publisher` in `package.json`
+  (`asz`), created at https://marketplace.visualstudio.com/manage;
+* the repository secret **`VSCE_PAT`**: an Azure DevOps personal access token
+  for that publisher, organization *All accessible organizations*, scope
+  *Marketplace → Manage*;
+* a repository environment named **`marketplace`**. The publish job runs in
+  it, so required reviewers set there approve each release before anything is
+  published.
+
+Re-running a failed release is safe: a version already on the Marketplace is
+skipped, and an existing GitHub release gets its files replaced.
 
 ## Design and plan
 

@@ -4,7 +4,7 @@ import * as path from 'path';
 import { test } from 'node:test';
 import { DEFAULT_SETTINGS } from '../../src/config/defaults';
 import { ResolvedBinding, WorkspaceLayout } from '../../src/config/layout';
-import { actionsCommand, buildCommand, lintCommand, listCommand, OFFLINE_API_URL, programPath, psQuote, runCommand } from '../../src/tools/profiles';
+import { actionsCommand, buildCommand, lintCommand, listCommand, OFFLINE_API_URL, programPath, psQuote, runCommand, runnerPath } from '../../src/tools/profiles';
 
 const root = path.resolve('/repo');
 const catalog = path.join(root, 'test', 'e2e', 'schema', 'actions.catalog.yaml');
@@ -58,6 +58,7 @@ test('list: with and without tags', () => {
   assert.deepStrictEqual(listCommand(b('go'), R, 's.yml', ['a', 'b']).argv.slice(1), ['list', '--path', 's.yml', '--tags', 'a,b']);
   assert.match(listCommand(b('powershell'), R, 's.yml', []).argv[4], /-DryRun$/);
   assert.match(listCommand(b('powershell'), R, 's.yml', ['x']).argv[4], /-Tags 'x'$/);
+  assert.match(listCommand(b('powershell'), R, 's.yml', [], 'one case').argv[4], /-DryRun -TestName 'one case'$/);
 });
 
 test('B6.2-B6.4 run: suiterun flags, dry run, tags, each lab value; no timeout, output streamed', () => {
@@ -103,4 +104,9 @@ test('programPath: the program file a binding runs', () => {
   assert.strictEqual(programPath(empty, R), undefined);
   assert.deepStrictEqual(lintCommand(empty, R, 'x', 'go').argv, ['lint', '--path', 'x', '--json', '--binding-check', '--binding', 'go']);
   assert.strictEqual(programPath({ ...b('go'), tool: ['suiterun'] }, R), undefined);
+});
+
+test('runnerPath: the runner script for PowerShell, the program otherwise', () => {
+  assert.strictEqual(runnerPath(b('powershell'), R), path.join(R, 'scripts', 'e2e', 'Invoke-LabTestSuite.ps1'));
+  assert.strictEqual(runnerPath(b('rust'), R), programPath(b('rust'), R));
 });

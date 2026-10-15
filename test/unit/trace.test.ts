@@ -131,4 +131,9 @@ test('B6.4 item 1 isLabSuite: only core.* and wait are offline', () => {
   assert.strictEqual(isLabSuite([]), false);
   assert.strictEqual(isLabSuite(['core.set', 'lifecycle.get']), true);
   assert.strictEqual(isLabSuite(['cluster.state']), true);
+  // bddSuite.offlineActions: names and `prefix.*`; a prefix matches only under its dot.
+  const offline = ['core.*', 'wait', 'demo.*', 'orders.ship'];
+  assert.strictEqual(isLabSuite(['demo.greet', 'orders.ship', 'wait'], offline), false);
+  assert.strictEqual(isLabSuite(['orders.create'], offline), true);
+  assert.strictEqual(isLabSuite(['demonstrate'], offline), true);
 });

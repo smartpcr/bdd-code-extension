@@ -13,7 +13,7 @@ const run = (cmd, args) => execFileSync(cmd, args, { cwd: repo, stdio: 'inherit'
 run('npm', ['run', 'compile']);
 fs.rmSync(vsix, { force: true });
 // --no-dependencies: esbuild bundles yaml and minimatch into dist/extension.js.
-run('npx', ['vsce', 'package', '--no-dependencies', '--allow-missing-repository', '--skip-license', '--out', vsix]);
+run('npx', ['vsce', 'package', '--no-dependencies', '--out', vsix]);
 
 const sha256 = createHash('sha256').update(fs.readFileSync(vsix)).digest('hex');
 fs.writeFileSync(`${vsix}.sha256`, `${sha256}  ${path.basename(vsix)}\n`);

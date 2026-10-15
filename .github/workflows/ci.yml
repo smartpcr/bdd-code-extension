@@ -1,0 +1,51 @@
+# Build, test and package the extension on every push to main and every pull
+# request. The release workflow calls this one, so a release ships exactly the
+# package these steps built and tested.
+#
+# Runs on Windows: the demo's suites run through PowerShell, and Windows is
+# where the extension is developed and used. The demo needs no os-context
+# checkout; the integration suite (npm run test:integration) does, so it is
+# not run here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test and package
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests (100% coverage of core, config and tools)
+        run: npm run test:unit
+
+      - name: Package (.vsix, its .sha256, and a check of what the archive holds)
+        run: npm run package
+
+      - name: Demo end to end (installs the .vsix into a fresh VS Code and drives it)
+        run: npm run test:demo
+
+      - name: Keep the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: |
+            bdd-suite-*.vsix
+            bdd-suite-*.vsix.sha256
+          if-no-files-found: error

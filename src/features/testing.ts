@@ -12,14 +12,14 @@ import {
 } from '../core/trace';
 import { CaseInfo, SuiteFile } from '../core/types';
 import { MAX_STDERR_BYTES } from '../limits';
-import { LabValues, listCommand, runCommand } from '../tools/profiles';
+import { LabValues, listCommand, runCommand, runnerPath } from '../tools/profiles';
 import { runTool } from '../tools/runTool';
 import { FolderIndexer, toRange } from './indexer';
 
 /** The questions a run asks. Modal by default; the integration tests answer them (B6.4-1, B6.5-2). */
 export interface RunUi {
   /** Missing lab values, asked one by one; undefined when the operator gives up. */
-  askLab(have: LabValues, missing: (keyof LabValues)[]): Promise<LabValues | undefined>;
+  askLab(have: LabValues, missing: (keyof LabValues)[], token?: vscode.CancellationToken): Promise<LabValues | undefined>;
   /** The confirmation before a lab run (INV-6): true only on *Run*. */
   confirmLab(detail: { binding: string; labId: string; apiUrl: string; cases: string[] }): Promise<boolean>;
   /** Before a lab run is killed: true only on *Stop*. */
@@ -33,23 +33,25 @@ const LAB_KEYS: { key: keyof LabValues; setting: string; prompt: string }[] = [
 ];
 
 export const modalUi: RunUi = {
-  async askLab(have, missing) {
+  async askLab(have, missing, token) {
     const out: LabValues = { ...have };
     for (const k of LAB_KEYS.filter(l => missing.includes(l.key))) {
       let value: string | undefined;
       if (k.key === 'connectionFile') {
         value = (await vscode.window.showOpenDialog({ title: k.prompt, canSelectMany: false, filters: { JSON: ['json'] } }))?.[0]?.fsPath;
       } else {
-        value = await vscode.window.showInputBox({ prompt: k.prompt, ignoreFocusOut: true });
+        value = await vscode.window.showInputBox({ prompt: k.prompt, ignoreFocusOut: true }, token);
       }
       if (!value) return undefined;
       out[k.key] = value;
     }
-    const save = await vscode.window.showInformationMessage('Save these lab values to the workspace settings?', 'Save', 'Not now');
-    if (save === 'Save') {
+    // Offered without waiting: a notification nobody clicks never answers, and
+    // the run must not wait on it.
+    void vscode.window.showInformationMessage('Save these lab values to the workspace settings?', 'Save', 'Not now').then(async save => {
+      if (save !== 'Save') return;
       const config = vscode.workspace.getConfiguration('bddSuite');
       for (const k of LAB_KEYS.filter(l => missing.includes(l.key))) await config.update(k.setting, out[k.key], vscode.ConfigurationTarget.Workspace);
-    }
+    });
     return out;
   },
   async confirmLab(d) {
@@ -78,6 +80,18 @@ interface ItemData {
 const hash = (s: string) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 12);
 const quoteArg = (a: string) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a);
 const crlf = (s: string) => s.replace(/\r?\n/g, '\r\n');
+
+/**
+ * The question's answer, or undefined as soon as the run is stopped: Stop ends
+ * a run that waits on a question even when the question is never answered.
+ */
+function unlessStopped<T>(question: Promise<T>, token: vscode.CancellationToken): Promise<T | undefined> {
+  if (token.isCancellationRequested) return Promise.resolve(undefined);
+  return new Promise((resolve, reject) => {
+    const sub = token.onCancellationRequested(() => { sub.dispose(); resolve(undefined); });
+    question.then(v => { sub.dispose(); resolve(v); }, e => { sub.dispose(); reject(e); });
+  });
+}
 
 export class SuiteTesting implements vscode.Disposable {
   readonly controller = vscode.tests.createTestController('bddSuite', 'Suites');
@@ -203,27 +217,44 @@ export class SuiteTesting implements vscode.Disposable {
       }
       run.appendOutput(crlf(`${rel}: ${message}\n`));
     };
+    // Stopped before the suite started: nothing ran, so nothing is left behind.
+    const stopped = () => {
+      this.log(`Run of ${rel}: stopped before it started.`);
+      all('skipped', 'not run: stopped before it started');
+    };
     const settings = ix.layout.settings;
     const binding = ix.layout.bindings.find(b => b.name === settings.targetBinding);
     if (!suite || !binding) return all('errored', !suite ? 'the suite is not indexed' : `no binding named ${settings.targetBinding}`);
+    // Checked before any question, so a workspace without the runner fails at once rather than after the lab prompts.
+    const runner = runnerPath(binding, ix.layout.root);
+    if (runner && !fs.existsSync(runner)) {
+      this.log(`Run (${binding.label}) of ${rel}: not started, ${runner} does not exist.`);
+      return all('errored', `not run: the ${binding.label} runner ${runner} does not exist (choose another target binding, or build it)`);
+    }
 
     const cases = suite.cases.map((c: CaseInfo) => ({ name: c.name, tags: [...new Set([...suite.tags, ...c.tags])] }));
     const tags = selectionTags(cases, included);
     const testName = binding.kind === 'powershell' && tags === undefined && included.size === 1 ? [...included][0] : undefined;
-    const lab = isLabSuite(this.actionsOf(ix, suite));
+    const lab = isLabSuite(this.actionsOf(ix, suite), settings.offlineActions);
     let labValues: LabValues | undefined;
     if (lab) {
       labValues = { apiUrl: settings['lab.apiUrl'] || undefined, labId: settings['lab.labId'] || undefined, connectionFile: settings['lab.connectionFile'] || undefined };
       const missing = LAB_KEYS.map(k => k.key).filter(k => !labValues![k]);
-      if (missing.length) labValues = await this.ui.askLab(labValues, missing);
+      // Logged before each wait, so a run held by a question says what it waits for.
+      this.log(`Run (${binding.label}) of ${rel}: a lab suite${missing.length ? `; asking for ${missing.join(', ')}` : ''}.`);
+      if (missing.length) labValues = await unlessStopped(this.ui.askLab(labValues, missing, token), token);
+      if (token.isCancellationRequested) return stopped();
       if (!labValues) return all('skipped', 'not run: the lab values were not given');
-      const list = await runTool(listCommand(binding, ix.layout.root, rel, tags ?? []), undefined,
+      const list = await runTool(listCommand(binding, ix.layout.root, rel, tags ?? [], testName), token,
         { gate: () => this.gate.canRunWorkspaceCode(), maxStderr: MAX_STDERR_BYTES });
+      if (token.isCancellationRequested) return stopped();
       if (list.kind !== 'exited' || list.code !== 0) {
         return all('errored', `not run: \`list\` failed (${list.kind === 'exited' ? `exit ${list.code}` : list.kind === 'failure' ? list.reason : 'cancelled'})`);
       }
       const lines = list.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const ok = await this.ui.confirmLab({ binding: binding.label, labId: labValues.labId ?? '', apiUrl: labValues.apiUrl ?? '', cases: lines });
+      this.log(`Run (${binding.label}) of ${rel}: waiting for the confirmation to run ${lines.length} case(s) against lab ${labValues.labId ?? ''}.`);
+      const ok = await unlessStopped(this.ui.confirmLab({ binding: binding.label, labId: labValues.labId ?? '', apiUrl: labValues.apiUrl ?? '', cases: lines }), token);
+      if (token.isCancellationRequested) return stopped();
       if (!ok) return all('skipped', 'not run: the lab run was not confirmed');
     }
 

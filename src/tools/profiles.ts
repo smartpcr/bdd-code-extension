@@ -47,10 +47,14 @@ export function actionsCommand(binding: ResolvedBinding, root: string): ToolComm
   return { argv, cwd: root, timeoutMs: ACTIONS_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
 }
 
-export function listCommand(binding: ResolvedBinding, root: string, rel: string, tags: string[]): ToolCommand {
+/**
+ * The cases a run will start, for a lab run's confirmation. `testName` is the
+ * one case a PowerShell run selects (as `runCommand`), so the list shows only it.
+ */
+export function listCommand(binding: ResolvedBinding, root: string, rel: string, tags: string[], testName?: string): ToolCommand {
   const argv = binding.kind === 'powershell'
     ? powershell(binding, `& (Join-Path ${psQuote(root)} 'scripts/e2e/Invoke-LabTestSuite.ps1') -Path ${psQuote(rel)} -DryRun`
-      + (tags.length ? ` -Tags ${psQuote(tags.join(','))}` : ''))
+      + (tags.length ? ` -Tags ${psQuote(tags.join(','))}` : '') + (testName ? ` -TestName ${psQuote(testName)}` : ''))
     : [...program(binding, root), 'list', '--path', rel, ...(tags.length ? ['--tags', tags.join(',')] : [])];
   return { argv, cwd: root, timeoutMs: LIST_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
 }
@@ -118,4 +122,13 @@ export function programPath(binding: ResolvedBinding, root: string): string | un
   const p = program(binding, root);
   const candidate = p.find(a => /[\\/]/.test(a) && !a.startsWith('-'));
   return candidate && path.resolve(root, candidate);
+}
+
+/**
+ * The file a suite run starts, checked before a run asks anything: the
+ * PowerShell runner script, or the binding's program. Undefined when the
+ * program is a bare command found on PATH, which only starting it can check.
+ */
+export function runnerPath(binding: ResolvedBinding, root: string): string | undefined {
+  return binding.kind === 'powershell' ? path.join(root, 'scripts', 'e2e', 'Invoke-LabTestSuite.ps1') : programPath(binding, root);
 }

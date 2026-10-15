@@ -10,6 +10,7 @@ import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
 import { CoverageView } from './features/coverageView';
 import { registerImplementLens, registerScaffoldActions, registerScaffoldCommands } from './features/scaffold';
+import { watchForUpdate } from './features/selfUpdate';
 import { registerSuiteLanguage } from './features/suiteLanguage';
 import { SuiteTesting } from './features/testing';
 import { registerCompletion } from './features/completion';
@@ -69,6 +70,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
     api.log.push(line);
     channel.appendLine(line);
   };
+  // A newer copy installed while this window is open runs only after a reload; offer it.
+  context.subscriptions.push(watchForUpdate(context, log));
   let session: vscode.Disposable[] = [];
   // Lint results outlive a rebuild, so a settings change never empties a file's findings (B2.4-1).
   const results = new Map<string, LintResults>();

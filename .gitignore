@@ -4,3 +4,4 @@ out-test/
 coverage/
 .vscode-test/
 *.vsix
+*.vsix.sha256

@@ -41,6 +41,7 @@ export interface Settings {
   'lab.apiUrl': string;
   'lab.labId': string;
   'lab.connectionFile': string;
+  offlineActions: string[];
 }
 
 export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
@@ -128,6 +129,8 @@ export const DEFAULT_SETTINGS: Settings = {
   'lab.apiUrl': '',
   'lab.labId': '',
   'lab.connectionFile': '',
+  // B6.4 item 1: in os-context only the core actions and wait run without a lab.
+  offlineActions: ['core.*', 'wait'],
 };
 
 /** The description each setting carries in package.json. */
@@ -145,4 +148,5 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   'lab.apiUrl': 'Lifecycle API URL for lab runs; prompted when empty.',
   'lab.labId': 'Lab lineage id (32 hex characters) for lab runs; prompted when empty.',
   'lab.connectionFile': 'Path to the lab connection file for lab runs; prompted when empty.',
+  offlineActions: 'Actions that run without a lab, as names or `prefix.*`; a suite using any other action is a lab suite, and its run asks for the lab and a confirmation.',
 };

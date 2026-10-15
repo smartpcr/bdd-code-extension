@@ -124,6 +124,42 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     show('registrations found:', ix.allSites().map(s => `${s.action} in ${s.binding}: ${rel(vscode.Uri.file(s.file))}:${s.range.start.line + 1}`).sort());
   });
 
+  it('Test Explorer: Run on demo.yml asks nothing (its actions are offline), runs the stand-in runner, and shows each case\'s result; Run on one case runs that case', async () => {
+    const t = api.testing;
+    const ui = t.ui;
+    const asked: string[] = [];
+    t.ui = {
+      async askLab(_have, missing) { asked.push(...missing); return undefined; },
+      async confirmLab() { asked.push('confirmation'); return false; },
+      async confirmStop() { return false; },
+    };
+    const run = async (item: vscode.TestItem) => {
+      t.results.clear();
+      await t.runProfile.runHandler(new vscode.TestRunRequest([item]), new vscode.CancellationTokenSource().token);
+    };
+    const r = (c: string) => t.results.get(`${rel(SUITE())}::${c}`);
+    const line = (c: string) => `${c}: ${r(c)!.state}${r(c)!.message ? ` - ${r(c)!.message}` : ''}`;
+    try {
+      const item = t.controller.items.get(rel(SUITE()))!;
+      assert.ok(item, 'demo.yml is a test item');
+      const started = Date.now();
+      await run(item);
+      assert.deepStrictEqual(asked, [], 'bddSuite.offlineActions makes demo.* offline: no lab values, no confirmation');
+      assert.deepStrictEqual(r('greets-and-counts'), { state: 'passed' });
+      assert.deepStrictEqual(r('greets-again'), { state: 'passed' });
+      assert.deepStrictEqual(r('says-farewell'), { state: 'failed', message: 'then: a farewell is said failed (demo.farewell is not implemented in PowerShell)' });
+      assert.match(t.lastCommand.get(rel(SUITE()))!.join(' '), /Invoke-LabTestSuite\.ps1/);
+      show(`Run of demo.yml (${Date.now() - started} ms):`, ['greets-and-counts', 'greets-again', 'says-farewell'].map(line));
+
+      await run(item.children.get(`${rel(SUITE())}::greets-and-counts`)!);
+      assert.deepStrictEqual([...t.results.keys()], [`${rel(SUITE())}::greets-and-counts`], 'only the chosen case has a result');
+      assert.ok(t.lastCommand.get(rel(SUITE()))!.join(' ').includes('-TestName greets-and-counts'));
+      show('Run of greets-and-counts alone:', [line('greets-and-counts')]);
+    } finally {
+      t.ui = ui;
+    }
+  });
+
   it('YAML to code: Go to Definition (F12, Ctrl+click) on `action: demo.greet` opens the catalog entry and each language\'s handler', async () => {
     const doc = await open(SUITE());
     const found = await describeAll(await definitions(doc.uri, find(doc, 'action: demo.greet', 'action: '.length + 2)));
@@ -504,6 +540,20 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     assert.ok(found.some(f => /CoreActions\.cs:\d+ {2}private static object\? DemoCount\(ActionRequest request\) =>/.test(f)), found.join('\n'));
     console.log(`      ${r.message}`);
     show('CodeLens above `action: demo.count` now:', titles.map(String));
+  });
+
+  it('a newer copy installed while the window is open is offered as a reload (status bar button and notification)', async () => {
+    const ext = vscode.extensions.getExtension('asz.bdd-suite')!;
+    const newer = path.join(path.dirname(ext.extensionPath), 'asz.bdd-suite-99.0.0');
+    fs.mkdirSync(newer, { recursive: true });
+    try {
+      fs.writeFileSync(path.join(newer, 'package.json'), JSON.stringify({ name: 'bdd-suite', publisher: 'asz', version: '99.0.0' }));
+      const line = `Suite Authoring 99.0.0 is installed; this window runs ${ext.packageJSON.version} until it reloads.`;
+      await within(15_000, () => api.log.includes(line));
+      show('after a newer copy appeared in the extensions folder:', [line]);
+    } finally {
+      fs.rmSync(newer, { recursive: true, force: true });
+    }
   });
 
   it('the binding table shows every binding with what it declares and registers, and no drift', () => {

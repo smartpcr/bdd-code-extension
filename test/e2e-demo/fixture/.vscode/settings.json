@@ -8,6 +8,10 @@
   },
   "bddSuite.schemaGenerator": ["node", "tools/gen-schema.mjs"],
 
+  // The demo's actions touch no lab, so its suites run like os-context's offline
+  // ones: no lab values and no lab confirmation. (os-context's default is core.* and wait.)
+  "bddSuite.offlineActions": ["core.*", "wait", "demo.*", "orders.*"],
+
   // The suites open in the BDD Suite language mode, so the extension enforces
   // the schema, highlights actions and parameters, and completes step keys.
   // (Any .yml whose name contains suite, feature or test opens in it anyway.)

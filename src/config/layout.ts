@@ -89,7 +89,7 @@ export function readSettings(get: Getter): SettingsResult {
     if (typeof v === 'string') s[k] = v;
     else bad(messages, k, 'string', v);
   }
-  for (const k of ['suiteGlobs', 'schemaGenerator'] as const) {
+  for (const k of ['suiteGlobs', 'schemaGenerator', 'offlineActions'] as const) {
     const v = get(k);
     if (v === undefined) continue;
     if (isStringArray(v)) s[k] = v;

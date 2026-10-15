@@ -1,6 +1,7 @@
 // Rebuild the .vsix and install it into your own VS Code, replacing the copy
 // installed there, so the editor runs the code as it is now. Reload the window
-// afterwards (Developer: Reload Window) for the new copy to load.
+// afterwards for the new copy to load; from 0.4.1 an open window offers that itself
+// (a "Reload for Suite Authoring <version>" status bar button).
 //
 //   npm run install:local                  uses the `code` CLI on PATH
 //   BDD_VSCODE_CLI=code-insiders npm run install:local
@@ -20,4 +21,4 @@ const listed = execFileSync(cli, ['--list-extensions', '--show-versions'], { enc
 const id = `${pkg.publisher}.${pkg.name}@${pkg.version}`;
 if (!listed.includes(id)) throw new Error(`${id} is not listed by ${cli} after installing`);
 const sha = fs.readFileSync(`${vsix}.sha256`, 'utf8').split(/\s+/)[0];
-console.log(`\nInstalled ${id} (sha256 ${sha}) with ${cli}. Run "Developer: Reload Window" to load it.`);
+console.log(`\nInstalled ${id} (sha256 ${sha}) with ${cli}. Each open window loads it on reload: click "Reload for Suite Authoring" in its status bar (0.4.1 and later), or run "Developer: Reload Window".`);
