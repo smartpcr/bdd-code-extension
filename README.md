@@ -315,19 +315,54 @@ with it the tag) with the `.vsix`, its `.sha256` and generated release notes.
 A push that keeps the version only builds and tests, and a pull request never
 releases.
 
-It needs, once:
+**Publishing without a token.** Azure DevOps personal access tokens (the old
+`VSCE_PAT`) are retired on 2026-12-01, so the release job holds no token at
+all. It signs in to Microsoft Entra ID as a **managed identity** (an Azure
+identity for software, not a person) using the short-lived token GitHub gives
+each workflow run, and `vsce publish --azure-credential` publishes as that
+identity. The Marketplace publisher lists the identity as a member, which is
+what lets it publish. Set this up once (Azure CLI, signed in to a subscription
+you own):
 
-* a Marketplace publisher whose ID is `publisher` in `package.json`
-  (`asz`), created at https://marketplace.visualstudio.com/manage;
-* the repository secret **`VSCE_PAT`**: an Azure DevOps personal access token
-  for that publisher, organization *All accessible organizations*, scope
-  *Marketplace → Manage*;
-* a repository environment named **`marketplace`**. The release job runs in
-  it, so required reviewers set there approve each release before anything is
-  published.
+1. **The publisher.** Create a Marketplace publisher whose ID is `publisher` in
+   `package.json` (`asz`) at https://marketplace.visualstudio.com/manage.
+2. **The identity.**
+   ```powershell
+   az group create -n rg-vsce-publish -l westus2
+   az identity create -g rg-vsce-publish -n bdd-suite-publisher
+   $sub = az account show --query id -o tsv
+   az role assignment create --assignee (az identity show -g rg-vsce-publish -n bdd-suite-publisher --query principalId -o tsv) --role Reader --scope "/subscriptions/$sub/resourceGroups/rg-vsce-publish"
+   ```
+3. **Trust this repository's release job.** The subject names the repository
+   and the `marketplace` environment. This repository uses GitHub's ID-based
+   subjects (owner id 9336638, repository id 1418179467); `gh api
+   repos/<owner>/<repo>/actions/oidc/customization/sub` prints the prefix for
+   another repository.
+   ```powershell
+   az identity federated-credential create -g rg-vsce-publish --identity-name bdd-suite-publisher -n github-marketplace `
+     --issuer https://token.actions.githubusercontent.com `
+     --subject "repo:smartpcr@9336638/bdd-code-extension@1418179467:environment:marketplace" `
+     --audiences api://AzureADTokenExchange
+   ```
+4. **Tell the workflow which identity.** Repository *Settings → Secrets and
+   variables → Actions → Variables*, or:
+   ```powershell
+   gh variable set AZURE_CLIENT_ID --body (az identity show -g rg-vsce-publish -n bdd-suite-publisher --query clientId -o tsv)
+   gh variable set AZURE_TENANT_ID --body (az account show --query tenantId -o tsv)
+   gh variable set AZURE_SUBSCRIPTION_ID --body $sub
+   ```
+5. **Make the identity a publisher member.** Run the **Marketplace identity**
+   workflow (*Actions → Marketplace identity → Run workflow*). It signs in as
+   the identity and prints its Marketplace id. On the publisher's page at
+   https://marketplace.visualstudio.com/manage, *Members → Add*: paste the id,
+   role **Contributor**.
+6. **Optional approval.** Repository *Settings → Environments → marketplace*:
+   add yourself as a required reviewer, and each release waits for you.
 
-Without the secret the release job fails with "VSCE_PAT is not set" and
-publishes nothing; the build and its `vsix` artifact are unaffected.
+Until the variables are set the release job fails with "The repository
+variable AZURE_CLIENT_ID is not set" and publishes nothing; the build and its
+`vsix` artifact are unaffected. A sign-in error AADSTS70021 means the subject
+in step 3 does not match the job's token exactly.
 
 Re-running a failed release is safe: a version already on the Marketplace is
 skipped, and an existing GitHub release gets its files replaced.
