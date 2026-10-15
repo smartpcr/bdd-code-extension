@@ -562,13 +562,13 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 
 | Stage | Result | Priority | Depends on | Steps | Built | Done |
 | --- | --- | --- | --- | --- | --- | --- |
-| [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 7 of 7 | 7 of 7 (B1.4 TypeScript half deferred by name; the B1.7 E-B7 timing half closed by B4.2) |
+| [B1](#stage-b1-navigation-and-hover-over-one-index) | Navigation and hover over one index | P0 | none | 7 | 7 of 7 | 7 of 7 (B1.4 TypeScript half closed in B7; the B1.7 E-B7 timing half closed by B4.2) |
 | [B2](#stage-b2-lint-diagnostics-from-a-binding-program) | Lint diagnostics from a binding program | P0 | B1.1, B1.3 | 6 | 6 of 6 | 4 of 6 (B2.6 with one manual check outstanding); B2.1 and B2.5 open only for their PowerShell quarter, blocked in `os-context` (PowerShell 7.6.7 `Test-Json`) |
 | [B3](#stage-b3-completion-that-knows-the-scope) | Completion that knows the scope | P1 | B1.2, B1.3, B1.6 | 5 | 5 of 5 | 5 of 5 |
-| [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 3 of 3 | 3 of 3 (E-B7 TypeScript half deferred by name to B7) |
-| [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 4 of 5 | 3 of 5 (B5.1 open only for `SuiteLint.Tests.ps1` as a whole, blocked in `os-context`; B5.5 blocked on B7.5 and B7.7) |
-| [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 5 of 5 | 4 of 5 (B6.4 awaits its manual check, and its lab scenario is B9.3; TypeScript halves of B6.2 and B6.3 deferred by name to B7.6) |
-| [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 0 of 8 | 0 of 8 |
+| [B4](#stage-b4-the-binding-table-and-drift) | The binding table and drift | P1 | B1.4, B2.1 | 3 | 3 of 3 | 3 of 3 (E-B7 TypeScript half closed in B7) |
+| [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 4 of 5 | 3 of 5 (B5.1 open only for `SuiteLint.Tests.ps1` as a whole, blocked in `os-context`; B5.5 not started, unblocked by B7.5 and B7.7) |
+| [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 5 of 5 | 4 of 5 (B6.4 awaits its manual check, and its lab scenario is B9.3; TypeScript halves of B6.2 and B6.3 closed in B7) |
+| [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 8 of 8 | 5 of 8 (B7.1 open only for `SuiteLint.Tests.ps1` and `Conformance.Tests.ps1`, blocked in `os-context`; B7.7 waits for E-B13 on a lab; B7.8 waits for the user's push and a lab) |
 | [B8](#stage-b8-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B7.4 | 3 | 0 of 3 | 0 of 3 |
 | [B9](#stage-b9-package-and-accept) | Package and accept | P0 | all above | 3 | 0 of 3 | 0 of 3 |
 
@@ -590,17 +590,17 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 | --- | --- | --- | --- |
 | [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5, B8.3 | no | passed 2026-10-14 for Rust, Go, C#; PowerShell blocked (os-context defect); TypeScript open (B8.3) |
 | [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can) | B1.2, B2.3, B3.1 | no | passed 2026-10-14 |
-| [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | four-binding half passed 2026-10-14; TypeScript half open (B7.5, B7.7) |
+| [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | passed 2026-10-14, five bindings (the TypeScript half against the `os-context` worktree) |
 | [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | passed 2026-10-14 |
 | [E-B5](design.md#e-b5-completion-offers-what-is-in-scope-and-nothing-the-format-forbids) | B3.1-B3.5 | no | passed 2026-10-14 |
 | [E-B6](design.md#e-b6-a-new-action-is-declared-and-implemented-in-every-binding-from-the-editor) | B5.1-B5.5 | no | four-binding part passed 2026-10-14 except `SuiteLint.Tests.ps1` as a whole (blocked in `os-context`); TypeScript part open (B5.5) |
-| [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | four-binding half passed 2026-10-14; TypeScript half open (B7.1, B7.5, B7.7) |
+| [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced) | B4.1-B4.3, B1.4 | no | passed 2026-10-14, five bindings (the TypeScript half against the `os-context` worktree) |
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | passed 2026-10-14 |
-| [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | four-binding part passed 2026-10-15; TypeScript part open (B7.6) |
+| [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | passed: four bindings 2026-10-15, TypeScript 2026-10-14 against the `os-context` worktree |
 | [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
 | [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B8.1 | no | program half passed 2026-10-14; library half open (B8.1) |
-| [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B7.1-B8.6, B7.8 | no | not run |
-| [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go) | B7.7, B7.8 | yes | not run |
+| [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B7.1-B8.6, B7.8 | no | local half passed 2026-10-14 (the whole corpus, 100 % of lines, the divergence check run by hand); CI half open until the user pushes |
+| [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go) | B7.7, B7.8 | yes | not run: no lab (blocked) |
 | [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would) | B8.1-B9.3 | no | not run |
 | [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs) | B2.6 | no | program half passed 2026-10-14 (grant through the harness seam; one manual check); worker half open (B8.1) |
 
@@ -917,11 +917,11 @@ and its scenario edits files the earlier steps only read.
 * **E2E.** [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration)
   except its meta half (B1.6).
 * **Depends on.** B1.3.
-* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+* **Status.** Done 2026-10-14; the TypeScript half done 2026-10-14 in B7.
   - [x] code. `src/core/registrations.ts`, the default recognizers in `src/config/defaults.ts` (corrected, see item 5), definitions and hover links.
   - [x] unit tests green at 100 percent: `registrations.test.ts`, one fixture per recognizer with near-misses, comments and `wait`; B1.4-1 on the real tree: PowerShell 100/100, C# 24/24, Go 24/24, Rust 24/24, one site each, no other names.
   - [x] scenario, four bindings. E-B3 except its meta half: `lifecycle.get` gives exactly the catalog and four registrations, `cluster.state` the catalog and PowerShell, `wait` the catalog and four `wait` lines. Evidence: [docs/evidence/stage-b1.md](evidence/stage-b1.md).
-  - [-] scenario, TypeScript half: the `action('lifecycle.get', get)` location is closed by B7.5 (core and `wait`) and B7.7 (lifecycle), which re-run B1.4-1 and E-B3.
+  - [x] scenario, TypeScript half (closed by B7.5 and B7.7, 2026-10-14): B1.4-1 against the worktree found 24 of 24 TypeScript registrations; E-B3 gives six locations for `lifecycle.get` and for `wait`, the TypeScript ones `action('lifecycle.get', lifecycleGet)` and `action('wait', wait)`. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
   - Item 5 record. The first run of the defaults against `os-context` `1d0f0e40` found 6 PowerShell, 22 C# and 28 Rust problems, all recognizer defects and no real drift: the PowerShell loop in `lab-lifecycle.ps1` (names built at run time), C# handlers with commas and JSON indexers, Rust assertion-operator arms. Fixed by excluding `$` from PowerShell names, a loop-table recognizer, dotted names for C# and Rust, and a C# handler of `.+?`; the 2.8 table is corrected. The second run found none.
   - Departure: recognizers take an optional `prefix` (prepended to the captured name), and an invalid regular expression is `BDD041` (a missing name group stays `BDD040`).
 
@@ -1616,11 +1616,11 @@ then the program cross-check, which needs built programs and is slower.
   [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced),
   read from the model.
 * **Depends on.** B1.4.
-* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+* **Status.** Done 2026-10-14; the TypeScript half done 2026-10-14 in B7.
   - [x] code. `computeCoverage`, `driftCount`, `globDirectory`, `commonSource` and `toMarkdownTable` in `src/core/coverage.ts`; *Suite: Copy binding table* in `src/features/commands.ts`.
   - [x] unit tests green at 100 percent: clean, missing (B4.1-2), extra, duplicate (same recognizer only), a site of an unlisted binding, a catalog binding with no settings, both table shapes.
   - [x] scenario. The clean-tree half of E-B7 (`coverage.test.ts`): Declared equals the harness's own read of the catalog (PowerShell 100, C# 24, Go 24, Rust 24), Found equals Declared, Drift 0; the copied table carries `` | PowerShell | `scripts/e2e/actions/` | 100 | 100 | 0 | ``. Evidence: [docs/evidence/stage-b4.md](evidence/stage-b4.md).
-  - [-] scenario, TypeScript half: the TypeScript row is closed by B7.1 (the catalog admits `typescript`), B7.5 and B7.7, which re-run E-B7 with five bindings.
+  - [x] scenario, TypeScript half (closed by B7.1, B7.5 and B7.7, 2026-10-14): E-B7 with five bindings; the TypeScript row is 24 declared, 24 found, no drift. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B4.2 The *Suite bindings* view
 
@@ -1645,11 +1645,11 @@ then the program cross-check, which needs built programs and is slower.
   [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced),
   in a worktree.
 * **Depends on.** B4.1, B1.7.
-* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+* **Status.** Done 2026-10-14; the TypeScript half done 2026-10-14 in B7.
   - [x] code. `bddSuite.bindings` in `contributes.views.explorer` with its toolbar; `src/features/coverageView.ts`; created once in `src/extension.ts` and refreshed on every rebuild and `onDidChangeIndex`.
   - [x] unit tests: none beyond B4.1, as planned.
   - [x] scenario. B4.2-1: the view's rows equal `computeCoverage()` and each label reads `<Label>  N declared, N found, 0 drift`. B4.2-2 (`coverageDrift.test.ts`, in a worktree): deleting the Rust `"lifecycle.get" =>` arm and saving showed Drift 1 naming `lifecycle.get` "declared, not registered" (opening the catalog entry) 53 ms after save; restoring it cleared the drift. This also closes the timing half of E-B7 deferred from B1.7. Evidence: [docs/evidence/stage-b4.md](evidence/stage-b4.md).
-  - [-] scenario, TypeScript half: deleting `action('lifecycle.get', get),`; the TypeScript row is closed by B7.1 (the catalog admits `typescript`), B7.5 and B7.7, which re-run E-B7 with five bindings.
+  - [x] scenario, TypeScript half (closed by B7.7, 2026-10-14): deleting `action('lifecycle.get', lifecycleGet),` showed "declared, not registered" 82 ms after save, and restoring it cleared the drift. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B4.3 Cross-check with each program's `actions --json`
 
@@ -1673,11 +1673,11 @@ then the program cross-check, which needs built programs and is slower.
 * **E2E.** The program half of
   [E-B7](design.md#e-b7-the-binding-table-matches-the-catalog-and-the-binaries-and-drift-appears-when-introduced).
 * **Depends on.** B4.2, B2.1.
-* **Status.** Done 2026-10-14 for the four existing bindings; the TypeScript half is named below.
+* **Status.** Done 2026-10-14; the TypeScript half done 2026-10-14 in B7.
   - [x] code. `verify()` in `src/features/coverageView.ts` through `actionsCommand` (`ACTIONS_TIMEOUT_MS`) and `runTool`; `compareProgramSet` and `programAgrees` in `src/core/coverage.ts`; *Suite: Verify with binding programs* on the view's toolbar.
   - [x] unit tests green at 100 percent: `compareProgramSet()` agreement and each kind of difference.
   - [x] scenario. B4.3-1: each program's `actions --json` equals the catalog's set and Found (PowerShell 100, C# 24, Go 24, Rust 24). B4.3-2: a C# tool pointing at a missing file fails as `not-found` on the C# row only; the other three verify. Evidence: [docs/evidence/stage-b4.md](evidence/stage-b4.md).
-  - [-] scenario, TypeScript half: the TypeScript program's `actions --json`; the TypeScript row is closed by B7.1 (the catalog admits `typescript`), B7.5 and B7.7, which re-run E-B7 with five bindings.
+  - [x] scenario, TypeScript half (closed by B7.7, 2026-10-14): the TypeScript program's `actions --json` equals the catalog's 24 and Found. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ---
 
@@ -1727,7 +1727,7 @@ template. TypeScript is last because its registries exist only from B7.5.
 - [x] B5.2 Implement in Go
 - [x] B5.3 Implement in Rust
 - [x] B5.4 Implement in C#
-- [ ] B5.5 Implement in TypeScript (blocked on B7.5 and B7.7)
+- [ ] B5.5 Implement in TypeScript (not started; unblocked by B7.5 and B7.7)
 
 ### B5.1 Declare an action: catalog entry, PowerShell registration, schema
 
@@ -1915,7 +1915,7 @@ template. TypeScript is last because its registries exist only from B7.5.
   E-B6 is complete when B5.1-B5.5 have each passed their part.
 * **Depends on.** B5.1, B7.5 (the registries) and B7.7 (for the lifecycle
   template).
-* **Status.** Not started: blocked on B7.5 and B7.7.
+* **Status.** Not started. Unblocked 2026-10-14: B7.5 and B7.7 are built in the `os-context` worktree `E:workosos-context-ts` (not yet committed).
   - [ ] code, unit, scenario. `test/e2e/bindings/typescript` does not exist at `e9da5ab5`, and item 1 needs the lifecycle signature read from the real file first. `stubTarget('typescript', ...)` returns nothing until then, so the command refuses with "no stub template". E-B6's TypeScript part runs here.
 
 ---
@@ -2018,11 +2018,11 @@ offline and lab paths.
   traces. 100 percent of `trace.ts`.
 * **E2E.** [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result).
 * **Depends on.** B6.1, B2.1.
-* **Status.** Done 2026-10-15 for the four existing bindings; the TypeScript half is named below.
+* **Status.** Done 2026-10-15; the TypeScript half done 2026-10-14 in B7.
   - [x] code. `runCommand` in `src/tools/profiles.ts` (PowerShell offline gets `OFFLINE_API_URL`, as the corpus harness does); `parseTrace`, `parseNUnit`, `mapTrace`, `aggregate`, `selectionTags` in `src/core/trace.ts`; `runTool` with `timeoutMs: 0` and `streamOnly`.
   - [x] unit tests green at 100 percent: `mapTrace` over every real expected trace of the execute corpus, read at test time, plus synthetic hook, setup and teardown failures; B6.2-2's refusals.
   - [x] scenario. E-B9: under Go, Rust, C# and PowerShell, every item of `gherkin.yml` and `case-setup-fails.yml` has its expected trace's state, with the failing step's keyword and sentence in the message; the four bindings agree (B6.2-1). A run that leaves no trace errors every item "no trace" (B6.2-2). One case under PowerShell runs alone (`-TestName`); under Go the file runs and every case it reports gets its result (item 3). Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
-  - [-] scenario, TypeScript half: the TypeScript run is closed by B7.6, which re-runs E-B9 with five bindings.
+  - [x] scenario, TypeScript half (closed by B7.6, 2026-10-14): E-B9 under `typescript`: all 7 items have their expected state, the dry run wrote no record, and the five bindings give the same item results. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B6.3 Dry-run profile
 
@@ -2040,11 +2040,11 @@ offline and lab paths.
   [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result)
   (dry-run variant).
 * **Depends on.** B6.2.
-* **Status.** Done 2026-10-15 for the four existing bindings; the TypeScript half is named below.
+* **Status.** Done 2026-10-15; the TypeScript half done 2026-10-14 in B7.
   - [x] code. The *Dry run* profile; `mapDryRun` (a dry run's trace is empty, so the cases that would run are read from its report).
   - [x] unit tests green at 100 percent: argument construction with `--dry-run` and `-DryRun`; `mapDryRun`.
   - [x] scenario. Under each of the four bindings a dry run of `gherkin.yml` with `HCI_SUITE_RECORD_PATH` set marks every item skipped "would run (dry run)" and no record file appears, while the normal run writes it (B6.3-1). Evidence: [docs/evidence/stage-b6.md](evidence/stage-b6.md).
-  - [-] scenario, TypeScript half: the TypeScript run is closed by B7.6, which re-runs E-B9 with five bindings.
+  - [x] scenario, TypeScript half (closed by B7.6, 2026-10-14): E-B9 under `typescript`: all 7 items have their expected state, the dry run wrote no record, and the five bindings give the same item results. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B6.4 Lab run: parameters, list preview and confirmation
 
@@ -2195,14 +2195,14 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 
 **Checklist.**
 
-- [ ] B7.1 The package, the command-line contract, and the name admitted
-- [ ] B7.2 YAML with positions and structural validation (`E100`-`E105`)
-- [ ] B7.3 The expression evaluator and the assertion comparer
-- [ ] B7.4 Semantic and dataflow validation, `lint` complete, and `createLinter()`
-- [ ] B7.5 Expansion, the execution core, the core actions and `wait`
-- [ ] B7.6 NUnit 3 and JUnit reports
-- [ ] B7.7 The 18 lifecycle actions over HTTP and SSE
-- [ ] B7.8 CI, the lab workflow, the divergence check and the documentation
+- [ ] B7.1 The package, the command-line contract, and the name admitted (built; `SuiteLint.Tests.ps1` and `Conformance.Tests.ps1` as wholes blocked in `os-context`)
+- [x] B7.2 YAML with positions and structural validation (`E100`-`E105`)
+- [x] B7.3 The expression evaluator and the assertion comparer
+- [x] B7.4 Semantic and dataflow validation, `lint` complete, and `createLinter()`
+- [x] B7.5 Expansion, the execution core, the core actions and `wait`
+- [x] B7.6 NUnit 3 and JUnit reports
+- [ ] B7.7 The 18 lifecycle actions over HTTP and SSE (built; E-B13 blocked on a lab)
+- [ ] B7.8 CI, the lab workflow, the divergence check and the documentation (built; the CI jobs wait for the user's push, the workflow half for a lab)
 
 ### B7.1 The package, the command-line contract, and the name admitted
 
@@ -2275,7 +2275,11 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 * **E2E.** The command-line half of
   [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
 * **Depends on.** Nothing.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Built 2026-10-14; one contract is blocked outside this repository.
+  - [x] code. The package (`package.json`, the committed-to-be `package-lock.json` for reproducible CI, both `tsconfig` files, `.gitignore`), `src/cli.ts`, `src/paths.ts`, `src/run.ts`; the four admission edits and `suite.schema.md` regenerated.
+  - [x] unit tests green at 100 percent of lines: B7.1-1's refusals and every flag; B7.1-2 printed `[]` until B7.5 registered actions, and the test now asserts the 24 names; `manifest.test.ts`.
+  - [x] scenario, the command-line half of E-B12 and part of B7.1-3: `Schema.Tests.ps1` 14 passed and `Build-Schema.ps1 -Check` exited 0 after the admission edits. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
+  - [ ] scenario, `SuiteLint.Tests.ps1` and `Conformance.Tests.ps1` as wholes (B7.1-3): blocked in `os-context`. Both already fail on the clean tree at `7633e176` (the PowerShell 7.6.7 `Test-Json` defect, stage B2), and after the admission edits they fail with the same tests and no others.
 
 ### B7.2 YAML with positions and structural validation (`E100`-`E105`)
 
@@ -2334,7 +2338,10 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 * **E2E.** The `E1xx` slice of
   [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
 * **Depends on.** B7.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/value.ts`, `src/model.ts` (positions; an empty sequence entry one column past its dash, as Go reports it), `src/reader.ts`, `src/schema.ts`, `src/walk.ts`, `src/diag.ts`, `src/spelling.ts`, `src/validate/structure.ts`.
+  - [x] unit tests green at 100 percent of lines: B7.2-2 (`6 / 3` stays a string, `2` a `bigint`, `2.0` a `number`, `"10"` before `"2"` kept), B7.2-3 (a parser throw is `E100` at 1:1), one test per error mapping and position rule.
+  - [x] scenario, the `E1xx` slice of E-B12: every `E1xx`-only validate entry matched exactly; B7.4 then raised it to all 48 (B7.4-1). Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B7.3 The expression evaluator and the assertion comparer
 
@@ -2401,7 +2408,10 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 * **E2E.** The expression and assertion families of
   [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
 * **Depends on.** B7.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/expr.ts` (21 functions, evaluated while parsing; integers exact as `bigint` within 2^53, beyond it computed as Go, Rust and C# do), `src/assertion.ts` (18 operators; `unportable()` as PowerShell's list), `scripts/check-branches.mjs`. The two tables are run by one file, `test/conformance/tables.test.ts`, not two.
+  - [x] unit tests green: B7.3-2 (`1.5 + 1.5` float, `6 / 3` int, `0.0` float); B7.3-3, 100 percent of branches of `expr.ts` and `assertion.ts`, enforced by `check-branches.mjs` in `npm test`.
+  - [x] scenario, the expression and assertion families of E-B12 (B7.3-1): 276 of 276 expression rows and 96 of 96 assertion rows match. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B7.4 Semantic and dataflow validation, `lint` complete, and `createLinter()`
 
@@ -2457,7 +2467,10 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 * **E2E.** The validate family of
   [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
 * **Depends on.** B7.2, B7.3.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/validate/semantics.ts`, `src/validate/dataflow.ts`, `src/validate/index.ts` (any loading exception is `E100` at 1:1), `src/index.ts` (`apiVersion` `1.0.0`, `createLinter({ root, schemaRoot?, reader? })`, `lint()` and `invalidate()`), the `lint` verb.
+  - [x] unit tests green at 100 percent of lines: B7.4-2 with a reader that throws for the overlaid path; B7.4-3; an overlay at another path in the same directory gives the file's own codes and positions.
+  - [x] scenario, the validate family of E-B12 (B7.4-1): 48 of 48 entries match exactly through the library, and 46 of 46 through the program (the two catalog-overlay entries are library-only, as in Go). Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B7.5 Expansion, the execution core, the core actions and `wait`
 
@@ -2536,7 +2549,10 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 * **E2E.** The execute family of
   [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus).
 * **Depends on.** B7.3, B7.4.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14.
+  - [x] code. `src/suite.ts`, `src/exec.ts` (limit constants named there), `src/trace.ts`, `src/actions/registry.ts`, `src/actions/core.ts`; the `run` and `list` verbs; `typescript` added to the six actions' `bindings:` and `suite.schema.md` regenerated. Go-faithful where the corpus is silent (the whole step expanded before it runs, `and`/`or` evaluate both sides, `until` a single assertion); `wait` ends at the run's signal, where Go's cannot (open question 8 in `os-context`).
+  - [x] unit tests green at 100 percent of lines, including B7.5-3 (`labId` and `apiUrl` readable in a case).
+  - [x] scenario, the execute family of E-B12 (B7.5-1): 11 of 11 entries match their traces and exit codes, and `hung-step.yml` finishes inside its `maxSeconds`. B7.5-2: TS-6 held with six names. The extension's B1.4-1 re-run against the worktree found 6 of 6 TypeScript registrations. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B7.6 NUnit 3 and JUnit reports
 
@@ -2564,7 +2580,10 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
   [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus);
   with B7.1-B8.5 this completes E-B12's local half.
 * **Depends on.** B7.5.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-14; the TypeScript half of E-B9 is recorded under B6.2 and B6.3.
+  - [x] code. `src/report.ts` (`nunit3`, `junit`, both through `redact()`); `--results` and `--format` in the `run` verb.
+  - [x] unit tests green at 100 percent of lines: escaping of `<`, `&`, `"` and control characters.
+  - [x] scenario, the report family of E-B12 (B7.6-1): 7 of 7 stored reports canonicalise equal, and three runs canonicalise identical. With B7.1 to B7.5 this completes E-B12's local half. Evidence: [docs/evidence/stage-b7.md](evidence/stage-b7.md).
 
 ### B7.7 The 18 lifecycle actions over HTTP and SSE
 
@@ -2695,7 +2714,12 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
 * **E2E.** [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go),
   local half (the workflow half is B7.8).
 * **Depends on.** B7.5, B7.6.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Built 2026-10-14; E-B13 is blocked on a lab.
+  - [x] code. `src/lifecycle/context.ts`, `src/lifecycle/stream.ts`, `src/lifecycle/actions.ts` (the 18 handlers, each a named function so the extension's recognizer finds `action('lifecycle.<x>', handler)`; a handler reads the context from `request.lifecycle`); `run.ts` builds one context per run; `typescript` added to the 18 actions' `bindings:` and `suite.schema.md` regenerated; open questions 6 to 10 added to `docs/e2e/yml_suite_implementation.md` and question 5's pause wording corrected (item 7).
+  - [x] unit tests green at 100 percent of lines (B7.7-1): one loopback test per action, the envelope and BOM, `expectedStatus` as a number, a list and refused, the route guard, the stream cases, and the retry window under an injected clock (resumed from the cursor after 12 s refused, failed with the attempt count past 300 s, no retry on HTTP 500). TS-3: no secret appears in stdout, the trace or either report, even when the API echoes one back.
+  - [x] B7.7-2: TS-6 holds with 24 names and `actions --json` prints those 24; the extension's B1.4-1 re-run against the worktree found 24 of 24 TypeScript registrations.
+  - [ ] scenario, E-B13 (B7.7-3, item 8): not run. No lab was available for this stage (the user's decision, 2026-10-14). It stays open until the TypeScript and Go runs of `lifecycle-stage0.yml --tags portable` are recorded against a lab.
+  - Departures: `wait` and `Last-Event-ID` as above; `lab()` refuses a lab id that is not 32 lowercase hex characters with the friendly-name hint. See the evidence.
 
 ### B7.8 CI, the lab workflow, the divergence check and the documentation
 
@@ -2761,7 +2785,13 @@ last, so the workflow job is green on its first run. B8 needs only B7.4.
   [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go)
   (workflow half).
 * **Depends on.** B7.7.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Built 2026-10-14 in the `os-context` worktree, not pushed; the CI and lab halves wait for the user's push and a lab.
+  - [x] code. Items 1 to 7: the `typescript` job (Node 24 through `actions/setup-node` pinned at `49933ea5`, v4.4.0); `Assert-DivergenceIsCaught.ps1 -Binding go|typescript`, run twice by the `divergence` job; `e2e-tests.yml`'s `typescript` option, its `setup-node` step and run branch (which makes the suite glob absolute, because the program resolves `--path` against its package directory); `suite-lint.yml`'s loop; `Docs.Tests.ps1`; the executor lists in `LifecycleBudgetSupport.psm1` and `LifecycleSetSegment.psm1`, with a test that a budget exclusion left in `src/exec.ts` is refused; the prose, including design 6.2's counts (100 declared, 24 portable, 67 PowerShell-only lifecycle actions).
+  - [x] unit tests green: B7.8-3, `Docs.Tests.ps1` 14 passed with five of everything; `LifecycleBudgetSupport.Tests.ps1` with `Docs.Tests.ps1`, 101 passed.
+  - [x] B7.8-2, locally: `Assert-DivergenceIsCaught.ps1 -Binding typescript` reported the case-sensitive `equals` caught (`equals [Up] [up]` and `equals [true] [True]`) and left `src/assertion.ts` byte-identical; `-Binding go` (the default) still passes. This is a local run, not the CI job.
+  - [ ] scenario, B7.8-1 and the CI half of E-B12: the `typescript` and `divergence` jobs on a pushed commit. Waiting for the user to commit and push (item 8); nothing was pushed or dispatched.
+  - [ ] scenario, B7.8-4 and E-B13's workflow half: `e2e-tests.yml` with `binding: typescript`. Blocked on the push and on a lab.
+  - Found, not changed: the Rust, Go and C# branches of `e2e-tests.yml` pass the repository-relative suite glob from inside their binding directory, and each resolves `--path` against its working directory, so they appear to need the same absolute path. Not verified on a runner; recorded in the evidence.
 
 ---
 

@@ -16,7 +16,27 @@ export function osContextRoot(): string {
 export function createWorktree(): string {
   const dir = path.join(os.tmpdir(), `bdd-suite-wt-${process.pid}-${Date.now()}`);
   execFileSync('git', ['-C', osContextRoot(), 'worktree', 'add', dir, 'HEAD', '--detach'], { stdio: 'pipe' });
+  if (process.env.BDD_WORKTREE_INCLUDE_CHANGES === '1') copyChanges(osContextRoot(), dir);
   return dir;
+}
+
+/**
+ * Opt-in: the checkout's uncommitted state, copied over the disposable
+ * worktree, for a scenario that must see work not yet committed (B7 before
+ * the user commits it). Modified and untracked files are copied, deleted
+ * ones removed; ignored files (node_modules, build output) are not. No commit
+ * or ref is created.
+ */
+function copyChanges(root: string, dir: string): void {
+  const list = (...args: string[]) => execFileSync('git', ['-C', root, 'ls-files', '-z', ...args], { encoding: 'utf8' })
+    .split('\0').filter(Boolean);
+  const deleted = new Set(list('--deleted'));
+  for (const file of list('--modified', '--others', '--exclude-standard')) {
+    if (deleted.has(file)) continue;
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+    fs.copyFileSync(path.join(root, file), path.join(dir, file));
+  }
+  for (const file of deleted) fs.rmSync(path.join(dir, file), { force: true });
 }
 
 export function removeWorktree(dir: string): void {

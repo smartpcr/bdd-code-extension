@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { TestApi } from '../../../src/extension';
@@ -13,6 +14,8 @@ export async function api(): Promise<TestApi> {
 
 export const folder = (): string => process.env.BDD_FOLDER!;
 export const at = (...parts: string[]): vscode.Uri => vscode.Uri.file(path.join(folder(), ...parts));
+/** Whether the checkout carries the TypeScript binding (B7); its halves run only then. */
+export const hasTypeScript = (): boolean => fs.existsSync(path.join(folder(), 'test', 'e2e', 'bindings', 'typescript', 'src'));
 
 export async function open(uri: vscode.Uri): Promise<vscode.TextDocument> {
   return vscode.workspace.openTextDocument(uri);

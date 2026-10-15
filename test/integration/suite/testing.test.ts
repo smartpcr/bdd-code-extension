@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ItemResult } from '../../../src/core/trace';
-import { api, folder } from './helpers';
+import { api, folder, hasTypeScript } from './helpers';
 import { setting } from './lintHelpers';
 
 const G = vscode.ConfigurationTarget.Global;
@@ -76,7 +76,10 @@ describe('E-B9 an offline suite runs under each binding, and each case shows the
   });
 
   const signatures: string[] = [];
-  for (const binding of ['go', 'rust', 'csharp', 'powershell']) {
+  // TypeScript runs when the checkout carries it (B7.6); the folder is known
+  // before the tests are declared, because the session sets BDD_FOLDER.
+  const bindings = ['go', 'rust', 'csharp', 'powershell', ...(hasTypeScript() ? ['typescript'] : [])];
+  for (const binding of bindings) {
     it(`B6.2-1 / B6.3 under ${binding}: results equal the expected traces; dry run starts no action`, async () => {
       await target(binding);
       const record = path.join(os.tmpdir(), `bdd-b6-record-${binding}.txt`);
@@ -115,8 +118,8 @@ describe('E-B9 an offline suite runs under each binding, and each case shows the
     });
   }
 
-  it('the four bindings produce the same item results', () => {
-    assert.strictEqual(signatures.length, 4);
+  it(`the ${bindings.length} bindings produce the same item results`, () => {
+    assert.strictEqual(signatures.length, bindings.length);
     assert.ok(signatures.every(s => s === signatures[0]));
   });
 
