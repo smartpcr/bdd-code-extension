@@ -1,8 +1,21 @@
 # Build, test and package the extension on every push to main and every pull
-# request. The release workflow calls this one, so a release ships exactly the
-# package these steps built and tested.
+# request; release it when a push to main carries a new version.
 #
-# Runs on Windows: the demo's suites run through PowerShell, and Windows is
+# Releasing is automatic: bump `version` in package.json and push to main.
+# When the build passes and no tag v<version> exists yet, the release job
+# publishes the very .vsix this run built and tested to the Visual Studio
+# Marketplace, then creates the GitHub release v<version> (which creates the
+# tag) with the .vsix and its SHA-256. A push that keeps the version only
+# builds and tests.
+#
+# The release needs the repository secret VSCE_PAT: an Azure DevOps personal
+# access token with the Marketplace (Manage) scope for the publisher in
+# package.json. It runs in the `marketplace` environment, so required
+# reviewers set on that environment approve each release first. Re-running a
+# failed release is safe: a version already on the Marketplace is skipped, and
+# an existing GitHub release gets its files replaced.
+#
+# Builds on Windows: the demo's suites run through PowerShell, and Windows is
 # where the extension is developed and used. The demo needs no os-context
 # checkout; the integration suite (npm run test:integration) does, so it is
 # not run here.
@@ -12,7 +25,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_call:
 
 permissions:
   contents: read
@@ -49,3 +61,67 @@ jobs:
             bdd-suite-*.vsix
             bdd-suite-*.vsix.sha256
           if-no-files-found: error
+
+  version:
+    name: Is this version released?
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: check
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already released; nothing to publish."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version is new; it is released once the build passes."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Release v${{ needs.version.outputs.version }}
+    needs: [build, version]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    environment: marketplace
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      TAG: v${{ needs.version.outputs.version }}
+      VSIX: bdd-suite-${{ needs.version.outputs.version }}.vsix
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: The package is the one this run built, at this version
+        run: sha256sum --check "$VSIX.sha256"
+
+      - name: Publish to the Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::error::The repository secret VSCE_PAT is not set; nothing was published."
+            exit 1
+          fi
+          npx --yes @vscode/vsce@3 publish --packagePath "$VSIX" --skip-duplicate
+
+      - name: GitHub release with the .vsix and its SHA-256 (creates the tag)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$VSIX" "$VSIX.sha256" --clobber
+          else
+            gh release create "$TAG" "$VSIX" "$VSIX.sha256" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          fi

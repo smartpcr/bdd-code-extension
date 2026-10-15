@@ -228,15 +228,20 @@ and every pull request, and keeps the `.vsix` and its `.sha256` as the run's
 `vsix` artifact. The integration suite is not run there, because it needs an
 os-context checkout.
 
-**Releasing** (`.github/workflows/release.yml`):
+**Releasing is automatic.** Bump the version and push it to `main`:
 
-1. Bump `version` in `package.json` and commit it to `main`.
-2. Tag that commit `v<version>` and push the tag:
-   `git tag v0.4.2 && git push origin v0.4.2`.
-3. The release workflow checks that the tag matches `package.json`, runs the
-   CI pipeline above, then publishes the very `.vsix` CI built and tested: to
-   the Visual Studio Marketplace, and to a GitHub release with its `.sha256`
-   and generated release notes.
+```powershell
+npm version patch --no-git-tag-version   # or minor / major; edits package.json and package-lock.json
+git commit -am "release 0.4.3"
+git push origin main
+```
+
+When that push's build passes and no tag `v<version>` exists yet, the same CI
+run releases the very `.vsix` it built and tested: it publishes it to the
+Visual Studio Marketplace, then creates the GitHub release `v<version>` (and
+with it the tag) with the `.vsix`, its `.sha256` and generated release notes.
+A push that keeps the version only builds and tests, and a pull request never
+releases.
 
 It needs, once:
 
@@ -245,9 +250,12 @@ It needs, once:
 * the repository secret **`VSCE_PAT`**: an Azure DevOps personal access token
   for that publisher, organization *All accessible organizations*, scope
   *Marketplace → Manage*;
-* a repository environment named **`marketplace`**. The publish job runs in
+* a repository environment named **`marketplace`**. The release job runs in
   it, so required reviewers set there approve each release before anything is
   published.
+
+Without the secret the release job fails with "VSCE_PAT is not set" and
+publishes nothing; the build and its `vsix` artifact are unaffected.
 
 Re-running a failed release is safe: a version already on the Marketplace is
 skipped, and an existing GitHub release gets its files replaced.
