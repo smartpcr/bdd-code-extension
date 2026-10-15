@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: implementation plan
 
-Status: **stages S1 to S3 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md), [S2](../evidence/self-contained-s2.md) and [S3](../evidence/self-contained-s3.md); S4 to S7 not started.** The design, its outcomes
+Status: **stages S1 to S4 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md), [S2](../evidence/self-contained-s2.md), [S3](../evidence/self-contained-s3.md) and [S4](../evidence/self-contained-s4.md); S5 to S7 not started.** The design, its outcomes
 (O1–O5), decisions (DEC-S01–DEC-S10) and scenarios (E1–E8) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -335,16 +335,16 @@ Result: D6. Entry: S1. Exit evidence: E2 and E3 for C#.
 Result: D7. Entry: S1. Exit evidence: E2 and E3 for PowerShell; E2's
 divergence check for Go and TypeScript.
 
-- [ ] S4.1 Copy the generic modules and actions; record source commit.
-- [ ] S4.2 Module `BddSuite`; `Register-SuiteAction` with alias `Register-LabAction`.
-- [ ] S4.3 Split the runner into `Invoke-BddSuite` (generic) and a hand-over list for os-context's wrapper.
-- [ ] S4.4 Step runspace loads registry and extension modules, not lifecycle modules by path.
-- [ ] S4.5 Redaction as an extension hook.
-- [ ] S4.6 `-ActionPath` and `-Extension`; options, keys, rules, prefix from extensions.
-- [ ] S4.7 `Conformance.Tests.ps1 -RunHarness` and generic Pester tests pass.
-- [ ] S4.8 PowerShell example extension; E3 PowerShell part.
-- [ ] S4.9 Divergence check runs against `runtimes/go` and `runtimes/typescript`.
-- [ ] S4.10 CI jobs for PowerShell and the divergence check.
+- [x] S4.1 Copy the generic modules and actions; record source commit.
+- [x] S4.2 Module `BddSuite`; `Register-SuiteAction` with alias `Register-LabAction`.
+- [x] S4.3 Split the runner into `Invoke-BddSuite` (generic) and a hand-over list for os-context's wrapper.
+- [x] S4.4 Step runspace loads registry and extension modules, not lifecycle modules by path.
+- [x] S4.5 Redaction as an extension hook.
+- [x] S4.6 `-ActionPath` and `-Extension`; options, keys, rules, prefix from extensions.
+- [x] S4.7 `Conformance.Tests.ps1 -RunHarness` and generic Pester tests pass.
+- [x] S4.8 PowerShell example extension; E3 PowerShell part.
+- [x] S4.9 Divergence check runs against `runtimes/go` and `runtimes/typescript`.
+- [ ] S4.10 CI jobs for PowerShell and the divergence check. (Built: `runtime-powershell` on Windows and `divergence`, plus the example schema in the `spec` job's check; open until they pass on GitHub.)
 
 ### Stage S5: sample workspace, extension tests and CI self-contained (P0)
 
@@ -398,8 +398,8 @@ Result: D11. Entry: S6 and a lab. Exit evidence: E6 with cleanup.
 | Scenario | Deliverables | Stage | Needs a lab | Status |
 | --- | --- | --- | --- | --- |
 | [E1](design.md#e1) | D1–D9 | S5 | no | not run |
-| [E2](design.md#e2) | D2–D7 | S1–S4 | no | TypeScript, Go, Rust and C# parts passed locally (2026-10-15); PowerShell and the divergence check not run |
-| [E3](design.md#e3) | D3–D7 | S1–S4 | no | TypeScript, Go, Rust and C# parts passed locally (2026-10-15); PowerShell not run |
+| [E2](design.md#e2) | D2–D7 | S1–S4 | no | all five runtimes and the divergence check (Go, TypeScript) passed locally (2026-10-15); not yet in CI |
+| [E3](design.md#e3) | D3–D7 | S1–S4 | no | all five runtimes passed locally (2026-10-15); PowerShell lints before it runs, so its passing run uses a copy within the ceiling (see S4 evidence); not yet in CI |
 | [E4](design.md#e4) | D8, D9 | S5 | no | not run |
 | [E5](design.md#e5) | D10 | S6 | no | not run |
 | [E6](design.md#e6) | D11 | S7 | yes | not run |

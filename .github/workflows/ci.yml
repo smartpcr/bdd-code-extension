@@ -96,7 +96,7 @@ jobs:
         run: |
           foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml',
                                 'runtimes/go/example/schema/actions.catalog.yaml', 'runtimes/rust/example/schema/actions.catalog.yaml',
-                                'runtimes/csharp/Bdd.Suite.Example/schema/actions.catalog.yaml')) {
+                                'runtimes/csharp/Bdd.Suite.Example/schema/actions.catalog.yaml', 'runtimes/powershell/example/schema/actions.catalog.yaml')) {
             pwsh -NoProfile -File spec/Build-Schema.ps1 -Catalog $catalog -Check
             if ($LASTEXITCODE) { throw "$catalog's generated schema is stale" }
           }
@@ -180,6 +180,56 @@ jobs:
       - name: Unit tests, the whole corpus, the extension example
         run: dotnet test Bdd.Suite.sln --no-build --nologo
 
+  runtime-powershell:
+    name: PowerShell runtime (unit, corpus, extension example)
+    # Windows: where this runtime is developed and verified.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pester 5 and the YAML module the suite reader mirrors (0.4.12)
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
+
+      - name: Runtime tests, the whole corpus, the extension example
+        shell: pwsh
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'runtimes/powershell'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Normal'
+          Invoke-Pester -Configuration $config
+
+  divergence:
+    name: The corpus catches a divergent runtime (Go, TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtimes/go/go.mod
+          cache-dependency-path: runtimes/go/go.sum
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: runtimes/typescript/package-lock.json
+
+      - name: Inject a case-sensitive equals into each runtime; its corpus must fail, then the file is restored
+        shell: pwsh
+        run: |
+          foreach ($binding in 'go', 'typescript') {
+            pwsh -NoProfile -File conformance/Assert-DivergenceIsCaught.ps1 -Binding $binding
+            if ($LASTEXITCODE) { throw "the divergence check failed for $binding" }
+          }
+          git diff --exit-code -- runtimes
+
   version:
     name: Is this version released?
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -203,7 +253,7 @@ jobs:
 
   release:
     name: Release v${{ needs.version.outputs.version }}
-    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, version]
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, divergence, version]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: marketplace
