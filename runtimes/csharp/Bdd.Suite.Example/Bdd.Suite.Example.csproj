@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    An example extension (E3) and its own suiterun: what a workspace writes to
+    add to the runtime without editing it. It references the library and
+    nothing else, and the library gives no InternalsVisibleTo to it, so only
+    the library's public types are reachable from here.
+
+    The folder is also the example workspace: schema/ holds its catalog (the
+    core, imported, plus example.echo) and the suite.schema.json generated from
+    it, and suites/ holds the suite that uses all four parts.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Bdd.Suite.Example</RootNamespace>
+    <AssemblyName>Bdd.Suite.Example</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bdd.Suite\Bdd.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

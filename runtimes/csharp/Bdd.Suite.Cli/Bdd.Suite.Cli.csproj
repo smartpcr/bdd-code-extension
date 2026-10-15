@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The command line. It maps a command line to an exit code and nothing else:
+    everything it does is in the library, so a test drives the same path.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Bdd.Suite.Cli</RootNamespace>
+    <AssemblyName>suiterun</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bdd.Suite\Bdd.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

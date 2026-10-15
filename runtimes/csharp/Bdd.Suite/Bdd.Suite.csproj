@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The C# runtime of the BDD suite format: lint, run, list and actions, and
+    the extension API (Bdd.Suite.Extensions) through which a consumer adds
+    actions, context keys, options, rules and an environment prefix.
+
+    A library, so that the tests drive exactly what the command line drives,
+    and so that a consumer's own suiterun is one call to Runner.Run with its
+    extensions (DEC-S03).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Bdd.Suite</RootNamespace>
+    <AssemblyName>Bdd.Suite</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- YamlDotNet for the parse: its nodes carry Start.Line and Start.Column,
+         which is what a diagnostic position is. It is also the library
+         powershell-yaml wraps, so the PowerShell binding and this one read a
+         file the same way. -->
+    <PackageReference Include="YamlDotNet" Version="16.2.1" />
+    <!-- JsonSchema.Net for the structural pass against the committed schema. -->
+    <PackageReference Include="JsonSchema.Net" Version="7.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The tests drive the same code the command line drives, and a few seams
+         the command line never reaches - a route check, a timestamp rule - are
+         internal because nothing outside this assembly should call them. The
+         example extension gets no such access: it reaches only public types. -->
+    <InternalsVisibleTo Include="Bdd.Suite.Tests" />
+  </ItemGroup>
+
+</Project>

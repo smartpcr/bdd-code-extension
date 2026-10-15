@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: design
 
-Status: **stages S1 and S2 built and locally accepted for TypeScript, Go and Rust (2026-10-15); S3 to S7 not started.** Revised the
+Status: **stages S1 to S3 built and locally accepted for TypeScript, Go, Rust and C# (2026-10-15); S4 to S7 not started.** Revised the
 same day: the core is extended by import (DEC-S10). The plan that builds it is [implementation.md](implementation.md); every outcome
 here links to the deliverables that produce it and the scenarios that prove it.
 

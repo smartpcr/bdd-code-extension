@@ -1,0 +1,6 @@
+# What the build and the test run leave behind. Directory.Build.props sends the
+# compiler's output to artifacts/ rather than to bin/ and obj/ beside each
+# project, so the repository's own rules for those two do not reach it.
+artifacts/
+TestResults/
+**/TestResults/

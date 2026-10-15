@@ -95,7 +95,8 @@ jobs:
         shell: pwsh
         run: |
           foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml',
-                                'runtimes/go/example/schema/actions.catalog.yaml', 'runtimes/rust/example/schema/actions.catalog.yaml')) {
+                                'runtimes/go/example/schema/actions.catalog.yaml', 'runtimes/rust/example/schema/actions.catalog.yaml',
+                                'runtimes/csharp/Bdd.Suite.Example/schema/actions.catalog.yaml')) {
             pwsh -NoProfile -File spec/Build-Schema.ps1 -Catalog $catalog -Check
             if ($LASTEXITCODE) { throw "$catalog's generated schema is stale" }
           }
@@ -160,6 +161,25 @@ jobs:
       - name: Unit tests, the whole corpus, the extension example
         run: cargo test
 
+  runtime-csharp:
+    name: C# runtime (unit, corpus, extension example)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: runtimes/csharp
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - run: dotnet build Bdd.Suite.sln --nologo
+
+      - name: Unit tests, the whole corpus, the extension example
+        run: dotnet test Bdd.Suite.sln --no-build --nologo
+
   version:
     name: Is this version released?
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -183,7 +203,7 @@ jobs:
 
   release:
     name: Release v${{ needs.version.outputs.version }}
-    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, version]
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, version]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: marketplace

@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: implementation plan
 
-Status: **stages S1 and S2 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md) and [S2](../evidence/self-contained-s2.md); S3 to S7 not started.** The design, its outcomes
+Status: **stages S1 to S3 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md), [S2](../evidence/self-contained-s2.md) and [S3](../evidence/self-contained-s3.md); S4 to S7 not started.** The design, its outcomes
 (O1–O5), decisions (DEC-S01–DEC-S10) and scenarios (E1–E8) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -322,13 +322,13 @@ Result: D4, D5. Entry: S1. Exit evidence: E2 and E3 for Go and Rust.
 
 Result: D6. Entry: S1. Exit evidence: E2 and E3 for C#.
 
-- [ ] S3.1 Copy; record source commit; remove lifecycle code and tests.
-- [ ] S3.2 Rename `Hci.E2E.Suite*` to `Bdd.Suite*`.
-- [ ] S3.3 Composite dispatcher replaces the hard-wired `LifecycleContext`.
-- [ ] S3.4 `Runner.Run(args, extensions)`; options, keys, rules, prefix from extensions.
-- [ ] S3.5 Corpus tests read `conformance/`; `dotnet test` passes.
-- [ ] S3.6 C# example extension; E3 C# part.
-- [ ] S3.7 CI job for C#.
+- [x] S3.1 Copy; record source commit; remove lifecycle code and tests.
+- [x] S3.2 Rename `Hci.E2E.Suite*` to `Bdd.Suite*`.
+- [x] S3.3 Composite dispatcher replaces the hard-wired `LifecycleContext`.
+- [x] S3.4 `Runner.Run(args, extensions)`; options, keys, rules, prefix from extensions.
+- [x] S3.5 Corpus tests read `conformance/`; `dotnet test` passes.
+- [x] S3.6 C# example extension; E3 C# part.
+- [ ] S3.7 CI job for C#. (Built: `runtime-csharp`, and the example schema in the `spec` job's check; open until it passes on GitHub.)
 
 ### Stage S4: PowerShell runtime (P0)
 
@@ -398,8 +398,8 @@ Result: D11. Entry: S6 and a lab. Exit evidence: E6 with cleanup.
 | Scenario | Deliverables | Stage | Needs a lab | Status |
 | --- | --- | --- | --- | --- |
 | [E1](design.md#e1) | D1–D9 | S5 | no | not run |
-| [E2](design.md#e2) | D2–D7 | S1–S4 | no | TypeScript, Go and Rust parts passed locally (2026-10-15); C#, PowerShell and the divergence check not run |
-| [E3](design.md#e3) | D3–D7 | S1–S4 | no | TypeScript, Go and Rust parts passed locally (2026-10-15); C# and PowerShell not run |
+| [E2](design.md#e2) | D2–D7 | S1–S4 | no | TypeScript, Go, Rust and C# parts passed locally (2026-10-15); PowerShell and the divergence check not run |
+| [E3](design.md#e3) | D3–D7 | S1–S4 | no | TypeScript, Go, Rust and C# parts passed locally (2026-10-15); PowerShell not run |
 | [E4](design.md#e4) | D8, D9 | S5 | no | not run |
 | [E5](design.md#e5) | D10 | S6 | no | not run |
 | [E6](design.md#e6) | D11 | S7 | yes | not run |
