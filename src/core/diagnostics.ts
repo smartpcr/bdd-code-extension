@@ -91,6 +91,24 @@ export function tokenEnd(lineText: string, character: number): number {
   return hit ? character + hit[0].length : lineText.length;
 }
 
+/** An open editor buffer, as the lint controller sees it. */
+export interface OpenBuffer {
+  path: string;
+  text: string;
+  dirty: boolean;
+}
+
+/**
+ * The unsaved text a live lint sends (plan B8.2 item 2): every dirty buffer the
+ * index holds as a suite or library, keyed by absolute path. A clean buffer is
+ * what the disk holds, so it is not sent (INV-12: nothing is written instead).
+ */
+export function selectOverlays(buffers: OpenBuffer[], isCandidate: (file: string) => boolean): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const b of buffers) if (b.dirty && isCandidate(b.path)) out[b.path] = b.text;
+  return out;
+}
+
 export interface Published {
   diagnostic: LintDiagnostic;
   stale: boolean;

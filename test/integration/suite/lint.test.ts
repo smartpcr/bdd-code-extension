@@ -1,11 +1,11 @@
 // session: oscontext
-// E-B1 in the editor (B2.2 with rust; B2.5 with all four tools), on open.
+// E-B1 in the editor (B2.2 with rust; B2.5 with the four program tools; B8.3 with typescript), on open.
 // Settings are written to the test instance's user settings, never to os-context.
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { sig, validateEntries } from '../harness/corpus';
-import { api, folder, open } from './helpers';
+import { api, folder, hasTypeScript, open } from './helpers';
 import { lint, nextLint, setting, shown } from './lintHelpers';
 
 const G = vscode.ConfigurationTarget.Global;
@@ -46,7 +46,8 @@ describe('E-B1 the editor shows exactly what the corpus says lint must find', ()
     await vscode.workspace.getConfiguration('bddSuite').update('targetBinding', undefined, G);
   });
 
-  for (const tool of ['rust', 'go', 'csharp']) {
+  // typescript lints through the library in the lint worker (B8.3), when the checkout carries it.
+  for (const tool of ['rust', 'go', 'csharp', ...(hasTypeScript() ? ['typescript'] : [])]) {
     it(`${tool}: every eligible validate entry, on open, at the corpus positions`, async () => {
       const { checked, mismatches } = await editorMismatches(tool);
       assert.deepStrictEqual(mismatches, []);

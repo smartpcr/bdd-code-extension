@@ -3,7 +3,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { test } from 'node:test';
 import {
-  isRawDiagnostic, LintDiagnostic, LintResults, parseActionsOutput, parseLintOutput, RawDiagnostic, tokenEnd, toZeroBased,
+  isRawDiagnostic, LintDiagnostic, LintResults, parseActionsOutput, parseLintOutput, RawDiagnostic, selectOverlays, tokenEnd, toZeroBased,
 } from '../../src/core/diagnostics';
 import { bindingTooltip, renderBindingBadge } from '../../src/core/coverage';
 import { createTrustGate } from '../../src/config/trust';
@@ -112,4 +112,14 @@ test('the trust gate asks its host each time', () => {
   trusted = true;
   assert.strictEqual(gate.canRunWorkspaceCode(), true);
   assert.match(gate.untrustedText, /untrusted/);
+});
+
+test('B8.2 selectOverlays: only dirty buffers the index holds as a suite or library, by absolute path', () => {
+  const buffers = [
+    { path: '/r/s.yml', text: 'dirty suite', dirty: true },
+    { path: '/r/clean.yml', text: 'clean', dirty: false },
+    { path: '/r/notes.md', text: 'dirty, not a suite', dirty: true },
+  ];
+  assert.deepStrictEqual(selectOverlays(buffers, p => p.endsWith('.yml')), { '/r/s.yml': 'dirty suite' });
+  assert.deepStrictEqual(selectOverlays([], () => true), {});
 });

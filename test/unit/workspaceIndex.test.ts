@@ -180,3 +180,15 @@ test('isLintCandidate: suites, libraries, files that do not parse, and non-mappi
   assert.ok(ix.isLintCandidate(f('list.yml')));
   assert.strictEqual(ix.suite(f('list.yml'))!.notAMapping, true);
 });
+
+test('B8.2 importersOf: direct and transitive importers, sorted; a cycle ends; an unimported file has none', () => {
+  const ix = new WorkspaceIndex();
+  ix.updateSuite(parseSuite('suite: a\nimports: [_lib/mid.yml]\ntests: []\n', f('a.yml')));
+  ix.updateSuite(parseSuite('suite: b\nimports: [_lib/leaf.yml]\ntests: []\n', f('b.yml')));
+  ix.updateSuite(parseSuite('imports: [leaf.yml]\nmetaSteps: []\n', f('_lib/mid.yml')));
+  ix.updateSuite(parseSuite('imports: [mid.yml]\nmetaSteps: []\n', f('_lib/leaf.yml')));
+  ix.updateSuite(parseSuite('suite: c\ntests: []\n', f('c.yml')));
+  assert.deepStrictEqual(ix.importersOf(f('_lib/leaf.yml')), [f('_lib/mid.yml'), f('a.yml'), f('b.yml')].map(fileKey).sort());
+  assert.deepStrictEqual(ix.importersOf(f('_lib/MID.yml'.toLowerCase())), [f('_lib/leaf.yml'), f('a.yml'), f('b.yml')].map(fileKey).sort());
+  assert.deepStrictEqual(ix.importersOf(f('c.yml')), []);
+});

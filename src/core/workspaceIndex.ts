@@ -140,6 +140,27 @@ export class WorkspaceIndex {
     return !!s && (this.isSuiteOrLibrary(file) || !!s.parseError || !!s.notAMapping);
   }
 
+  /**
+   * Every indexed file that imports `file`, directly or through other imports
+   * (plan B8.2 item 3): the files whose lint an edit to `file` can change.
+   */
+  importersOf(file: string): string[] {
+    const target = fileKey(file);
+    const found = new Set<string>();
+    const queue = [target];
+    while (queue.length) {
+      const next = queue.shift()!;
+      for (const [key, s] of this.suites) {
+        if (found.has(key) || key === target) continue;
+        if (s.imports.some(i => fileKey(i.resolved) === next)) {
+          found.add(key);
+          queue.push(key);
+        }
+      }
+    }
+    return [...found].sort();
+  }
+
   suiteFiles(): SuiteFile[] {
     return [...this.suites.values()].filter(s => this.isSuiteOrLibrary(s.file));
   }

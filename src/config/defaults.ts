@@ -116,7 +116,8 @@ export const DEFAULT_SETTINGS: Settings = {
   catalogPath: 'test/e2e/schema/actions.catalog.yaml',
   suiteGlobs: ['test/e2e/**/*.yml'],
   exclude: '**/{node_modules,bin,obj,target,artifacts,.git}/**',
-  lintTool: 'go',
+  // B8.3: the in-editor TypeScript lint met O10 (p95 429 ms on lifecycle-stage1.yml), so it is the default (DEC-B04).
+  lintTool: 'typescript',
   targetBinding: 'powershell',
   bindings: DEFAULT_BINDINGS,
   schemaGenerator: ['pwsh', '-NoProfile', '-NonInteractive', '-File', 'test/e2e/schema/Build-Schema.ps1'],

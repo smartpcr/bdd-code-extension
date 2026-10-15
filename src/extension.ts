@@ -18,7 +18,11 @@ import { registerInlayHints } from './features/inlay';
 import { LintController } from './features/lintController';
 import { registerNavigation } from './features/navigation';
 import { SuiteStatusBar } from './features/statusBar';
+import { LintWorkerHost } from './lint/workerHost';
 import { killAll, liveChildren } from './tools/runTool';
+
+/** The window's one lint worker (plan 2.4b); terminated by deactivate(). */
+let workerHost: LintWorkerHost | undefined;
 
 /** What the integration tests read; not a public API. */
 export interface TestApi {
@@ -31,6 +35,8 @@ export interface TestApi {
   testing: SuiteTesting;
   /** The extension's live child processes (INV-5, B6.5-1). */
   children: Set<number>;
+  /** The window's lint worker (B8.1): workerCount, workersStarted. */
+  lintWorker: LintWorkerHost;
   /** Present only when BDD_TEST_TRUST_SEAM=1: what a user's trust grant does. */
   grantTrustForTest?: () => void;
   ready: Promise<void>;
@@ -48,12 +54,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
   const trustSeam = process.env.BDD_TEST_TRUST_SEAM === '1';
   let grantedBySeam = false;
   const gate = createTrustGate(() => vscode.workspace.isTrusted || grantedBySeam);
+  workerHost = new LintWorkerHost({ workerPath: path.join(context.extensionPath, 'dist', 'lintWorker.js'), gate: () => gate.canRunWorkspaceCode() });
+  const lintWorker = workerHost;
+  context.subscriptions.push(lintWorker);
   const coverage = new CoverageView(() => api.indexers, gate);
   const tree = vscode.window.createTreeView('bddSuite.bindings', { treeDataProvider: coverage });
   const testing = new SuiteTesting(() => api.indexers, (context.storageUri ?? context.globalStorageUri).fsPath, line => log(line), gate);
   context.subscriptions.push(channel, catalogDiagnostics, indexDiagnostics, lintDiagnostics, status, coverage, tree, testing);
   const api: TestApi = {
-    log: [], providerCount: 0, indexers: [], controllers: [], status, coverage, testing, children: liveChildren, ready: Promise.resolve(), rebuild: async () => {},
+    log: [], providerCount: 0, indexers: [], controllers: [], status, coverage, testing, children: liveChildren, lintWorker, ready: Promise.resolve(), rebuild: async () => {},
   };
   const log = (line: string) => {
     api.log.push(line);
@@ -97,7 +106,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       log(`Root: ${layout.root}  Catalog: ${layout.catalogPath}`);
       const indexer = new FolderIndexer(layout, log, catalogDiagnostics, indexDiagnostics);
       if (!results.has(layout.folder)) results.set(layout.folder, new LintResults());
-      const controller = new LintController(indexer, results.get(layout.folder)!, lintDiagnostics, log, status, gate, notifyNotBuilt);
+      const controller = new LintController(indexer, results.get(layout.folder)!, lintDiagnostics, log, status, gate, notifyNotBuilt, lintWorker);
       api.indexers.push(indexer);
       api.controllers.push(controller);
       session.push(indexer, controller);
@@ -176,7 +185,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
   return api;
 }
 
-/** INV-5: no child outlives the extension. */
+/** INV-5: no child outlives the extension; no worker either. */
 export function deactivate(): void {
   killAll();
+  workerHost?.dispose();
 }

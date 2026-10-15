@@ -1,10 +1,10 @@
 // session: untrusted
-// E-B15 program half (B2.6): in an untrusted workspace no binding code runs.
+// E-B15 (B2.6 program half, B8.1 worker half): in an untrusted workspace no binding code runs.
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { api, asLocations, find, folder, hoverText, open, within } from './helpers';
-import { shown } from './lintHelpers';
+import { api, asLocations, find, folder, hasTypeScript, hoverText, open, revert, within } from './helpers';
+import { setting, shown } from './lintHelpers';
 
 describe('E-B15 an untrusted workspace runs no binding code', () => {
   it('the window is untrusted, and the status bar says lint and run are disabled', async () => {
@@ -36,6 +36,30 @@ describe('E-B15 an untrusted workspace runs no binding code', () => {
     assert.match(await hoverText(doc.uri, pos), /\*\*cluster\.state\*\*/);
     const defs = asLocations(await vscode.commands.executeCommand('vscode.executeDefinitionProvider', doc.uri, pos));
     assert.strictEqual(defs.length, 2);
+  });
+
+  it('B8.1-4 worker half: with the typescript tool, opening, typing and linting create no worker', async function () {
+    if (!hasTypeScript()) this.skip();
+    const G = vscode.ConfigurationTarget.Global;
+    const a = await setting('lintTool', 'typescript', G, x => x.controllers[0].tool === 'typescript');
+    try {
+      const uri = vscode.Uri.file(path.join(folder(), 'test/e2e/conformance/validate/dataflow.yml'));
+      const doc = await open(uri);
+      const edit = new vscode.WorkspaceEdit();
+      edit.insert(uri, new vscode.Position(doc.lineCount, 0), '#');
+      await vscode.workspace.applyEdit(edit);
+      await new Promise(r => setTimeout(r, 1500));
+      const e = await a.controllers[0].lintNow(uri, { live: true });
+      assert.deepStrictEqual([e.outcome, e.status], ['failed', 'Suite: untrusted, lint and run disabled']);
+      assert.strictEqual(a.controllers[0].lintsStarted, 0, 'no lint was started');
+      assert.deepStrictEqual([a.lintWorker.workerCount, a.lintWorker.workersStarted], [0, 0], 'no worker was ever created');
+      assert.strictEqual(a.status.text, 'Suite: untrusted, lint and run disabled');
+      // The checkout is read only: revert the buffer, never save it.
+      await revert(uri);
+    } finally {
+      // Back to the session's own user setting (runTest seeds rust), not to the default.
+      await setting('lintTool', 'rust', G, x => x.controllers[0].tool === 'rust');
+    }
   });
 
   it('B2.6-3 granting trust lints open suites without a reload', async () => {

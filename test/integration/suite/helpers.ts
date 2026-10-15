@@ -21,6 +21,15 @@ export async function open(uri: vscode.Uri): Promise<vscode.TextDocument> {
   return vscode.workspace.openTextDocument(uri);
 }
 
+/** Discard a buffer's unsaved edits, never writing the file. */
+export async function revert(uri: vscode.Uri): Promise<void> {
+  const doc = await open(uri);
+  if (!doc.isDirty) return;
+  await vscode.window.showTextDocument(doc);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  assert.strictEqual(doc.isDirty, false, `${uri.fsPath} was not reverted`);
+}
+
 /** Position inside the `occurrence`-th match of `needle` (offset chars into it). */
 export function find(doc: vscode.TextDocument, needle: string | RegExp, offset = 0, occurrence = 0): vscode.Position {
   const text = doc.getText();

@@ -12,7 +12,7 @@ import { parse } from 'yaml';
 import * as vscode from 'vscode';
 import type { ScaffoldResult } from '../../../src/features/scaffold';
 import { api, at, find, folder, open, within } from './helpers';
-import { lint, nextLint, shown } from './lintHelpers';
+import { lint, nextLint, setting, shown } from './lintHelpers';
 
 const SCRATCH = ['test', 'e2e', 'suites', '_scratch-b6.yml'];
 const SUITE = `suite: scratch-b6
@@ -53,9 +53,22 @@ describe('E-B6 a new action is declared and implemented from the editor', functi
   /** What `git status` said before this file ran, so `after` restores exactly that. */
   let baseline = '';
   const status = () => exec(['git', 'status', '--porcelain', '--untracked-files=all'], folder()).out;
+  /**
+   * The text of files already changed when this file started (a worktree with
+   * uncommitted work copied in, BDD_WORKTREE_INCLUDE_CHANGES): their status line
+   * does not change when this file edits them again, and `git checkout` would
+   * restore HEAD rather than what this file found.
+   */
+  const changedBefore = new Map<string, string>();
 
   before(async () => {
     baseline = status();
+    for (const line of baseline.split('\n').filter(l => l && !l.startsWith('??'))) {
+      const file = path.join(folder(), line.slice(3).trim());
+      if (fs.existsSync(file)) changedBefore.set(file, fs.readFileSync(file, 'utf8'));
+    }
+    // Lint by the Go program, which this scenario's E104 and quick fix were written against.
+    await setting('lintTool', 'go', vscode.ConfigurationTarget.Workspace, a => a.controllers[0].tool === 'go');
     fs.writeFileSync(uri.fsPath, SUITE);
     await (await api()).ready;
   });
@@ -201,7 +214,9 @@ describe('E-B6 a new action is declared and implemented from the editor', functi
       if (line.startsWith('??')) fs.rmSync(path.join(folder(), file), { force: true });
       else exec(['git', 'checkout', '--', file], folder());
     }
+    for (const [file, text] of changedBefore) if (fs.readFileSync(file, 'utf8') !== text) fs.writeFileSync(file, text);
     assert.strictEqual(status(), baseline, 'the worktree is back to what this file found');
+    await vscode.workspace.getConfiguration('bddSuite').update('lintTool', undefined, vscode.ConfigurationTarget.Workspace);
     const a = await api();
     await within(10_000, () => !a.indexers[0].index.catalog?.actions.has('demo.echo'));
   });

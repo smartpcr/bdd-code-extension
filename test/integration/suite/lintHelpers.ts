@@ -1,7 +1,11 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type { TestApi } from '../../../src/extension';
 import type { LintEvent } from '../../../src/features/lintController';
-import { api, within } from './helpers';
+import { api, folder, within } from './helpers';
+
+/** The TypeScript binding's library in the session's folder (B8). */
+export const typeScriptLibrary = (): string => path.join(folder(), 'test', 'e2e', 'bindings', 'typescript', 'dist', 'index.js');
 
 /** Set a bddSuite setting and wait until the rebuilt controllers use it. */
 export async function setting(key: string, value: unknown, target: vscode.ConfigurationTarget, settled: (a: TestApi) => boolean): Promise<TestApi> {
@@ -38,13 +42,13 @@ export function shown(uri: vscode.Uri): { sig: string; message: string; source: 
     }));
 }
 
-/** Wait for the next lint event for `file` (fsPath compared case-insensitively). */
-export function nextLint(file: string, ms = 30_000): Promise<LintEvent> {
+/** Wait for the next lint event for `file` (fsPath compared case-insensitively) that `match` accepts. */
+export function nextLint(file: string, ms = 30_000, match: (e: LintEvent) => boolean = () => true): Promise<LintEvent> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`no lint of ${file} within ${ms} ms`)), ms);
     void api().then(a => {
       const subs = a.controllers.map(c => c.onDidLint(e => {
-        if (e.file.toLowerCase() === file.toLowerCase()) {
+        if (e.file.toLowerCase() === file.toLowerCase() && match(e)) {
           clearTimeout(timer);
           subs.forEach(s => s.dispose());
           resolve(e);

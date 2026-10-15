@@ -725,6 +725,18 @@ in-editor TypeScript lint on the same file. It makes TypeScript the default
 only if the result meets O10's one-second budget at the 95th percentile;
 otherwise it records the number and leaves the default where it was.
 
+**Measured (B8.3, 2026-10-15).** Live lint through the TypeScript library in
+the lint worker, on `lifecycle-stage1.yml` (68,245 characters), 20 one-character
+edits each after a 450 ms pause, worker warm: edit to published p50 419 ms, p95
+429 ms, max 440 ms; the cold first lint, including `import()` and the schema
+load, 198 ms. Almost all of it is `LIVE_LINT_DEBOUNCE_MS` (400 ms); the lint
+itself takes about 20 ms. That meets O10, so `bddSuite.lintTool` now defaults
+to `typescript`. Machine: 13th Gen Intel Core i9-13900K, 32 logical CPUs,
+Windows 11; Node 24 (the editor's own); the extension at `584ed29` plus the B8
+changes, `os-context` at `7633e176` plus the uncommitted B7 binding. Plan
+[B8.3](implementation.md#b83-live-lint-measured-and-typescript-made-the-default-lint-tool-if-it-meets-o10)
+holds the table.
+
 **Serves.** O1, O2. **Verified by.** E-B1, E-B2.
 
 ### DEC-B05. Registration sites are found by per-language recognizers, which are configuration

@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { parseLintOutput } from '../../../src/core/diagnostics';
 import { lintCommand } from '../../../src/tools/profiles';
 import { runTool } from '../../../src/tools/runTool';
-import { api, folder, open, within } from './helpers';
+import { api, folder, hasTypeScript, open, within } from './helpers';
 import { lint, setting, shown } from './lintHelpers';
 
 const G = vscode.ConfigurationTarget.Global;
@@ -57,7 +57,7 @@ describe('E-B2 a step the target binding cannot run is marked, and says who can'
     }
     const labels = new Map(steps.map(s => [s.action, ours.find(x => x.position.line === s.actionRange!.end.line)!.label]));
     assert.strictEqual(labels.get('cluster.state'), 'PS');
-    assert.strictEqual(labels.get('core.noop'), 'PS C# Go Rs');
+    assert.strictEqual(labels.get('core.noop'), hasTypeScript() ? 'PS C# Go Rs TS' : 'PS C# Go Rs');
     assert.match(String(ours.find(h => h.label === 'PS')!.tooltip), /Not implemented by Rust/);
   });
 

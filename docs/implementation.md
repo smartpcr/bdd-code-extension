@@ -306,6 +306,12 @@ When the catalog or `suite.schema.json` changes (index watcher, B1.7), the host
 posts `{ type: 'invalidate', root }`, and the worker calls
 `linter.invalidate()` so the next lint reloads them.
 
+When any `*.js` file beside the library changes (a rebuild, or a broken
+library), the host marks the worker's loaded copy old (`reload()`, added in
+B8.1): a lint already running finishes on it, and the next lint starts a new
+worker that imports the library again. A lint waiting for a worker that another
+start replaced waits on the new one instead of failing.
+
 ### 2.5 State and its single owner
 
 | State | Owner | Written when | Read by |
@@ -413,7 +419,7 @@ so the two cannot drift.
 | `bddSuite.catalogPath` | string | `test/e2e/schema/actions.catalog.yaml` | Catalog, relative to the workspace folder |
 | `bddSuite.suiteGlobs` | string[] | `["test/e2e/**/*.yml"]` | Candidate suites; content decides (DEC-B13) |
 | `bddSuite.exclude` | string | `**/{node_modules,bin,obj,target,artifacts,.git}/**` | Never indexed |
-| `bddSuite.lintTool` | string | `go` (provisional, B2.5); `typescript` from B8.3 if its measurement meets O10 | Binding whose code lints |
+| `bddSuite.lintTool` | string | `typescript` (B8.3: p95 429 ms met O10; `go` before, from B2.5) | Binding whose code lints |
 | `bddSuite.targetBinding` | string | `powershell` | Binding `--binding-check` asks about, and runs use |
 | `bddSuite.bindings` | object | see below | Per binding: sources, recognizers, tool |
 | `bddSuite.schemaGenerator` | string[] | `["pwsh","-NoProfile","-NonInteractive","-File","test/e2e/schema/Build-Schema.ps1"]` | Run after catalog edits |
@@ -569,7 +575,7 @@ will. A stage is done when all its steps are. "Built" (code and unit) and
 | [B5](#stage-b5-declaring-and-implementing-an-action) | Declaring and implementing an action | P1 | B1.2, B1.4, B2.1; B5.5 also B7.5 | 5 | 4 of 5 | 3 of 5 (B5.1 open only for `SuiteLint.Tests.ps1` as a whole, blocked in `os-context`; B5.5 not started, unblocked by B7.5 and B7.7) |
 | [B6](#stage-b6-running-suites-from-test-explorer) | Running suites from Test Explorer | P2 | B1.3, B2.1 | 5 | 5 of 5 | 4 of 5 (B6.4 awaits its manual check, and its lab scenario is B9.3; TypeScript halves of B6.2 and B6.3 closed in B7) |
 | [B7](#stage-b7-the-typescript-binding-in-os-context) | The TypeScript binding, in `os-context` | P1 | none in this repository; `os-context` at a recorded commit | 8 | 8 of 8 | 5 of 8 (B7.1 open only for `SuiteLint.Tests.ps1` and `Conformance.Tests.ps1`, blocked in `os-context`; B7.7 waits for E-B13 on a lab; B7.8 waits for the user's push and a lab) |
-| [B8](#stage-b8-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B7.4 | 3 | 0 of 3 | 0 of 3 |
+| [B8](#stage-b8-lint-while-typing-through-the-typescript-binding) | Lint while typing through the TypeScript binding | P1 | B2.2, B2.6, B7.4 | 3 | 3 of 3 | 3 of 3 (against the uncommitted B7 binding in the `os-context` worktree) |
 | [B9](#stage-b9-package-and-accept) | Package and accept | P0 | all above | 3 | 0 of 3 | 0 of 3 |
 
 Priority says what ships first, never what may be skipped: P0 is the minimum
@@ -588,7 +594,7 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 
 | Scenario | Signs off | Needs a lab | Status |
 | --- | --- | --- | --- |
-| [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5, B8.3 | no | passed 2026-10-14 for Rust, Go, C#; PowerShell blocked (os-context defect); TypeScript open (B8.3) |
+| [E-B1](design.md#e-b1-the-editor-shows-exactly-what-the-corpus-says-lint-must-find) | B2.1, B2.2, B2.5, B8.3 | no | passed 2026-10-14 for Rust, Go, C#, and 2026-10-15 for TypeScript; PowerShell blocked (os-context defect) |
 | [E-B2](design.md#e-b2-a-step-the-target-binding-cannot-run-is-marked-and-says-who-can) | B1.2, B2.3, B3.1 | no | passed 2026-10-14 |
 | [E-B3](design.md#e-b3-go-to-definition-on-an-action-lists-the-catalog-entry-and-every-registration) | B1.3, B1.4, B1.6 | no | passed 2026-10-14, five bindings (the TypeScript half against the `os-context` worktree) |
 | [E-B4](design.md#e-b4-a-registration-site-shows-and-lists-the-steps-that-use-it) | B1.5 | no | passed 2026-10-14 |
@@ -598,11 +604,11 @@ and its TypeScript half stays open until then. B9 is last and needs all of it.
 | [E-B8](design.md#e-b8-a-catalog-change-is-picked-up-without-a-reload) | B1.2, B1.7, B3.4 | no | passed 2026-10-14 |
 | [E-B9](design.md#e-b9-an-offline-suite-runs-under-each-binding-and-each-case-shows-the-corpus-result) | B6.1-B6.3, B6.5 | no | passed: four bindings 2026-10-15, TypeScript 2026-10-14 against the `os-context` worktree |
 | [E-B10](design.md#e-b10-the-portable-stage-0-cases-run-from-the-editor-against-a-real-lab) | B6.4 | yes | not run |
-| [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B8.1 | no | program half passed 2026-10-14; library half open (B8.1) |
+| [E-B11](design.md#e-b11-a-missing-slow-or-broken-lint-tool-is-reported-not-hidden) | B2.4, B8.1 | no | program half passed 2026-10-14; library half passed 2026-10-15 |
 | [E-B12](design.md#e-b12-the-typescript-binding-passes-the-whole-conformance-corpus) | B7.1-B8.6, B7.8 | no | local half passed 2026-10-14 (the whole corpus, 100 % of lines, the divergence check run by hand); CI half open until the user pushes |
 | [E-B13](design.md#e-b13-the-typescript-binding-runs-the-portable-stage-0-cases-on-a-lab-with-the-same-report-as-go) | B7.7, B7.8 | yes | not run: no lab (blocked) |
-| [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would) | B8.1-B9.3 | no | not run |
-| [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs) | B2.6 | no | program half passed 2026-10-14 (grant through the harness seam; one manual check); worker half open (B8.1) |
+| [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would) | B8.1-B9.3 | no | passed 2026-10-15 in the editor from source; B9.3 re-runs it on the packaged extension |
+| [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs) | B2.6 | no | program half passed 2026-10-14 (grant through the harness seam; one manual check); worker half passed 2026-10-15 |
 
 Some scenarios need features from more than one step (E-B5 needs all of B3).
 Where a scenario signs off several steps, each step names the *part* of the
@@ -2826,9 +2832,9 @@ triggers (B8.2) build on it. Measurement and the default (B8.3) need both.
 
 **Checklist.**
 
-- [ ] B8.1 The lint worker: load the library from the workspace, bounded and restartable
-- [ ] B8.2 Live lint of unsaved buffers through overlays
-- [ ] B8.3 Live lint measured, and TypeScript made the default lint tool if it meets O10
+- [x] B8.1 The lint worker: load the library from the workspace, bounded and restartable
+- [x] B8.2 Live lint of unsaved buffers through overlays
+- [x] B8.3 Live lint measured, and TypeScript made the default lint tool if it meets O10
 
 ### B8.1 The lint worker: load the library from the workspace, bounded and restartable
 
@@ -2879,7 +2885,10 @@ triggers (B8.2) build on it. Measurement and the default (B8.3) need both.
   and the worker half of
   [E-B15](design.md#e-b15-in-an-untrusted-workspace-no-binding-code-runs).
 * **Depends on.** B2.2, B2.6, B7.4.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15.
+  - [x] code. `src/lint/protocol.ts`, `src/lint/worker.ts` (bundled as `dist/lintWorker.js`), `src/lint/workerHost.ts` (`start()` checks INV-11; `workerCount`, `workersStarted`, `current`, `reload()`), `LintBackend` with `ProgramBackend` (B2.2's code) and `WorkerBackend` in `lintController.ts`, one host per window in `extension.ts` disposed by `deactivate()`, `esbuild.mjs`'s second entry, `test/fake-library/index.mjs`. Item 4 needed no change: *Build lint tool* already runs the `typescript` build command. Added: a watcher on the library's `*.js` files marks the loaded copy old, so a rebuild or a broken library is seen by the next lint.
+  - [x] unit tests green at 100 percent of `workerHost.ts` (197 tests in the gate): every reply kind, timeout, exit, restart, three failures in a row, reload during a start, INV-12. `worker.ts` reached 100 percent of lines and branches through `NODE_V8_COVERAGE` in the worker threads (measured separately, not gated).
+  - [x] scenario. B8.1-1: for all 45 E-B1 entries the worker's diagnostics equal the `typescript` program's, field for field (`workerParity.test.ts`). E-B11 typescript half in a worktree: the library renamed away, `apiVersion` `2.0.0` (both versions in the status, B8.1-3), `lint()` looping (failed 5.5 s after the edit, no worker left, B8.1-2) and `lint()` throwing each give their own status, keep the `E301` marked `[stale]`, and restoring and saving clears it. E-B15 worker half (B8.1-4): untrusted, no worker was ever created. Evidence: [docs/evidence/stage-b8.md](evidence/stage-b8.md).
 
 ### B8.2 Live lint of unsaved buffers through overlays
 
@@ -2916,7 +2925,10 @@ triggers (B8.2) build on it. Measurement and the default (B8.3) need both.
 * **E2E.** [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would),
   except its timing assertion (B8.3).
 * **Depends on.** B8.1.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15.
+  - [x] code. `selectOverlays()` in `src/core/diagnostics.ts`, `importersOf()` (transitive) in `src/core/workspaceIndex.ts`; the live trigger, overlays and importer re-lint in `lintController.ts`.
+  - [x] unit tests green: `importersOf()` direct, transitive and through a cycle; `selectOverlays()`; INV-12 (no `fs` write names an overlay path).
+  - [x] scenario. B8.2-1: typing `${capture.nosuch}` showed `E301` at 9:16 418 ms after the edit, unsaved, with the meta from `_lib/lifecycle.yml` found. B8.2-2: an unsaved rename in an imported library showed `E206` in the open suite. B8.2-3: with Go as the lint tool, typing started no lint. E-B14 without its timing: 45 entries, 39 equal to the corpus and 6 (their expectation depends on their own path or imports) equal to the program's lint of the same text saved at the scratch path; `git status` unchanged apart from the scratch files as first saved. Evidence: [docs/evidence/stage-b8.md](evidence/stage-b8.md).
 
 ### B8.3 Live lint measured, and TypeScript made the default lint tool if it meets O10
 
@@ -2948,7 +2960,18 @@ triggers (B8.2) build on it. Measurement and the default (B8.3) need both.
   (`typescript` tool) and
   [E-B14](design.md#e-b14-an-unsaved-buffer-gets-the-same-diagnostics-the-saved-file-would).
 * **Depends on.** B8.2.
-* **Status.** [ ] code [ ] unit [ ] scenario
+* **Status.** Done 2026-10-15; `lintTool` now defaults to `typescript`.
+  - [x] code. `test/integration/suite/latency.test.ts` (new; B2.5's program latency is in `test/integration/node/corpusTools.test.ts`); `lintTool` default `typescript` in `defaults.ts` and `package.json`; DEC-B04 records the number.
+  - [x] unit: none new, as planned.
+  - [x] scenario. B8.3-1, the measurement (2026-10-15; 13th Gen Intel Core i9-13900K, 32 logical CPUs, Windows 11; the editor's Node 24.21.0; extension `584ed29` plus B8, `os-context` `7633e176` plus the uncommitted B7 binding), `lifecycle-stage1.yml`, 68,245 characters, 20 one-character edits after 450 ms pauses, worker warm:
+
+    | Run | p50 ms | p95 ms | max ms | Cold first lint ms |
+    | --- | --- | --- | --- | --- |
+    | 1 | 419 | 429 | 440 | 198 |
+    | 2 (full suite) | 418 | 430 | 452 | 209 |
+    | 3 (final full suite) | 425 | 430 | 460 | 209 |
+
+    p95 is under 1 s, so the default changed (item 2). The 400 ms debounce is almost all of it. B8.3-2: E-B1 with the `typescript` tool, all 45 entries at the corpus positions; E-B14 with its timing (the corpus entries' p95 418 ms, and the table above for `lifecycle-stage1.yml`). Evidence: [docs/evidence/stage-b8.md](evidence/stage-b8.md).
 
 ---
 
