@@ -151,7 +151,7 @@ export function selectionTags(cases: { name: string; tags: string[] }[], include
 /**
  * A suite needs a lab unless every action it uses is offline (B6.4 item 1): an
  * offline entry is an action name, or `prefix.*` for every action under it.
- * os-context's are `core.*` and `wait`, the default of `bddSuite.offlineActions`.
+ * The default, as `bddSuite.offlineActions`, is the built-in `core.*` and `wait`.
  */
 export function isLabSuite(actions: string[], offline: string[] = ['core.*', 'wait']): boolean {
   const isOffline = (a: string) => offline.some(o => (o.endsWith('.*') ? a.startsWith(o.slice(0, -1)) : a === o));

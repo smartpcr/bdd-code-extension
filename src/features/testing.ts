@@ -27,8 +27,8 @@ export interface RunUi {
 }
 
 const LAB_KEYS: { key: keyof LabValues; setting: string; prompt: string }[] = [
-  { key: 'apiUrl', setting: 'lab.apiUrl', prompt: 'The lab\'s lifecycle API URL' },
-  { key: 'labId', setting: 'lab.labId', prompt: 'The lab\'s lineage id (the id the API records)' },
+  { key: 'apiUrl', setting: 'lab.apiUrl', prompt: 'The lab\'s API URL' },
+  { key: 'labId', setting: 'lab.labId', prompt: 'The lab\'s id (the id its API knows it by)' },
   { key: 'connectionFile', setting: 'lab.connectionFile', prompt: 'The lab\'s connection file' },
 ];
 

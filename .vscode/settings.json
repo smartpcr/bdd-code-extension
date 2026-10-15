@@ -12,8 +12,8 @@
   "bddSuite.targetBinding": "powershell",
   "bddSuite.schemaGenerator": ["node", "tools/gen-schema.mjs"],
 
-  // The demo's actions touch no lab, so its suites run like os-context's offline
-  // ones: no lab values and no lab confirmation. (os-context's default is core.* and wait.)
+  // The demo's actions touch no lab, so its suites run offline:
+  // no lab values and no lab confirmation. (The default is core.* and wait.)
   "bddSuite.offlineActions": ["core.*", "wait", "demo.*", "orders.*"],
   "bddSuite.bindings": {
     "powershell": { "sources": ["test/e2e-demo/fixture/scripts/e2e/actions/*.ps1"] },

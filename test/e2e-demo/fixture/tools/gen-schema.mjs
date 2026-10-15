@@ -1,5 +1,5 @@
 // A small stand-in for Build-Schema.ps1: generates suite.schema.json from the
-// catalog the way os-context does, with one branch per action, so each step's
+// catalog the way the bindings' own generator does, with one branch per action, so each step's
 // parameters are checked against its own action only. The extension reads it
 // beside the catalog while you type, and so:
 //   * a step missing a required parameter (demo.greet without `name`) is underlined,

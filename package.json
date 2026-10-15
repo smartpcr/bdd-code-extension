@@ -1,8 +1,8 @@
 {
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
-  "description": "Navigation, hover and lint for the os-context YAML test suites and their PowerShell, C#, Go, Rust and TypeScript bindings.",
-  "version": "0.4.2",
+  "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
+  "version": "0.5.0",
   "publisher": "asz",
   "license": "MIT",
   "repository": {
@@ -20,6 +20,20 @@
   "categories": [
     "Programming Languages",
     "Testing"
+  ],
+  "keywords": [
+    "bdd",
+    "gherkin",
+    "given-when-then",
+    "yaml",
+    "test suite",
+    "acceptance testing",
+    "code generation",
+    "powershell",
+    "csharp",
+    "go",
+    "rust",
+    "typescript"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
@@ -268,7 +282,7 @@
                 "test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe"
               ],
               "build": {
-                "command": "dotnet build Hci.E2E.Suite.sln",
+                "command": "dotnet build",
                 "cwd": "test/e2e/bindings/dotnet"
               }
             },
@@ -386,17 +400,17 @@
         "bddSuite.lab.apiUrl": {
           "type": "string",
           "default": "",
-          "description": "Lifecycle API URL for lab runs; prompted when empty."
+          "description": "The API URL of the environment (lab) a lab run targets; prompted when empty."
         },
         "bddSuite.lab.labId": {
           "type": "string",
           "default": "",
-          "description": "Lab lineage id (32 hex characters) for lab runs; prompted when empty."
+          "description": "The id of the environment (lab) a lab run targets; prompted when empty."
         },
         "bddSuite.lab.connectionFile": {
           "type": "string",
           "default": "",
-          "description": "Path to the lab connection file for lab runs; prompted when empty."
+          "description": "The connection file of the environment (lab) a lab run targets; prompted when empty."
         },
         "bddSuite.offlineActions": {
           "type": "array",

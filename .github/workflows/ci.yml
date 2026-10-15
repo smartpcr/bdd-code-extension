@@ -16,9 +16,9 @@
 # an existing GitHub release gets its files replaced.
 #
 # Builds on Windows: the demo's suites run through PowerShell, and Windows is
-# where the extension is developed and used. The demo needs no os-context
-# checkout; the integration suite (npm run test:integration) does, so it is
-# not run here.
+# where the extension is developed and used. The demo is self-contained;
+# the integration suite (npm run test:integration) needs a full workspace
+# checkout (OS_CONTEXT_ROOT), so it is not run here.
 name: CI
 
 on:

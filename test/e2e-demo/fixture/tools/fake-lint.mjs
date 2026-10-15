@@ -1,6 +1,6 @@
 // A small stand-in for `suiterun lint`, so the demo needs no real binding
 // built. It speaks the same command line and JSON (DEC-Y14) and checks each
-// step against the catalog with the codes os-context uses:
+// step against the catalog with the codes the bindings' lint uses:
 //   E104  unknown action (with the nearest name as a suggestion)
 //   E102  a required parameter is missing        (at the step)
 //   E105  a parameter the action does not take   (at the key; nearest parameter suggested)

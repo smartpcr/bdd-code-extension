@@ -1,4 +1,4 @@
-# The demo's stand-in for os-context's suite runner. It takes the runner's
+# The demo's stand-in for the PowerShell binding's suite runner. It takes the runner's
 # parameters, so the extension's Test Explorer runs it as it would the real
 # one, and hands them to tools/fake-run.mjs, which checks each step's action
 # against scripts/e2e/actions and touches no lab. The lab parameters are

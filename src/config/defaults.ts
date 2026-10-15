@@ -70,7 +70,7 @@ export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
       { pattern: 'names\\.Add\\("(?<name>[^"]+)"\\)' },
     ],
     tool: ['test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe'],
-    build: { command: 'dotnet build Hci.E2E.Suite.sln', cwd: 'test/e2e/bindings/dotnet' },
+    build: { command: 'dotnet build', cwd: 'test/e2e/bindings/dotnet' },
   },
   go: {
     label: 'Go',
@@ -129,7 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
   'lab.apiUrl': '',
   'lab.labId': '',
   'lab.connectionFile': '',
-  // B6.4 item 1: in os-context only the core actions and wait run without a lab.
+  // B6.4 item 1: by default only the built-in core actions and wait run without a lab.
   offlineActions: ['core.*', 'wait'],
 };
 
@@ -145,8 +145,8 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
   'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',
   templatesDir: 'Workspace directory whose files override the stub templates.',
-  'lab.apiUrl': 'Lifecycle API URL for lab runs; prompted when empty.',
-  'lab.labId': 'Lab lineage id (32 hex characters) for lab runs; prompted when empty.',
-  'lab.connectionFile': 'Path to the lab connection file for lab runs; prompted when empty.',
+  'lab.apiUrl': 'The API URL of the environment (lab) a lab run targets; prompted when empty.',
+  'lab.labId': 'The id of the environment (lab) a lab run targets; prompted when empty.',
+  'lab.connectionFile': 'The connection file of the environment (lab) a lab run targets; prompted when empty.',
   offlineActions: 'Actions that run without a lab, as names or `prefix.*`; a suite using any other action is a lab suite, and its run asks for the lab and a confirmation.',
 };

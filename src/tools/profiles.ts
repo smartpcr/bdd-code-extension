@@ -77,9 +77,9 @@ export interface RunOptions {
 }
 
 /**
- * The address the PowerShell runner gets for an offline suite. It refuses to
- * start without -ApiUrl or -ConfigPath, and os-context's own corpus harness
- * (Conformance.Tests.ps1) passes this deliberately unreachable one.
+ * The address the PowerShell runner gets for an offline suite. The runner
+ * refuses to start without -ApiUrl or -ConfigPath, so an offline run passes
+ * this deliberately unreachable one, as the bindings' conformance corpus does.
  */
 export const OFFLINE_API_URL = 'http://conformance.invalid/api/v1';
 

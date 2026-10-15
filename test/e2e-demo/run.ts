@@ -1,5 +1,5 @@
 // A self-contained end-to-end demo of the packaged extension. It needs no
-// os-context checkout: it copies test/e2e-demo/fixture (a catalog, a YAML
+// workspace of your own: it copies test/e2e-demo/fixture (a catalog, a YAML
 // suite, and registrations in PowerShell, C#, Go, Rust and TypeScript) to a
 // temporary workspace, installs the .vsix into a fresh VS Code profile, and
 // runs suite/demo.test.ts there, which navigates between the YAML and each
