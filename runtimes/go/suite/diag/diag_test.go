@@ -1,6 +1,8 @@
 package diag
 
 import (
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -89,11 +91,21 @@ func TestTheJsonIsWhatTheSchemaDefines(t *testing.T) {
 }
 
 func TestAPathIsRelativeWithForwardSlashes(t *testing.T) {
-	if got := RelativePath(`C:\work\repo\test\a.yml`, `C:\work\repo`); got != "test/a.yml" {
+	// Paths that are absolute on this platform: a drive letter is not one on Linux.
+	root := filepath.Join(t.TempDir(), "work", "repo")
+	if got := RelativePath(filepath.Join(root, "test", "a.yml"), root); got != "test/a.yml" {
 		t.Errorf("under the root it is %q", got)
 	}
-	outside := RelativePath(`D:\elsewhere\a.yml`, `C:\work\repo`)
+	outside := RelativePath(filepath.Join(t.TempDir(), "elsewhere", "a.yml"), root)
 	if strings.Contains(outside, `\`) {
 		t.Errorf("outside the root it is %q", outside)
+	}
+	if runtime.GOOS == "windows" {
+		if got := RelativePath(`C:\work\repo\test\a.yml`, `C:\work\repo`); got != "test/a.yml" {
+			t.Errorf("under a drive root it is %q", got)
+		}
+		if other := RelativePath(`D:\elsewhere\a.yml`, `C:\work\repo`); strings.Contains(other, `\`) {
+			t.Errorf("on another drive it is %q", other)
+		}
 	}
 }

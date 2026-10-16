@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -425,8 +426,10 @@ tests:
 func TestAnExtensionsCaseLimitCapsTheCase(t *testing.T) {
 	ceiling := extension.Extension{
 		Name: "ceiling",
+		// Two seconds, not one: a step gets the whole seconds the case has
+		// left, and one second less any time already spent is none.
 		Rules: extension.Rules{CaseLimitSec: func(suite *model.Map, declared int64) int64 {
-			return 1
+			return 2
 		}},
 	}
 	suite := `
@@ -440,7 +443,8 @@ tests:
 `
 	began := time.Now()
 	result, _ := runSuite(t, suite, started(t, nil, ceiling))
-	if result.Cases[0].Status != trace.Failed || !strings.Contains(result.Cases[0].Message, "1s limit") {
+	// 1s or 2s, by how much of the first second has gone: either is the cap.
+	if result.Cases[0].Status != trace.Failed || !regexp.MustCompile(`exceeded its [12]s limit`).MatchString(result.Cases[0].Message) {
 		t.Errorf("the capped case %s: %s", result.Cases[0].Status, result.Cases[0].Message)
 	}
 	if time.Since(began) > 4*time.Second {
