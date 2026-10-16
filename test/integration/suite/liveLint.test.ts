@@ -1,9 +1,10 @@
 // session: worktree
 // B8.2 and E-B14: with the typescript lint tool, a pause in typing lints the
 // editor's unsaved text through overlays, and the answer is the one the saved
-// file would get. Nothing is written to disk to do it (INV-12).
+// file would get (the lint oracle: what the five programs report). Nothing is
+// written to disk to do it (INV-12): the worktree sample's files keep their
+// content, the two scratch files aside.
 import * as assert from 'assert';
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -12,19 +13,19 @@ import type { LintEvent } from '../../../src/features/lintController';
 import { lintCommand } from '../../../src/tools/profiles';
 import { runTool } from '../../../src/tools/runTool';
 import { sig, validateEntries } from '../harness/corpus';
-import { api, at, folder, hasTypeScript, open, revert, within } from './helpers';
+import { api, at, folder, open, revert, sampleChanges, sampleSnapshot, sampleStatus, within } from './helpers';
 import { nextLint, setting, shown, typeScriptLibrary } from './lintHelpers';
 
 const W = vscode.ConfigurationTarget.Workspace;
 const CLEAN = `suite: scratch-b14
-imports: [_lib/lifecycle.yml, _lib/_scratch-b14-lib.yml]
+imports: [_lib/shop.yml, _lib/_scratch-b14-lib.yml]
 tests:
   - name: typed
     steps:
-      - meta: select-lab
+      - meta: check-stock
       - meta: scratch-meta
       - action: core.set
-        value: \${capture.source.id}
+        value: \${capture.stock.sku}
 `;
 const LIB = `metaSteps:
   - name: scratch-meta
@@ -34,7 +35,6 @@ const LIB = `metaSteps:
 const scratch = () => at('test', 'e2e', 'suites', '_scratch-b14.yml');
 const scratchLib = () => at('test', 'e2e', 'suites', '_lib', '_scratch-b14-lib.yml');
 const live = (e: LintEvent) => !!e.live;
-const gitStatus = () => execFileSync('git', ['-C', folder(), 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' });
 
 async function replaceAll(uri: vscode.Uri, text: string): Promise<void> {
   const doc = await open(uri);
@@ -46,15 +46,16 @@ async function replaceAll(uri: vscode.Uri, text: string): Promise<void> {
 describe('B8.2 live lint of unsaved buffers, and E-B14', function () {
   this.timeout(900_000);
   let baseline = '';
+  let snapshot: Map<string, Buffer>;
 
-  before(async function () {
-    if (!hasTypeScript()) this.skip();
+  before(async () => {
     await setting('lintTool', 'typescript', W, x => x.controllers[0].tool === 'typescript');
     if (!fs.existsSync(typeScriptLibrary())) assert.strictEqual(await vscode.commands.executeCommand<boolean>('bddSuite.buildLintTool'), true);
     // The scratch suite and library, saved once: the only change E-B14 allows in git status.
     fs.writeFileSync(scratch().fsPath, CLEAN);
     fs.writeFileSync(scratchLib().fsPath, LIB);
-    baseline = gitStatus();
+    baseline = sampleStatus();
+    snapshot = sampleSnapshot();
     const a = await api();
     await within(10_000, () => a.indexers[0].index.isSuiteOrLibrary(scratchLib().fsPath));
     await open(scratchLib());
@@ -66,18 +67,18 @@ describe('B8.2 live lint of unsaved buffers, and E-B14', function () {
 
   it('B8.2-1 typing ${capture.nosuch} shows E301 at its position before any save; the imported meta is found', async () => {
     const doc = await open(scratch());
-    const at9 = doc.lineAt(8).text.indexOf('${capture.source.id}');
+    const at9 = doc.lineAt(8).text.indexOf('${capture.stock.sku}');
     const next = nextLint(scratch().fsPath, 30_000, e => live(e) && e.outcome === 'published');
     const started = Date.now();
     const edit = new vscode.WorkspaceEdit();
-    edit.replace(scratch(), new vscode.Range(8, at9, 8, at9 + '${capture.source.id}'.length), '${capture.nosuch}');
+    edit.replace(scratch(), new vscode.Range(8, at9, 8, at9 + '${capture.stock.sku}'.length), '${capture.nosuch}');
     await vscode.workspace.applyEdit(edit);
     await next;
     const took = Date.now() - started;
     assert.strictEqual(doc.isDirty, true, 'not saved');
     const got = shown(scratch()).map(d => d.sig);
     assert.ok(got.includes(`E301 error 9:${at9 + 1}`), got.join(', '));
-    assert.ok(!got.some(s => s.startsWith('E206')), 'select-lab from _lib/lifecycle.yml is not reported missing');
+    assert.ok(!got.some(s => s.startsWith('E206')), 'check-stock from _lib/shop.yml is not reported missing');
     console.log(`    E301 at 9:${at9 + 1}, published ${took} ms after the edit, unsaved`);
     const back = nextLint(scratch().fsPath, 30_000, e => live(e) && e.outcome === 'published');
     await replaceAll(scratch(), CLEAN);
@@ -161,10 +162,10 @@ describe('B8.2 live lint of unsaved buffers, and E-B14', function () {
   });
 
   after(async () => {
-    if (!hasTypeScript()) return;
     for (const u of [scratch(), scratchLib()]) await revert(u);
-    // INV-12: nothing but the scratch files as first saved changed in the worktree.
-    assert.strictEqual(gitStatus(), baseline, 'git status changed during live lint');
+    // INV-12: nothing but the scratch files as first saved changed in the worktree's sample.
+    assert.strictEqual(sampleStatus(), baseline, 'git status changed during live lint');
+    assert.deepStrictEqual(sampleChanges(snapshot), [], 'no file\'s content changed during live lint');
     assert.strictEqual(fs.readFileSync(scratch().fsPath, 'utf8'), CLEAN);
     assert.strictEqual(fs.readFileSync(scratchLib().fsPath, 'utf8'), LIB);
     await vscode.workspace.getConfiguration('bddSuite').update('lintTool', undefined, W);

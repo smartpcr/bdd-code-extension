@@ -1,0 +1,35 @@
+suite: tables
+tests:
+  - name: ragged-rows
+    examples:
+      - { sku: APPLE }
+      - { sku: PEAR, extra: yes }
+      - { sku: APPLE }
+    steps:
+      - when: the stock of ${row.sku} is read
+        action: inventory.get
+        sku: ${row.sku}
+        captureAs: stock
+    asserts:
+      - var: stock.inStock
+        equals: true
+  - name: a-column-that-does-not-exist
+    examples:
+      - { sku: PLUM }
+    steps:
+      - when: the stock is read
+        action: inventory.get
+        sku: ${row.skew}
+        captureAs: stock
+    asserts:
+      - var: stock.inStock
+        equals: true
+  - name: a-row-with-no-table
+    steps:
+      - when: nothing is in scope
+        action: inventory.get
+        sku: ${row.sku}
+        captureAs: stock
+    asserts:
+      - var: stock.inStock
+        equals: true

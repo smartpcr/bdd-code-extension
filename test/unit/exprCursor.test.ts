@@ -88,6 +88,6 @@ test('enclosingExpression: nesting, closed expressions, strings', () => {
 
 test('the vocabulary: 21 functions, six context keys, four namespaces', () => {
   assert.strictEqual(Object.keys(FUNCTIONS).length, 21);
-  assert.deepStrictEqual(CONTEXT_KEYS, ['cluster', 'target', 'timeoutSec', 'labId', 'apiUrl', 'defaults']);
+  assert.deepStrictEqual(CONTEXT_KEYS, ['timeoutSec', 'defaults']);
   assert.deepStrictEqual(NAMESPACES, ['capture', 'param', 'var', 'row']);
 });

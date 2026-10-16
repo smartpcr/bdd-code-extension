@@ -95,11 +95,16 @@ export function commonSource(sources: string[]): string {
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-/** One row per binding the catalog lists, in its order (B4.1). Sites of other bindings are ignored. */
-export function computeCoverage(catalog: { bindings: string[]; actions: Map<string, { bindings: string[] }> },
+/**
+ * One row per binding the catalog lists, in its order (B4.1). Sites of other
+ * bindings are ignored. An action from an imported catalog (`file` set: the
+ * core, DEC-S10) is registered by the runtime, outside the workspace's
+ * sources, so it is not part of any row.
+ */
+export function computeCoverage(catalog: { bindings: string[]; actions: Map<string, { bindings: string[]; file?: string }> },
   sites: { binding: string; action: string; recognizer: number }[], bindings: CoverageBinding[]): CoverageRow[] {
   return catalog.bindings.map(name => {
-    const declared = new Set([...catalog.actions].filter(([, a]) => a.bindings.includes(name)).map(([n]) => n));
+    const declared = new Set([...catalog.actions].filter(([, a]) => !a.file && a.bindings.includes(name)).map(([n]) => n));
     const mine = sites.filter(s => s.binding === name);
     const found = new Set(mine.map(s => s.action));
     const perRecognizer = new Map<string, number>();

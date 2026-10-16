@@ -1,27 +1,40 @@
-// A small stand-in for the PowerShell runner (scripts/e2e/Invoke-LabTestSuite.ps1
-// calls it), so the demo's suites run from Test Explorer with no lab and no
-// binding built. It touches nothing: a step passes when its action is
-// registered in scripts/e2e/actions/*.ps1, and fails, with the rest of its case
-// skipped, when it is not. It writes what the extension reads from a real run:
-// the trace (a JSON array of entries) and an NUnit 3 report.
-// Usage (the runner's parameters, as the wrapper passes them):
-//   node tools/fake-run.mjs --path <suite> [--trace-file f] [--results f]
-//     [--tags a,b] [--test-name n] [--dry-run]
-// A dry run prints the names of the cases it would run, one per line, which is
-// what the extension shows in a lab run's confirmation.
+// A small stand-in for the PowerShell suiterun's actions, list and run verbs
+// (scripts/e2e/suiterun.ps1 calls it), so the demo's suites run from Test
+// Explorer with no lab and no binding built. It touches nothing: a step passes
+// when its action is registered in scripts/e2e/actions/*.ps1, and fails, with
+// the rest of its case skipped, when it is not. It writes what the extension
+// reads from a real run: the trace (a JSON array of entries) and an NUnit 3
+// report.
+// Usage (the program command line, as suiterun.ps1 passes it):
+//   node tools/fake-run.mjs actions --json
+//   node tools/fake-run.mjs list --path <suite> [--tags a,b] [--test-name n]
+//   node tools/fake-run.mjs run --path <suite> [--trace-file f] [--results f]
+//     [--format nunit3] [--tags a,b] [--test-name n] [--dry-run] [lab flags, ignored]
+// list, and a dry run, print the names of the cases a run would start, one per
+// line, which is what the extension shows in a lab run's confirmation.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const args = process.argv.slice(2);
+const [verb, ...args] = process.argv.slice(2);
 const opt = name => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+
+const actionsDir = path.join(root, 'scripts', 'e2e', 'actions');
+const registered = new Set(fs.readdirSync(actionsDir).filter(f => f.endsWith('.ps1'))
+  .flatMap(f => [...fs.readFileSync(path.join(actionsDir, f), 'utf8').matchAll(/Register-(?:Suite|Lab)Action\s+-Name\s+'([^']+)'/g)].map(m => m[1])));
+if (verb === 'actions') {
+  process.stdout.write(JSON.stringify([...registered].sort()));
+  process.exit(0);
+}
+
 const rel = opt('--path');
-if (!rel) {
-  process.stderr.write('usage: fake-run.mjs --path <suite> [--trace-file f] [--results f] [--tags a,b] [--test-name n] [--dry-run]\n');
+if (!['list', 'run'].includes(verb) || !rel) {
+  process.stderr.write('usage: fake-run.mjs actions --json | list --path <suite> [--tags a,b] [--test-name n]'
+    + ' | run --path <suite> [--trace-file f] [--results f] [--tags a,b] [--test-name n] [--dry-run]\n');
   process.exit(2);
 }
-const dryRun = args.includes('--dry-run');
+const dryRun = verb === 'list' || args.includes('--dry-run');
 const wanted = opt('--tags')?.split(',').map(t => t.trim()).filter(Boolean) ?? [];
 const testName = opt('--test-name');
 
@@ -77,10 +90,6 @@ const expand = (list, depth = 0) => list.flatMap(s => (s.meta && depth < 8
 const cases = items(lines, 'tests')
   .filter(c => !testName || c.name === testName)
   .filter(c => !wanted.length || [...suiteTags, ...c.tags].some(t => wanted.includes(t)));
-
-const actionsDir = path.join(root, 'scripts', 'e2e', 'actions');
-const registered = new Set(fs.readdirSync(actionsDir).filter(f => f.endsWith('.ps1'))
-  .flatMap(f => [...fs.readFileSync(path.join(actionsDir, f), 'utf8').matchAll(/Register-LabAction\s+-Name\s+'([^']+)'/g)].map(m => m[1])));
 
 const trace = [];
 const results = [];

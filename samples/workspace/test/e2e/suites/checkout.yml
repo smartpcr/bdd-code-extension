@@ -1,0 +1,56 @@
+suite: checkout
+owner: storefront
+description: A customer checks the stock, fills a cart and is greeted by tier.
+tags: [checkout]
+imports:
+  - _lib/shop.yml
+tests:
+  - name: a-gold-customer-fills-a-cart
+    steps:
+      - meta: check-stock
+        with:
+          sku: PEAR
+      - when: two pears go in the cart
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 2
+        captureAs: line
+      - and: the customer is looked up
+        action: customer.lookup
+        id: G-100
+        captureAs: customer
+      - then: the cart line and the tier are right
+        action: core.noop
+        asserts:
+          - var: stock.quantity
+            equals: 40
+          - var: line.line
+            equals: PEARx2
+          - var: customer.tier
+            equals: gold
+  - name: the-default-product-is-in-stock
+    tags: [quick]
+    steps:
+      - meta: check-stock
+        with:
+          sku: ${param.defaultSku}
+      - then: ten units per letter of its code
+        action: core.noop
+        asserts:
+          - var: stock.quantity
+            equals: 50
+  - name: a-standard-customer
+    steps:
+      - when: the customer is looked up
+        action: customer.lookup
+        id: S-7
+        captureAs: customer
+      - then: the tier is standard and the greeting comes from the library
+        action: core.set
+        value: ${var.greeting} ${capture.customer.name}
+        captureAs: greeting
+        asserts:
+          - var: greeting
+            equals: welcome Customer S-7
+          - var: customer.tier
+            equals: standard

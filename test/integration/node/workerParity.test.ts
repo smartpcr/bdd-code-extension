@@ -1,11 +1,13 @@
-// B8.1-1: for every E-B1 validate entry, the lint worker (the bundled
-// dist/lintWorker.js loading the real library from the checkout) gives exactly
-// the diagnostics the `typescript` program prints. Runs only when the checkout
-// carries the TypeScript binding (B7).
+// B8.1-1: for every sample suite and target in the lint oracle, the lint
+// worker (the bundled dist/lintWorker.js loading the sample's TypeScript
+// library, test/e2e/bindings/typescript/dist/index.js, which re-exports the
+// runtime with the sample's extension applied) gives exactly the diagnostics
+// the `typescript` program prints.
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { describe, it } from 'node:test';
+import { pathToFileURL } from 'url';
+import { before, describe, it } from 'node:test';
 import { DEFAULT_SETTINGS } from '../../../src/config/defaults';
 import { WorkspaceLayout } from '../../../src/config/layout';
 import { fileKey } from '../../../src/core/paths';
@@ -13,20 +15,30 @@ import { parseLintOutput } from '../../../src/core/diagnostics';
 import { LintWorkerHost } from '../../../src/lint/workerHost';
 import { lintCommand } from '../../../src/tools/profiles';
 import { runTool } from '../../../src/tools/runTool';
-import { validateEntries } from '../harness/corpus';
-import { osContextRoot } from '../harness/worktree';
+import { prepareSample, ValidateEntry } from '../harness/corpus';
+import { repo, sampleRoot, testStorage } from '../harness/sample';
 
-const repo = path.resolve(__dirname, '../../../..');
-const root = osContextRoot();
-const layout = WorkspaceLayout.create(root, DEFAULT_SETTINGS, path.join(repo, '.vscode-test'), p => fs.existsSync(p))!;
+const root = sampleRoot();
+const layout = WorkspaceLayout.create(root, DEFAULT_SETTINGS, testStorage(), p => fs.existsSync(p))!;
 const binding = layout.bindings.find(b => b.name === 'typescript')!;
 const library = path.resolve(layout.root, binding.library!);
-const present = fs.existsSync(library);
 
-describe('B8.1-1 the lint worker gives the typescript program\'s diagnostics', { skip: present ? false : `no library at ${library}` }, () => {
-  it('every E-B1 validate entry, worker against program', async () => {
+describe('B8.1-1 the lint worker gives the typescript program\'s diagnostics', () => {
+  let entries: ValidateEntry[] = [];
+  before(async () => {
+    entries = await prepareSample(root);
+  });
+
+  it('the sample\'s library re-exports the runtime: apiVersion 1.x and a createLinter', async () => {
+    // An ES module; a dynamic import that the CommonJS output leaves as import().
+    const load = new Function('u', 'return import(u)') as (u: string) => Promise<{ apiVersion?: unknown; createLinter?: unknown }>;
+    const lib = await load(pathToFileURL(library).href);
+    assert.match(String(lib.apiVersion), /^1\.\d+\.\d+$/);
+    assert.strictEqual(typeof lib.createLinter, 'function');
+  });
+
+  it('every oracle entry, worker against program', async () => {
     const host = new LintWorkerHost({ workerPath: path.join(repo, 'dist', 'lintWorker.js'), gate: () => true });
-    const { entries } = validateEntries(root);
     const mismatches: string[] = [];
     try {
       for (const e of entries) {

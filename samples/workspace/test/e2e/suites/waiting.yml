@@ -1,0 +1,35 @@
+suite: waiting
+description: The wait action, as a plain pause and as a poll of another step.
+tests:
+  - name: a-plain-pause
+    steps:
+      - when: the shop pauses for a second
+        action: wait
+        seconds: 1
+        captureAs: paused
+      - then: the pause took a second
+        action: core.noop
+        asserts:
+          - var: paused.waitedSec
+            equals: 1
+  - name: polls-the-stock-until-it-is-there
+    steps:
+      - when: the stock is polled until fifty apples are on hand
+        action: wait
+        intervalSec: 1
+        timeoutSec: 10
+        forStep:
+          action: inventory.get
+          sku: APPLE
+          captureAs: polled
+        until:
+          var: polled.quantity
+          equals: 50
+        captureAs: waited
+      - then: the poll ended on its condition
+        action: core.noop
+        asserts:
+          - var: waited.waited
+            equals: true
+          - var: polled.quantity
+            equals: 50

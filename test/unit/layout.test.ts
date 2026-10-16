@@ -67,12 +67,14 @@ test('B1.1-4 every wrong type is ignored with a BDD010 message', () => {
 test('readSettings: a binding overrides its default field by field', () => {
   const { settings, messages } = readSettings(k => (k === 'bindings' ? {
     go: { tool: ['/bin/suiterun'], label: 'Golang', recognizers: [{ pattern: '(?<name>x)', flags: 'i' }],
-      build: { command: 'make', cwd: '.', shell: true }, kind: 'suiterun', library: 'lib.js' },
+      build: { command: 'make', cwd: '.', shell: true }, selectsOneCase: true, library: 'lib.js' },
   } : undefined));
   assert.deepStrictEqual(messages, []);
   assert.deepStrictEqual(settings.bindings.go.tool, ['/bin/suiterun']);
   assert.strictEqual(settings.bindings.go.label, 'Golang');
   assert.strictEqual(settings.bindings.go.library, 'lib.js');
+  assert.strictEqual(settings.bindings.go.selectsOneCase, true);
+  assert.strictEqual(DEFAULT_BINDINGS.powershell.selectsOneCase, true, 'only the PowerShell runtime runs one case by name by default');
   assert.deepStrictEqual(settings.bindings.go.sources, DEFAULT_BINDINGS.go.sources);
   assert.deepStrictEqual(settings.bindings.go.build, { command: 'make', cwd: '.', shell: true });
   assert.deepStrictEqual(settings.bindings.rust, DEFAULT_BINDINGS.rust);
@@ -81,13 +83,13 @@ test('readSettings: a binding overrides its default field by field', () => {
 test('readSettings: a new binding starts empty', () => {
   const { settings } = readSettings(k => (k === 'bindings' ? { python: { sources: ['py/**/*.py'] } } : undefined));
   assert.deepStrictEqual(settings.bindings.python, {
-    label: 'python', abbreviation: 'python', kind: 'suiterun', sources: ['py/**/*.py'], exclude: [], recognizers: [], tool: [],
+    label: 'python', abbreviation: 'python', sources: ['py/**/*.py'], exclude: [], recognizers: [], tool: [],
   });
 });
 
 test('B1.1-4 wrong binding fields are reported each', () => {
   const { settings, messages } = readSettings(k => (k === 'bindings' ? {
-    go: { label: 1, kind: 'other', sources: 'x', recognizers: [{ flags: 'i' }], build: { command: 1 } },
+    go: { label: 1, selectsOneCase: 'yes', sources: 'x', recognizers: [{ flags: 'i' }], build: { command: 1 } },
     rust: 'nope',
     python: 5,
   } : undefined));
@@ -95,7 +97,7 @@ test('B1.1-4 wrong binding fields are reported each', () => {
   assert.deepStrictEqual(settings.bindings.rust, DEFAULT_BINDINGS.rust);
   assert.strictEqual(settings.bindings.python, undefined);
   assert.deepStrictEqual(messages.map(m => m.split(':')[0]), [
-    'BDD010 bddSuite.bindings.go.label', 'BDD010 bddSuite.bindings.go.kind', 'BDD010 bddSuite.bindings.go.sources',
+    'BDD010 bddSuite.bindings.go.label', 'BDD010 bddSuite.bindings.go.selectsOneCase', 'BDD010 bddSuite.bindings.go.sources',
     'BDD010 bddSuite.bindings.go.recognizers', 'BDD010 bddSuite.bindings.go.build',
     'BDD010 bddSuite.bindings.rust', 'BDD010 bddSuite.bindings.python',
   ]);

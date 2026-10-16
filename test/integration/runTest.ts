@@ -1,6 +1,29 @@
-// Runs the integration scenarios in a real VS Code (plan B1.1 item 7, DEC-B14).
-// Sessions: `oscontext` opens OS_CONTEXT_ROOT read-only; `empty` opens an empty
-// folder; `worktree` opens a disposable worktree for scenarios that edit files.
+// Runs the integration scenarios in a real VS Code (plan B1.1 item 7, DEC-B14),
+// against this repository's samples/workspace (DEC-S08, DEC-S11, E4); no other
+// checkout is needed.
+//
+// Sessions (a test file's first line names its session):
+//   sample     opens <repo>/samples/workspace, read only: tests never save there.
+//   empty      opens a new empty folder (inert behaviour).
+//   worktree   opens <worktree>/samples/workspace of a disposable git worktree of
+//              this repository at HEAD, for scenarios that edit or save files.
+//              BDD_WORKTREE_INCLUDE_CHANGES=1 copies the checkout's uncommitted
+//              and untracked (not ignored) files over it first; it is required
+//              while samples/workspace is not committed.
+//   untrusted  opens the sample with workspace trust enabled and not granted,
+//              in its own user data.
+// BDD_SESSIONS=a,b narrows the sessions; BDD_FILES=x,y the test files.
+//
+// Before VS Code starts, the sample's bindings are built once (harness/sample.ts):
+// Rust, C# and TypeScript in place, where the extension's defaults look; Go
+// into the test profile's global storage (.vscode-test/user-data/User/
+// globalStorage/asz.bdd-suite/go/suiterun.exe), which is `${storage}` in Go's
+// default `tool`, so no session needs a settings override for it. The worktree
+// has no build output: a test there that needs a real program points the
+// binding's `tool` setting at the main sample's (helpers.mainProgram), and only
+// a test that edits a binding's source rebuilds in the worktree.
+// Then the lint oracle (harness/corpus.ts) is computed: what the five programs
+// themselves report for every sample suite and target.
 //
 // With `--vsix <path>` (B9.2) the package is installed into a fresh extensions
 // folder and the development path is an empty stub, so what runs is the
@@ -12,9 +35,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath, runTests } from '@vscode/test-electron';
-import { createWorktree, osContextRoot, removeWorktree } from './harness/worktree';
+import { oracleFile, prepareSample } from './harness/corpus';
+import { repo, sampleRoot } from './harness/sample';
+import { createWorktree, removeWorktree } from './harness/worktree';
 
-const repo = path.resolve(__dirname, '../../..');
 
 /** Which scenario each test file is evidence for (plan section 4's index). */
 const SCENARIOS: Record<string, string> = {
@@ -22,7 +46,7 @@ const SCENARIOS: Record<string, string> = {
   'navigation.test.ts': 'E-B3', 'references.test.ts': 'E-B4', 'completion.test.ts': 'E-B5', 'scaffold.test.ts': 'E-B6',
   'coverage.test.ts': 'E-B7', 'coverageDrift.test.ts': 'E-B7', 'watch.test.ts': 'E-B8', 'testing.test.ts': 'E-B9',
   'testingCancel.test.ts': 'E-B9', 'lintFailures.test.ts': 'E-B11', 'worker.test.ts': 'E-B11', 'liveLint.test.ts': 'E-B14',
-  'latency.test.ts': 'E-B14', 'trust.test.ts': 'E-B15', 'lab.test.ts': 'E-B10',
+  'latency.test.ts': 'E-B14', 'trust.test.ts': 'E-B15',
 };
 
 function argValue(name: string): string | undefined {
@@ -36,7 +60,8 @@ async function main(): Promise<void> {
   // Launched from inside VS Code, this process inherits ELECTRON_RUN_AS_NODE=1,
   // which would start the test instance as plain Node.
   delete process.env.ELECTRON_RUN_AS_NODE;
-  const root = osContextRoot();
+  const root = sampleRoot();
+  await prepareSample(root);
   // Insiders, so a stable VS Code the developer has open does not block the run.
   const version = process.env.BDD_VSCODE_VERSION ?? 'insiders';
   // test-electron 2.5 cannot read the versioned layout of current Insiders
@@ -82,18 +107,14 @@ async function main(): Promise<void> {
   const results: { session: string; outcomes: { file: string; title: string; state: string; error?: string }[] }[] = [];
   const started = new Date();
 
-  // --lab (B9.3) runs only the lab session; the offline sessions never run lab.test.ts.
-  const labRun = process.argv.includes('--lab');
-  const only = labRun ? ['lab'] : process.env.BDD_SESSIONS?.split(',');
+  const only = process.env.BDD_SESSIONS?.split(',');
   const sessions: { name: string; folder: () => string; cleanup?: (f: string) => void }[] = [
-    { name: 'oscontext', folder: () => root },
+    { name: 'sample', folder: () => root },
     { name: 'empty', folder: () => fs.mkdtempSync(path.join(os.tmpdir(), 'bdd-suite-empty-')),
       cleanup: f => fs.rmSync(f, { recursive: true, force: true }) },
     { name: 'worktree', folder: createWorktree, cleanup: removeWorktree },
     // Its own user data, so the trust it grants never reaches another session.
     { name: 'untrusted', folder: () => root },
-    // The real checkout, read only; the lab is named at run time (BDD_LAB_*).
-    ...(labRun ? [{ name: 'lab', folder: () => root }] : []),
   ];
   const untrustedData = path.join(repo, '.vscode-test', 'user-data-untrusted');
   let failed = 0;
@@ -116,7 +137,7 @@ async function main(): Promise<void> {
     const resultsFile = path.join(os.tmpdir(), `bdd-results-${process.pid}-${s.name}.json`);
     fs.rmSync(resultsFile, { force: true });
     const env: Record<string, string> = {
-      BDD_SESSION: s.name, OS_CONTEXT_ROOT: root, BDD_FOLDER: folder, BDD_FILES: process.env.BDD_FILES ?? '', BDD_RESULTS_FILE: resultsFile,
+      BDD_SESSION: s.name, BDD_SAMPLE_ROOT: root, BDD_ORACLE_FILE: oracleFile(), BDD_FOLDER: folder, BDD_FILES: process.env.BDD_FILES ?? '', BDD_RESULTS_FILE: resultsFile,
       ...(vsix ? { BDD_VSIX_EXTENSIONS_DIR: extensionsDir!, BDD_VSIX_VERSION: packageInfo!.version, BDD_VSIX_SHA256: packageInfo!.sha256 } : {}),
     };
     try {
@@ -147,8 +168,7 @@ async function main(): Promise<void> {
       else results.push({ session: s.name, outcomes: [{ file: '', title: `session ${s.name} wrote no results`, state: 'failed' }] });
     }
   }
-  // The lab run records itself (artifacts/lab-acceptance-<date>.json); this record is the offline batch's.
-  if (packageInfo && !labRun) writeAcceptance(packageInfo, root, exe, started, results);
+  if (packageInfo) writeAcceptance(packageInfo, root, exe, started, results);
   if (failed) throw new Error(`${failed} session(s) failed`);
 }
 
@@ -176,7 +196,12 @@ function writeAcceptance(pkg: { file: string; sha256: string; version: string },
     package: pkg,
     extensionCommit: git(repo, 'rev-parse', 'HEAD'),
     extensionTreeClean: git(repo, 'status', '--porcelain') === '',
-    osContext: { path: root, commit: git(root, 'rev-parse', 'HEAD'), uncommittedChanges: git(root, 'status', '--porcelain').split('\n').filter(Boolean).length },
+    // The fixture is this repository's own sample: its identity is this checkout's commit and dirty state.
+    repository: {
+      path: repo, commit: git(repo, 'rev-parse', 'HEAD'), sample: path.relative(repo, root).replace(/\\/g, '/'),
+      uncommittedChanges: git(repo, 'status', '--porcelain').split('\n').filter(Boolean).length,
+      uncommittedInSample: git(repo, 'status', '--porcelain', '--', path.relative(repo, root)).split('\n').filter(Boolean).length,
+    },
     vscode: { executable: exe, version },
     node: process.version,
     started: started.toISOString(),

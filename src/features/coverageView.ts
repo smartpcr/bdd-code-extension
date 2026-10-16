@@ -34,9 +34,11 @@ export class CoverageView implements vscode.TreeDataProvider<CoverageNode>, vsco
     if (!ix || !catalog) return [];
     const rows = computeCoverage(catalog, ix.index.allSites(),
       ix.layout.bindings.map(b => ({ name: b.name, label: b.label, sources: b.sources })));
+    // A program also lists the imported (core) actions its runtime registers; rows leave those out (computeCoverage).
+    const imported = new Set([...catalog.actions.values()].filter(a => a.file).map(a => a.name));
     for (const r of rows) {
       const p = this.programs.get(r.binding);
-      if (p) r.program = p.ok ? compareProgramSet(r, p.names) : p;
+      if (p) r.program = p.ok ? compareProgramSet(r, p.names.filter(n => !imported.has(n))) : p;
     }
     return rows;
   }

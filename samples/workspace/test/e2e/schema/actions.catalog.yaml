@@ -1,0 +1,173 @@
+# The sample workspace's catalog: the core, imported (DEC-S10), and the
+# actions of a small shop. Each action lists the bindings that implement it, in
+# the order powershell, csharp, go, rust, typescript; every binding's
+# `suiterun actions --json` is the core plus the actions listed for it here,
+# except report.export (see below).
+#
+# What the catalog exercises, on purpose:
+#   inventory.get    implemented by all five bindings (navigation, references)
+#   shop.state       PowerShell only; a capture shape with an array of objects
+#   price.quote      implemented by rust (and csharp, go), not by powershell or typescript
+#   order.place      implemented by every binding but rust
+#   shipping.quote   a parameter with a default, on its own line (policy)
+#   audit.log        registered by every binding, used by no suite
+#   report.export    declared for csharp, implemented by no binding
+#
+# Build-Schema.ps1 beside this file folds this catalog, the core and
+# shop.suite.json into suite.schema.json and suite.schema.md.
+catalogVersion: 1
+imports:
+  - ../../../../../spec/core.catalog.yaml
+suiteSchema:
+  - shop.suite.json
+bindings: [powershell, csharp, go, rust, typescript]
+
+actions:
+  - name: inventory.get
+    summary: Read the stock held for one product.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    notes: >-
+      Deterministic: the quantity is ten times the length of the sku, so every
+      binding returns the same answer with nothing deployed.
+    params:
+      - { name: sku, type: string, required: true, description: The product code. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        quantity: { type: integer }
+        inStock: { type: boolean }
+
+  - name: shop.state
+    summary: Read a shop's state and the items on its shelves.
+    bindings: [powershell]
+    interruptible: true
+    params:
+      - { name: shop, type: string, default: main, description: The shop to read. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        Name: { type: string }
+        Open: { type: boolean }
+        Items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              Sku: { type: string }
+              Quantity: { type: integer }
+
+  - name: cart.add
+    summary: Add a quantity of one product to the cart.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: sku, type: string, required: true, description: The product code. }
+      - { name: quantity, type: integer, default: 1, description: How many to add. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        quantity: { type: integer }
+        line: { type: string, description: '<sku>x<quantity>' }
+
+  - name: order.place
+    summary: Place an order for a quantity of one product.
+    bindings: [powershell, csharp, go, typescript]
+    interruptible: true
+    params:
+      - { name: sku, type: string, required: true, description: The product code. }
+      - { name: quantity, type: integer, default: 1, description: How many to order. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        orderId: { type: string, description: 'ORD-<sku>-<quantity>' }
+        status: { type: string }
+
+  - name: price.quote
+    summary: Quote the price of a quantity of one product.
+    bindings: [csharp, go, rust]
+    interruptible: true
+    params:
+      - { name: sku, type: string, required: true, description: The product code. }
+      - { name: quantity, type: integer, default: 1, description: How many to price. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        total: { type: integer, description: Three per unit. }
+
+  - name: stock.reserve
+    summary: Reserve a quantity of one product.
+    bindings: [go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: sku, type: string, required: true, description: The product code. }
+      - { name: quantity, type: integer, default: 1, description: How many to reserve. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        reserved: { type: integer }
+
+  - name: shipping.quote
+    summary: Quote shipping for a parcel under a delivery policy.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: weightKg, type: integer, required: true, description: The parcel's weight in whole kilograms. }
+      - { name: policy, type: string, default: Standard, description: 'Standard (5 per kg) or Express (10 per kg).' }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        policy: { type: string }
+        cost: { type: integer }
+
+  - name: customer.lookup
+    summary: Read one customer's name and tier.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: id, type: string, required: true, description: 'The customer id; an id starting with G is a gold customer.' }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        name: { type: string }
+        tier: { type: string }
+
+  - name: audit.log
+    summary: Record one audit message.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    notes: Registered by every binding and used by no suite, so its registration shows "no suite steps".
+    params:
+      - { name: message, type: string, required: true }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        logged: { type: boolean }
+
+  - name: report.export
+    summary: Export the day's sales report.
+    bindings: [csharp]
+    interruptible: true
+    notes: Declared and implemented by no binding yet, so the editor shows it as declared, not registered.
+    params:
+      - { name: format, type: string, default: csv }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        path: { type: string }

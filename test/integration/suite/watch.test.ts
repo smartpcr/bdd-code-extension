@@ -1,10 +1,12 @@
 // session: worktree
-// B1.7 and the hover half of E-B8, in a disposable worktree of os-context.
+// B1.7 and the hover half of E-B8, in the worktree's sample: a parameter added
+// to shipping.quote, a Go registration added for an undeclared action. The
+// sample is put back as this file found it.
 import * as assert from 'assert';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { api, asLocations, at, find, folder, hoverText, open, within } from './helpers';
+import { api, asLocations, at, find, folder, hoverText, open, restoreSample, revert, sampleSnapshot, within } from './helpers';
 
 async function definitions(uri: vscode.Uri, pos: vscode.Position): Promise<vscode.Location[]> {
   return asLocations(await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
@@ -12,14 +14,20 @@ async function definitions(uri: vscode.Uri, pos: vscode.Position): Promise<vscod
 }
 
 describe('B1.7 the index stays current', () => {
+  let snapshot: Map<string, Buffer>;
+  before(() => {
+    snapshot = sampleSnapshot();
+  });
+
   it('B1.7-1 / E-B8 hover half: a catalog save is visible in hover within 1 s, without a reload', async () => {
     const a = await api();
-    const suite = await open(at('test', 'e2e', 'suites', 'drain.yml'));
-    const pos = find(suite, 'action: cluster.resume', 10);
+    const suite = await open(at('test', 'e2e', 'suites', 'shipping.yml'));
+    const pos = find(suite, 'action: shipping.quote', 10);
+    assert.match(await hoverText(suite.uri, pos), /`policy`/);
     assert.doesNotMatch(await hoverText(suite.uri, pos), /`reason`/);
 
     const catalog = await open(at('test', 'e2e', 'schema', 'actions.catalog.yaml'));
-    const anchor = find(catalog, "      - { name: failback, type: string, default: NoFailback");
+    const anchor = find(catalog, '      - { name: policy, type: string, default: Standard');
     const edit = new vscode.WorkspaceEdit();
     edit.insert(catalog.uri, new vscode.Position(anchor.line, 0), '      - { name: reason, type: string, description: Why. }\n');
     await vscode.workspace.applyEdit(edit);
@@ -32,8 +40,8 @@ describe('B1.7 the index stays current', () => {
     const built = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-File', 'test/e2e/schema/Build-Schema.ps1'],
       { cwd: folder(), encoding: 'utf8' });
     assert.strictEqual(built.status, 0, `${built.stdout}\n${built.stderr}`);
-    const suite = await open(at('test', 'e2e', 'suites', 'drain.yml'));
-    const anchor = find(suite, 'failback: NoFailback');
+    const suite = await open(at('test', 'e2e', 'suites', 'shipping.yml'));
+    const anchor = find(suite, 'policy: Express');
     const edit = new vscode.WorkspaceEdit();
     edit.insert(suite.uri, new vscode.Position(anchor.line + 1, 0), '        rea\n');
     await vscode.workspace.applyEdit(edit);
@@ -46,7 +54,7 @@ describe('B1.7 the index stays current', () => {
     });
     assert.strictEqual(reason.length, 1, 'offered once');
     console.log(`    reason offered ${ms} ms after the request began (detail: ${reason[0].detail ?? 'none'})`);
-    await vscode.commands.executeCommand('workbench.action.files.revert');
+    await revert(suite.uri);
   });
 
   it('B1.7-2 a new registration line is a definition target within 1 s of save; a new suite file is indexed', async () => {
@@ -59,10 +67,10 @@ describe('B1.7 the index stays current', () => {
       .some(h => h.contents.some(c => (typeof c === 'string' ? c : c.value).includes('not in the action catalog'))));
     assert.strictEqual((await definitions(scratch, pos)).length, 0);
 
-    const go = await open(at('test', 'e2e', 'bindings', 'go', 'internal', 'actions', 'actions.go'));
-    const anchor = find(go, '"core.noop":');
+    const go = await open(at('test', 'e2e', 'bindings', 'go', 'actions', 'actions.go'));
+    const anchor = find(go, '{Name: "inventory.get", Handler: inventoryGet},');
     const edit = new vscode.WorkspaceEdit();
-    edit.insert(go.uri, new vscode.Position(anchor.line, 0), '\t\t"demo.echo":   noop,\n');
+    edit.insert(go.uri, new vscode.Position(anchor.line, 0), '\t{Name: "demo.echo", Handler: inventoryGet},\n');
     await vscode.workspace.applyEdit(edit);
     await go.save();
     const ms = await within(1000, async () => (await definitions(scratch, pos)).some(l => l.uri.fsPath === go.uri.fsPath));
@@ -96,5 +104,11 @@ describe('B1.7 the index stays current', () => {
     await before.ready;
     assert.ok(before.indexers[0].index.catalog!.actions.size > 0);
     await vscode.workspace.getConfiguration('bddSuite').update('lintTool', undefined, vscode.ConfigurationTarget.Workspace);
+  });
+
+  after(async () => {
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    const touched = restoreSample(snapshot);
+    console.log(`    restored the sample: ${touched.length} file(s)`);
   });
 });

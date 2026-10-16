@@ -1,4 +1,7 @@
 {
+  // The fixture keeps the default layout (DEC-S11), so every binding's sources,
+  // and PowerShell's program scripts/e2e/suiterun.ps1 (here the fixture's
+  // stand-in, which runs suites with tools/fake-run.mjs), are the defaults.
   // Lint with the fixture's stand-in program, configured as the go binding's tool,
   // and regenerate the schema with the fixture's own generator.
   "bddSuite.lintTool": "go",

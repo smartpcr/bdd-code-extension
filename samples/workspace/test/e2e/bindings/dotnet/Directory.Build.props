@@ -1,0 +1,19 @@
+<Project>
+
+  <!--
+    Settings every project of the sample workspace's C# binding shares, scoped
+    to this folder. Output goes to artifacts/bin/<Project>/<Configuration>/<TargetFramework>/,
+    so the workspace's suiterun is artifacts/bin/Suite.Cli/Debug/net10.0/suiterun(.exe).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>

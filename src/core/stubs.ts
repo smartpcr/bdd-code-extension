@@ -66,7 +66,7 @@ export interface StubTarget {
   identifier: (action: string) => string;
   declares: (identifier: string) => RegExp;
   /** Insertions into the registry, or why an anchor was not found. */
-  plan(text: string, sections: Map<string, string>, action: string): Insertion[] | string;
+  plan(text: string, sections: Map<string, string>): Insertion[] | string;
 }
 
 /** A file's lines (without line breaks) and each line's start offset. */
@@ -86,6 +86,10 @@ class Lines {
   }
   indent(i: number): string {
     return /^\s*/.exec(this.lines[i])![0];
+  }
+  /** One level of the file's indentation, as its first indented line has it (gofmt's tab, two or four spaces); four spaces when none is. */
+  unit(): string {
+    return /^(\t|[ ]+)(?=[^\s]|\t)/m.exec(this.text)?.[1] ?? '    ';
   }
   /** Whole lines inserted before line `i`. */
   before(i: number, body: string[]): Insertion {
@@ -130,7 +134,7 @@ function entryBefore(f: Lines, open: number, close: string, entry: string): Inse
   const end = f.closing(open, close);
   if (end < 0) return `the closing \`${close}\` was not found`;
   if (/[{[(]\s*$/.test(f.lines[end - 1])) {
-    const indent = f.indent(end) + (f.indent(end).includes('\t') ? '\t' : '    ');
+    const indent = f.indent(end) + f.unit();
     return f.before(end, [indent + entry]);
   }
   return f.before(end, [f.indent(end - 1) + alignEntry(entry, f.lines[end - 1])]);
@@ -141,107 +145,75 @@ function both(...parts: (Insertion | string)[]): Insertion[] | string {
   return failed !== undefined ? failed as string : parts as Insertion[];
 }
 
-function goPlan(anchor: RegExp, what: string) {
-  return (text: string, s: Map<string, string>): Insertion[] | string => {
-    const f = new Lines(text);
-    const open = f.find(anchor);
-    if (open < 0) return `${what} was not found`;
-    return both(entryBefore(f, open, '}', s.get('registration')!), handlerBefore(f, undefined, s.get('handler')!));
-  };
+/** The registration before the list's closing line, and the handler before line `at` (the end of the file when undefined). */
+function entryAndHandler(f: Lines, open: number, close: string, s: Map<string, string>, at?: number, indent?: string): Insertion[] | string {
+  return both(entryBefore(f, open, close, s.get('registration')!), handlerBefore(f, at, s.get('handler')!, indent));
 }
 
-function rustCfgTest(f: Lines): number | undefined {
-  const i = f.find(/^#\[cfg\(test\)\]/);
-  return i < 0 ? undefined : i;
-}
-
-function rustCorePlan(text: string, s: Map<string, string>): Insertion[] | string {
+/** Go: `{Name: "x", Handler: x},` in `var Registrations = []actions.Registration{`; the handler at the end of the file. */
+function goPlan(text: string, s: Map<string, string>): Insertion[] | string {
   const f = new Lines(text);
-  const open = f.find(/^(pub )?fn registry\(/);
-  if (open < 0) return '`fn registry(` was not found';
-  const end = f.find(/^}/, open + 1);
-  let last = -1;
-  for (let i = open + 1; i < end; i++) if (/^\s*map\.insert\(/.test(f.lines[i])) last = i;
-  if (last < 0) return 'no `map.insert(` line was found in `registry()`';
-  return [f.before(last + 1, [f.indent(last) + s.get('registration')!]), handlerBefore(f, rustCfgTest(f), s.get('handler')!)];
+  const open = f.find(/^var Registrations = \[\]actions\.Registration\{\s*$/);
+  if (open < 0) return '`var Registrations = []actions.Registration{` was not found';
+  return entryAndHandler(f, open, '}', s);
 }
 
-function rustLifecyclePlan(text: string, s: Map<string, string>, action: string): Insertion[] | string {
+/** Rust: `Action::new("x", x),` in the `vec![` of `fn actions() -> Vec<Action>`; the handler above `#[cfg(test)]`. */
+function rustPlan(text: string, s: Map<string, string>): Insertion[] | string {
   const f = new Lines(text);
-  const names = f.find(/^(pub )?fn names\(/);
-  const vec = names < 0 ? -1 : f.find(/vec!\[\s*$/, names);
-  const vecEnd = vec < 0 ? -1 : f.closing(vec, ']');
-  if (vecEnd < 0) return 'the `vec![` list in `names()` was not found';
-  let at = vecEnd;
-  for (let i = vec + 1; i < vecEnd; i++) {
-    const m = /^\s*"([^"]+)"/.exec(f.lines[i]);
-    if (m && m[1] > action) {
-      at = i;
-      break;
-    }
-  }
-  const nameIndent = vec + 1 < vecEnd ? f.indent(vec + 1) : f.indent(vec) + '    ';
-  const dispatch = f.find(/^(pub )?fn dispatch\(/);
-  const match = dispatch < 0 ? -1 : f.find(/^\s*match name \{\s*$/, dispatch);
-  const matchEnd = match < 0 ? -1 : f.closing(match, '}');
-  if (matchEnd < 0) return 'the `match name {` in `dispatch()` was not found';
-  const catchAll = f.find(/^\s*(_|[a-z_][a-z0-9_]*)\s*=>/, match + 1, matchEnd);
-  const armAt = catchAll < 0 ? matchEnd : catchAll;
-  const armIndent = catchAll < 0 ? f.indent(match) + '    ' : f.indent(catchAll);
-  return [
-    f.before(at, [nameIndent + s.get('name')!]),
-    f.before(armAt, [armIndent + s.get('registration')!]),
-    handlerBefore(f, rustCfgTest(f), s.get('handler')!),
-  ];
+  const open = f.find(/^(pub )?fn actions\(\)/);
+  const end = open < 0 ? -1 : f.find(/^}/, open + 1);
+  const list = end < 0 ? -1 : f.find(/vec!\[\s*$/, open, end);
+  if (list < 0) return 'the `vec![` list in `fn actions()` was not found';
+  const tests = f.find(/^#\[cfg\(test\)\]/);
+  return entryAndHandler(f, list, ']', s, tests < 0 ? undefined : tests);
 }
 
-function csharpPlan(registry: RegExp, cls: RegExp, what: string) {
-  return (text: string, s: Map<string, string>): Insertion[] | string => {
-    const f = new Lines(text);
-    const open = f.find(registry);
-    if (open < 0) return `${what} was not found`;
-    const clsLine = f.find(cls);
-    const clsEnd = clsLine < 0 ? -1 : f.find(/^}\s*$/, clsLine + 1);
-    if (clsEnd < 0) return 'the class\'s closing brace was not found';
-    return both(entryBefore(f, open, '};', s.get('registration')!), handlerBefore(f, clsEnd, s.get('handler')!, f.indent(open)));
-  };
+/** C#: `new ActionRegistration("x", X),` in `All { get; } = [ ... ];`; the method before the class's closing brace. */
+function csharpPlan(text: string, s: Map<string, string>): Insertion[] | string {
+  const f = new Lines(text);
+  const open = f.find(/\bAll \{ get; \} =/);
+  if (open < 0) return '`All { get; } =` was not found';
+  const classEnd = f.find(/^}\s*$/, open + 1);
+  if (classEnd < 0) return 'the class\'s closing brace was not found';
+  return entryAndHandler(f, open, '];', s, classEnd, f.indent(open));
+}
+
+/** TypeScript: `action('x', x),` in `export const registrations = [ ... ];`; the handler at the end of the file. */
+function typescriptPlan(text: string, s: Map<string, string>): Insertion[] | string {
+  const f = new Lines(text);
+  const open = f.find(/^export const registrations\b[^=]*=\s*\[\s*$/);
+  if (open < 0) return '`export const registrations = [` was not found';
+  return entryAndHandler(f, open, '];', s);
 }
 
 const RH = ['registration', 'handler'];
-const GO = 'test/e2e/bindings/go/internal/';
-const RUST = 'test/e2e/bindings/rust/src/';
-const CSHARP = 'test/e2e/bindings/dotnet/Hci.E2E.Suite/Actions/';
-const goDeclares = (id: string) => new RegExp(`^func ${id}\\(`, 'm');
-const rustDeclares = (id: string) => new RegExp(`^\\s*(pub )?fn ${id}\\(`, 'm');
-const csharpDeclares = (id: string) => new RegExp(`\\b${id}\\(ActionRequest `);
+
+// DEC-S11: where a workspace's actions are, per language, and the registration
+// idiom of that language's extension API. PowerShell has no registry file: its
+// stub is a file of its own (powershellStubFile), written by Declare action.
+const TARGETS = new Map<string, StubTarget>([
+  ['go', {
+    file: 'test/e2e/bindings/go/actions/actions.go', template: 'go.tmpl', sections: RH,
+    identifier: camelName, declares: id => new RegExp(`^func ${id}\\(`, 'm'), plan: goPlan,
+  }],
+  ['rust', {
+    file: 'test/e2e/bindings/rust/src/actions.rs', template: 'rust.tmpl', sections: RH,
+    identifier: snakeName, declares: id => new RegExp(`^\\s*(pub )?fn ${id}\\(`, 'm'), plan: rustPlan,
+  }],
+  ['csharp', {
+    file: 'test/e2e/bindings/dotnet/Suite.Cli/Actions.cs', template: 'csharp.tmpl', sections: RH,
+    identifier: pascalName, declares: id => new RegExp(`\\b${id}\\(ActionRequest `), plan: csharpPlan,
+  }],
+  ['typescript', {
+    file: 'test/e2e/bindings/typescript/src/actions.ts', template: 'typescript.tmpl', sections: RH,
+    identifier: camelName, declares: id => new RegExp(`^\\s*(export )?(async )?function ${id}\\(`, 'm'), plan: typescriptPlan,
+  }],
+]);
 
 /** The registry an action goes into for a binding (the anchor table); undefined when there is no template. */
-export function stubTarget(binding: string, action: string): StubTarget | undefined {
-  const life = action.startsWith('lifecycle.');
-  switch (binding) {
-    case 'go':
-      return {
-        file: `${GO}${life ? 'lifecycle' : 'actions'}/actions.go`, template: `go.${life ? 'lifecycle' : 'core'}.tmpl`, sections: RH,
-        identifier: camelName, declares: goDeclares,
-        plan: life
-          ? goPlan(/^var handlers = map\[string\]handler\{\s*$/, '`var handlers = map[string]handler{`')
-          : goPlan(/^\s*return map\[string\]Handler\{\s*$/, '`return map[string]Handler{`'),
-      };
-    case 'rust':
-      return life
-        ? { file: `${RUST}lifecycle/actions.rs`, template: 'rust.lifecycle.tmpl', sections: ['name', ...RH], identifier: snakeName, declares: rustDeclares, plan: rustLifecyclePlan }
-        : { file: `${RUST}actions.rs`, template: 'rust.core.tmpl', sections: RH, identifier: snakeName, declares: rustDeclares, plan: rustCorePlan };
-    case 'csharp':
-      return {
-        file: `${CSHARP}${life ? 'Lifecycle/LifecycleActions.cs' : 'CoreActions.cs'}`, template: `csharp.${life ? 'lifecycle' : 'core'}.tmpl`, sections: RH,
-        identifier: pascalName, declares: csharpDeclares,
-        plan: life
-          ? csharpPlan(/private static readonly Dictionary<string, Handler> Handlers\b/, /\bpartial class LifecycleContext\b/, '`Handlers`')
-          : csharpPlan(/\bRegistry \{ get; \} =\s*$/, /\bstatic class CoreActions\b/, '`Registry { get; } =`'),
-      };
-    default:
-      return undefined;
-  }
+export function stubTarget(binding: string): StubTarget | undefined {
+  return TARGETS.get(binding);
 }
 
 /** The PowerShell stub file for an action (B5.1), relative to the repository root. */
@@ -260,7 +232,7 @@ export interface ImplementInput {
 
 /** The registry edits of *Implement in binding* (B5.2-B5.4); the catalog edit is addBindingEdit(). */
 export function planStub(input: ImplementInput): EditPlan {
-  const target = stubTarget(input.binding, input.action);
+  const target = stubTarget(input.binding);
   if (!target) return { refused: `There is no stub template for the ${input.binding} binding.` };
   if (input.hasSite) return { refused: `${input.action} is already registered in the ${input.binding} binding.` };
   const id = target.identifier(input.action);
@@ -268,7 +240,7 @@ export function planStub(input: ImplementInput): EditPlan {
   const sections = templateSections(renderTemplate(input.template, input.action));
   const missing = target.sections.filter(k => !sections.has(k));
   if (missing.length) return { refused: `The template ${target.template} has no \`@@ ${missing.join('`, `@@ ')}\` section.` };
-  const planned = target.plan(input.text, sections, input.action);
+  const planned = target.plan(input.text, sections);
   if (typeof planned === 'string') return { refused: `In ${target.file}, ${planned}; the template needs updating for this layout.` };
   const edits: FileEdit[] = planned.map(i => ({ file: input.file, start: i.offset, end: i.offset, text: i.text }));
   return { edits };

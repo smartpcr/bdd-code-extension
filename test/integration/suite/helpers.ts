@@ -1,8 +1,10 @@
 import * as assert from 'assert';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { TestApi } from '../../../src/extension';
+import { BindingName, samplePrograms } from '../harness/sample';
 
 export async function api(): Promise<TestApi> {
   const ext = vscode.extensions.getExtension('asz.bdd-suite');
@@ -14,7 +16,73 @@ export async function api(): Promise<TestApi> {
 
 export const folder = (): string => process.env.BDD_FOLDER!;
 export const at = (...parts: string[]): vscode.Uri => vscode.Uri.file(path.join(folder(), ...parts));
-/** Whether the checkout carries the TypeScript binding (B7); its halves run only then. */
+/** The main checkout's samples/workspace; the worktree session's folder starts as a copy of it. */
+export const mainSample = (): string => process.env.BDD_SAMPLE_ROOT!;
+/**
+ * A binding's program as runTest built it in the main sample (Go's in the test
+ * profile's storage). The worktree has no build output, so a worktree test that
+ * needs a real program sets the binding's `tool` to this.
+ */
+export const mainProgram = (binding: BindingName): string[] => {
+  const argv = samplePrograms(mainSample())[binding];
+  // In the extension host process.execPath is VS Code itself, not node.
+  return binding === 'typescript' ? ['node', ...argv.slice(1)] : argv;
+};
+
+/** The repository root of the session's folder (the folder is <root>/samples/workspace). */
+export const repoOf = (): string => path.resolve(folder(), '..', '..');
+const SAMPLE_REL = 'samples/workspace';
+const gitIn = (...args: string[]): string => execFileSync('git', ['-C', repoOf(), ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+
+/**
+ * `git status --porcelain` of the session's sample only, run at the repository
+ * root so its paths (relative to that root) are what git means.
+ */
+export const sampleStatus = (): string => gitIn('status', '--porcelain', '--untracked-files=all', '--', SAMPLE_REL);
+
+/**
+ * Every file git sees under the session's sample (tracked or untracked, not
+ * ignored) with its content. While samples/ is uncommitted every file there is
+ * untracked, so `git status` alone cannot tell an edited file from an unedited
+ * one; the contents can.
+ */
+export function sampleSnapshot(): Map<string, Buffer> {
+  const files = gitIn('ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', SAMPLE_REL).split('\0').filter(Boolean);
+  const out = new Map<string, Buffer>();
+  // The folder's .vscode/settings.json is the editor's state, which tests set and unset; not the sample's content.
+  for (const rel of files.filter(f => !f.startsWith(`${SAMPLE_REL}/.vscode/`))) {
+    const file = path.join(repoOf(), rel);
+    if (fs.existsSync(file)) out.set(file, fs.readFileSync(file));
+  }
+  return out;
+}
+
+/** Put the sample back to `snapshot`: files added since are removed, changed or removed ones rewritten. Returns what it touched. */
+export function restoreSample(snapshot: Map<string, Buffer>): string[] {
+  const touched: string[] = [];
+  for (const file of sampleSnapshot().keys()) {
+    if (!snapshot.has(file)) {
+      fs.rmSync(file, { force: true });
+      touched.push(`removed ${file}`);
+    }
+  }
+  for (const [file, content] of snapshot) {
+    if (!fs.existsSync(file) || !fs.readFileSync(file).equals(content)) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, content);
+      touched.push(`restored ${file}`);
+    }
+  }
+  return touched;
+}
+
+/** The files whose content differs from `snapshot` (added, removed or changed). */
+export function sampleChanges(snapshot: Map<string, Buffer>): string[] {
+  const now = sampleSnapshot();
+  return [...new Set([...now.keys(), ...snapshot.keys()])]
+    .filter(f => !now.has(f) || !snapshot.has(f) || !now.get(f)!.equals(snapshot.get(f)!)).sort();
+}
+/** Whether the folder carries the TypeScript binding (B7); the sample always does. */
 export const hasTypeScript = (): boolean => fs.existsSync(path.join(folder(), 'test', 'e2e', 'bindings', 'typescript', 'src'));
 
 export async function open(uri: vscode.Uri): Promise<vscode.TextDocument> {

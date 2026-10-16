@@ -1,32 +1,28 @@
-//! The demo binding's actions.
-use std::collections::BTreeMap;
+//! The demo workspace's actions: its extension of the Rust runtime.
+use serde_json::{json, Value};
+use suiterun::actions::{ActionError, Outcome, Request};
+use suiterun::Action;
 
-pub struct Request;
-pub type Outcome = Result<String, ActionError>;
-pub type Handler = fn(&Request) -> Outcome;
-
-pub struct ActionError(String);
-impl ActionError {
-    pub fn action(message: String) -> Self {
-        ActionError(message)
-    }
+/// Every action the workspace adds to the runtime.
+pub fn actions() -> Vec<Action> {
+    vec![
+        Action::new("demo.greet", demo_greet),
+    ]
 }
 
-/// Every action this binding implements, by name.
-pub fn registry() -> BTreeMap<&'static str, Handler> {
-    let mut map: BTreeMap<&'static str, Handler> = BTreeMap::new();
-    map.insert("demo.greet", demo_greet);
-    map
-}
-
-fn demo_greet(_request: &Request) -> Outcome {
-    Ok("Hello".to_string())
+fn demo_greet(request: &Request) -> Outcome {
+    let name = request
+        .step
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ActionError::action("demo.greet needs a name."))?;
+    Ok(json!({ "greeting": format!("Hello, {name}") }))
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn greet_is_registered() {
-        assert!(super::registry().contains_key("demo.greet"));
+        assert!(super::actions().iter().any(|action| action.name == "demo.greet"));
     }
 }

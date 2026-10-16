@@ -1,83 +1,91 @@
-// B1.4: compileRecognizers, scanRegistrations; B1.4-1 against the real tree.
+// B1.4: compileRecognizers, scanRegistrations; B1.4-1 against the runtimes' example extensions.
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { test } from 'node:test';
 import { minimatch } from 'minimatch';
 import { DEFAULT_BINDINGS } from '../../src/config/defaults';
-import { parseCatalog } from '../../src/core/catalog';
 import { compileRecognizers, findHandlerDeclaration, handlerIdentifier, scanRegistrations } from '../../src/core/registrations';
 
 const scan = (binding: string, text: string) =>
   scanRegistrations(text, `/src.${binding}`, binding, compileRecognizers(DEFAULT_BINDINGS[binding].recognizers).ok);
 const names = (binding: string, text: string) => scan(binding, text).map(s => [s.action, s.handler ?? null]);
 
-test('powershell: single and double quotes; commented and near-miss lines are not sites', () => {
+test('powershell: Register-SuiteAction and its alias Register-LabAction, single and double quotes; commented and near-miss lines are not sites', () => {
   const text = [
-    "Register-LabAction -Name 'cluster.resume' -Handler {",
-    'Register-LabAction -Name "lifecycle.host" -Handler {',
-    "# Register-LabAction -Name 'commented.out' -Handler {",
-    "    Register-LabAction  -Name   'wait' -Handler {",
-    "Get-LabAction -Name 'not.a.registration'",
+    "Register-SuiteAction -Name 'cluster.resume' -Handler {",
+    'Register-SuiteAction -Name "orders.ship" -Handler {',
+    "Register-LabAction -Name 'legacy.alias' -Handler {",
+    "# Register-SuiteAction -Name 'commented.out' -Handler {",
+    "    Register-SuiteAction  -Name   'wait' -Handler {",
+    "Get-SuiteAction -Name 'not.a.registration'",
+    "Register-SuiteAction -Name \"$built\" -Handler {",
   ].join('\n');
-  assert.deepStrictEqual(names('powershell', text), [['cluster.resume', null], ['lifecycle.host', null], ['wait', null]]);
+  assert.deepStrictEqual(names('powershell', text),
+    [['cluster.resume', null], ['orders.ship', null], ['legacy.alias', null], ['wait', null]]);
 });
 
-test('go: map entries and the wait append; near misses', () => {
+test('go: entries of []actions.Registration, with the handler when it is a name; near misses', () => {
   const text = [
-    '\treturn map[string]Handler{',
-    '\t\t"core.noop":   noop,',
-    '\t"lifecycle.observations":     bySuffix("lifecycle", false),',
-    '\t// "commented.out": x,',
-    '\tnames = append(names, "wait")',
-    '\t"Content-Type": json,',
-    '\tx := "not.a.key"',
+    'var Registrations = []actions.Registration{',
+    '\t{Name: "demo.greet", Handler: demoGreet},',
+    '\t{Name: "demo.count", Handler: handlers.Count},',
+    '\t{Name: "demo.inline", Handler: func(r *actions.Request) (any, error) { return nil, nil }},',
+    '\t// {Name: "commented.out", Handler: x},',
+    '\tName: "not.in.braces"',
+    '\t{Name: "no.handler"}',
+    '}',
   ].join('\n');
   assert.deepStrictEqual(names('go', text),
-    [['core.noop', 'noop'], ['lifecycle.observations', 'bySuffix'], ['wait', null]]);
+    [['demo.greet', 'demoGreet'], ['demo.count', 'handlers.Count'], ['demo.inline', null]]);
 });
 
-test('rust: map.insert, dispatch arm and names.push', () => {
+test('rust: Action::new, with the handler when it is a path; a closure has none', () => {
   const text = [
-    '    map.insert("core.noop", core_noop);',
-    '        "lifecycle.get" => get(context, step),',
-    '    names.push("wait".to_string());',
-    '        "lifecycle.get",',
-    '    // map.insert("commented.out", x);',
-    '        "equals" => compare(a, b),',
+    '    vec![',
+    '        Action::new("demo.greet", demo_greet),',
+    '        Action::new("demo.count", handlers::count),',
+    '        Action::new("demo.inline", |_request| Ok(Value::Null)),',
+    '        // Action::new("commented.out", x),',
+    '        Other::new("not.this", x),',
+    '    ]',
   ].join('\n');
-  assert.deepStrictEqual(names('rust', text), [['core.noop', 'core_noop'], ['lifecycle.get', 'get'], ['wait', null]]);
+  assert.deepStrictEqual(names('rust', text),
+    [['demo.greet', 'demo_greet'], ['demo.count', 'handlers::count'], ['demo.inline', null]]);
 });
 
-test('csharp: dictionary entries and names.Add', () => {
+test('csharp: new ActionRegistration, with the handler when it is a name; a lambda has none', () => {
   const text = [
-    '            ["core.noop"] = Noop,',
-    '        ["lifecycle.get"] = (context, request) => context.Get(request),',
-    '        names.Add("wait");',
-    '        // ["commented.out"] = X,',
-    '        var x = dict["key"];',
-    '        schema["$schema"] = 1;',
+    '    public static IReadOnlyList<ActionRegistration> All { get; } =',
+    '    [',
+    '        new ActionRegistration("demo.greet", DemoGreet),',
+    '        new ActionRegistration("demo.count", Handlers.Count),',
+    '        new ActionRegistration("demo.inline", request => null),',
+    '        // new ActionRegistration("commented.out", X),',
+    '        new OtherRegistration("not.this", X),',
+    '    ];',
   ].join('\n');
-  assert.deepStrictEqual(names('csharp', text), [
-    ['core.noop', 'Noop'], ['lifecycle.get', '(context, request) => context.Get(request)'], ['wait', null]]);
+  assert.deepStrictEqual(names('csharp', text),
+    [['demo.greet', 'DemoGreet'], ['demo.count', 'Handlers.Count'], ['demo.inline', null]]);
 });
 
-test('typescript: action() registrations, one shape for all including wait', () => {
+test('typescript: action() registrations, with the handler when it is a name', () => {
   const text = [
-    'export const coreActions: readonly Registration[] = [',
+    'export const registrations: readonly Registration[] = [',
     "  action('core.noop', noop),",
     "  action('wait', wait),",
+    "  action('demo.inline', async request => request.step),",
     "  // action('commented.out', x),",
     "  transaction('not.this', x),",
     '];',
   ].join('\n');
-  assert.deepStrictEqual(names('typescript', text), [['core.noop', 'noop'], ['wait', 'wait']]);
+  assert.deepStrictEqual(names('typescript', text), [['core.noop', 'noop'], ['wait', 'wait'], ['demo.inline', null]]);
 });
 
 test('B1.4-2 the range of a site is the name inside its quotes', () => {
-  const text = 'x\n\t\t"core.noop":   noop,\n';
+  const text = 'x\n\t{Name: "core.noop", Handler: noop},\n';
   const [site] = scan('go', text);
-  assert.deepStrictEqual(site.range, { start: { line: 1, character: 3 }, end: { line: 1, character: 12 } });
+  assert.deepStrictEqual(site.range, { start: { line: 1, character: 9 }, end: { line: 1, character: 18 } });
   assert.strictEqual(site.binding, 'go');
   assert.strictEqual(site.file, '/src.go');
   assert.strictEqual(site.recognizer, 0);
@@ -100,39 +108,40 @@ test('a match without a name value is skipped', () => {
   assert.deepStrictEqual(scanRegistrations('ac abc', '/f', 'x', ok).map(s => s.action), ['b']);
 });
 
-const SKIP = new Set(['node_modules', 'target', '.git', 'artifacts', 'bin', 'obj']);
-function walk(dir: string): string[] {
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e =>
-    e.isDirectory() ? (SKIP.has(e.name) || e.name.startsWith('target-') ? [] : walk(path.join(dir, e.name))) : [path.join(dir, e.name)]);
-}
+// The runtimes' own example extensions register example.echo in each language's
+// extension API (DEC-S11), so each default recognizer must find it there once.
+const RUNTIMES = path.resolve(__dirname, '../../../runtimes');
+const EXAMPLES: Record<string, string> = {
+  powershell: 'powershell/example/actions/Echo.ps1',
+  go: 'go/example/extension.go',
+  rust: 'rust/example/src/extension.rs',
+  csharp: 'csharp/Bdd.Suite.Example/EchoExtension.cs',
+  typescript: 'typescript/example/src/extension.ts',
+};
 
-test('B1.4-1 each default recognizer finds exactly the catalog declarations on the real tree', (t) => {
-  const root = process.env.OS_CONTEXT_ROOT;
-  if (!root) {
-    t.skip('OS_CONTEXT_ROOT is not set');
-    return;
+test('B1.4-1 each default recognizer finds the runtimes\' example registration exactly once', (t) => {
+  assert.deepStrictEqual(Object.keys(EXAMPLES).sort(), Object.keys(DEFAULT_BINDINGS).sort());
+  for (const [binding, file] of Object.entries(EXAMPLES)) {
+    const sites = scan(binding, fs.readFileSync(path.join(RUNTIMES, file), 'utf8'));
+    assert.deepStrictEqual(sites.map(x => x.action), ['example.echo'], file);
+    t.diagnostic(`${binding}: ${file}: ${sites[0].handler ?? '(inline handler)'}`);
   }
-  const catalogFile = path.join(root, 'test/e2e/schema/actions.catalog.yaml');
-  const catalog = parseCatalog(fs.readFileSync(catalogFile, 'utf8'), catalogFile);
-  const problems: string[] = [];
-  const all = ['scripts', 'test'].flatMap(d => walk(path.join(root, d)));
-  for (const [binding, settings] of Object.entries(DEFAULT_BINDINGS)) {
-    const files = all.map((f: string) => path.relative(root, f).split(path.sep).join('/'))
-      .filter(r => settings.sources.some(g => minimatch(r, g)) && !settings.exclude.some(g => minimatch(r, g)));
-    const found = new Map<string, number>();
-    for (const r of files) {
-      for (const s of scan(binding, fs.readFileSync(path.join(root, r), 'utf8'))) found.set(s.action, (found.get(s.action) ?? 0) + 1);
-    }
-    const declared = [...catalog.actions.values()].filter(a => a.bindings.includes(binding)).map(a => a.name);
-    for (const name of declared) if (!found.has(name)) problems.push(`${binding}: declared, not found: ${name}`);
-    for (const [name, n] of found) {
-      if (!declared.includes(name)) problems.push(`${binding}: found, not declared: ${name}`);
-      else if (n !== 1) problems.push(`${binding}: ${n} sites for ${name}`);
-    }
-    t.diagnostic(`${binding}: ${files.length} files, ${declared.length} declared, ${found.size} found`);
+});
+
+test('default sources: each binding\'s layout, without generated or test files', () => {
+  const owns = (binding: string, file: string) => DEFAULT_BINDINGS[binding].sources.some(g => minimatch(file, g, { dot: true }))
+    && !DEFAULT_BINDINGS[binding].exclude.some(g => minimatch(file, g, { dot: true }));
+  assert.ok(owns('powershell', 'scripts/e2e/actions/DemoGreet.ps1'));
+  assert.ok(!owns('powershell', 'scripts/e2e/actions/DemoGreet.Tests.ps1'));
+  assert.ok(owns('go', 'test/e2e/bindings/go/actions/actions.go'));
+  assert.ok(!owns('go', 'test/e2e/bindings/go/actions/actions_test.go'));
+  assert.ok(owns('rust', 'test/e2e/bindings/rust/src/actions.rs'));
+  assert.ok(owns('csharp', 'test/e2e/bindings/dotnet/Suite.Cli/Actions.cs'));
+  for (const generated of ['artifacts/bin/Suite.Cli/x.cs', 'Suite.Cli/obj/Debug/x.cs', 'Suite.Cli/bin/x.cs']) {
+    assert.ok(!owns('csharp', `test/e2e/bindings/dotnet/${generated}`), generated);
   }
-  assert.deepStrictEqual(problems, []);
+  assert.ok(owns('typescript', 'test/e2e/bindings/typescript/src/actions.ts'));
+  assert.ok(!owns('typescript', 'test/e2e/bindings/typescript/src/actions.test.ts'));
 });
 
 test('sites on one line are ordered by column; a prefix is prepended', () => {
@@ -168,10 +177,12 @@ test('findHandlerDeclaration: a C# method, a Go func and method, a Rust fn, a Ty
 });
 
 test('scanRegistrations: each site carries where its handler is declared in the same file, when it is', () => {
-  const go = scan('go', 'func Registry() map[string]Handler {\n\treturn map[string]Handler{\n\t\t"demo.greet": demoGreet,\n\t\t"demo.gone": elsewhere,\n\t}\n}\n\nfunc demoGreet(r *Request) (any, error) {\n\treturn nil, nil\n}\n');
+  const go = scan('go', 'var Registrations = []actions.Registration{\n\t{Name: "demo.greet", Handler: demoGreet},\n\t{Name: "demo.gone", Handler: elsewhere},\n}\n\nfunc demoGreet(r *actions.Request) (any, error) {\n\treturn nil, nil\n}\n');
   assert.deepStrictEqual(go.map(s => [s.action, s.handlerRange?.start.line ?? null, s.handlerRange?.start.character ?? null]),
-    [['demo.greet', 7, 5], ['demo.gone', null, null]]);
-  const cs = scan('csharp', '        {\n            ["demo.greet"] = DemoGreet,\n        };\n\n    private static object? DemoGreet(ActionRequest request) => null;\n');
+    [['demo.greet', 5, 5], ['demo.gone', null, null]]);
+  const cs = scan('csharp', '    [\n        new ActionRegistration("demo.greet", DemoGreet),\n    ];\n\n    private static object? DemoGreet(ActionRequest request) => null;\n');
   assert.deepStrictEqual(cs[0].handlerRange, { start: { line: 4, character: 27 }, end: { line: 4, character: 36 } });
-  assert.strictEqual(scan('powershell', "Register-LabAction -Name 'demo.greet' -Handler {")[0].handlerRange, undefined, 'an inline script block has no declaration');
+  const rust = scan('rust', '        Action::new("demo.greet", demo_greet),\n\nfn demo_greet(_request: &Request) -> Outcome {\n');
+  assert.deepStrictEqual(rust[0].handlerRange, { start: { line: 2, character: 3 }, end: { line: 2, character: 13 } });
+  assert.strictEqual(scan('powershell', "Register-SuiteAction -Name 'demo.greet' -Handler {")[0].handlerRange, undefined, 'an inline script block has no declaration');
 });

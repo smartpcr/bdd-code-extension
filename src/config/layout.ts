@@ -41,7 +41,7 @@ function readBinding(name: string, value: unknown, messages: string[]): BindingS
     return DEFAULT_BINDINGS[name];
   }
   const base: BindingSettings = DEFAULT_BINDINGS[name] ?? {
-    label: name, abbreviation: name, kind: 'suiterun', sources: [], exclude: [], recognizers: [], tool: [],
+    label: name, abbreviation: name, sources: [], exclude: [], recognizers: [], tool: [],
   };
   const out: BindingSettings = { ...base };
   const strings: (keyof BindingSettings)[] = ['label', 'abbreviation', 'library'];
@@ -50,9 +50,9 @@ function readBinding(name: string, value: unknown, messages: string[]): BindingS
     if (typeof value[f] === 'string') (out as unknown as Record<string, unknown>)[f] = value[f];
     else bad(messages, `${key}.${f}`, 'string', value[f]);
   }
-  if (value.kind !== undefined) {
-    if (value.kind === 'suiterun' || value.kind === 'powershell') out.kind = value.kind;
-    else bad(messages, `${key}.kind`, '"suiterun" or "powershell"', value.kind);
+  if (value.selectsOneCase !== undefined) {
+    if (typeof value.selectsOneCase === 'boolean') out.selectsOneCase = value.selectsOneCase;
+    else bad(messages, `${key}.selectsOneCase`, 'boolean', value.selectsOneCase);
   }
   for (const f of ['sources', 'exclude', 'tool'] as const) {
     if (value[f] === undefined) continue;
@@ -89,7 +89,7 @@ export function readSettings(get: Getter): SettingsResult {
     if (typeof v === 'string') s[k] = v;
     else bad(messages, k, 'string', v);
   }
-  for (const k of ['suiteGlobs', 'schemaGenerator', 'offlineActions'] as const) {
+  for (const k of ['suiteGlobs', 'schemaGenerator', 'offlineActions', 'contextKeys'] as const) {
     const v = get(k);
     if (v === undefined) continue;
     if (isStringArray(v)) s[k] = v;

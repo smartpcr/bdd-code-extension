@@ -14,7 +14,7 @@ interface TestOutcome {
 }
 
 export function run(): Promise<void> {
-  const session = process.env.BDD_SESSION ?? 'oscontext';
+  const session = process.env.BDD_SESSION ?? 'sample';
   const mocha = new Mocha({ ui: 'bdd', timeout: 120_000, color: false, reporter: 'spec' });
   for (const f of fs.readdirSync(__dirname).filter(f => f.endsWith('.test.js')).sort()) {
     const first = fs.readFileSync(path.join(__dirname, f), 'utf8').split('\n').find(l => l.includes('session:')) ?? '';

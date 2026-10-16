@@ -1,0 +1,19 @@
+# The sample workspace's Rust binding: its shop actions (src/actions.rs), its
+# extension (src/extension.rs) and its suiterun (src/main.rs), built on the
+# Rust runtime of this repository by path.
+[package]
+name = "shop-suiterun"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Its own workspace, so the crate builds standalone wherever it is checked out.
+[workspace]
+
+[[bin]]
+name = "suiterun"
+path = "src/main.rs"
+
+[dependencies]
+suiterun = { path = "../../../../../../runtimes/rust" }
+serde_json = { version = "1", features = ["preserve_order"] }

@@ -57,7 +57,7 @@ $script:CoreRoots = @('capture', 'param', 'var', 'row', 'timeoutSec', 'defaults'
 # Names a step's context holds for the runner's own use. An extension's context
 # key may not take one: it would overwrite what the runner keeps there.
 $script:ReservedContextNames = @('caseName', 'suiteName', 'recordPath', 'state', 'deadline', 'caseStartedUtc',
-    'caseLimitSec', 'caseWorkStatus', '__roots', '__states')
+    'caseLimitSec', 'caseWorkStatus', '__roots', '__states', '__nested')
 
 # Invoke-BddSuite's own parameters. An extension option may not take one,
 # whatever its case, because a reader could not tell them apart.
@@ -520,5 +520,9 @@ function New-JUnitXml {
 # ---- The runner -----------------------------------------------------------
 
 . (Join-Path $PSScriptRoot 'Runner.ps1')
+
+# ---- The command line (suiterun) ------------------------------------------
+
+. (Join-Path $PSScriptRoot 'Cli.ps1')
 
 Export-ModuleMember -Function * -Alias Register-LabAction, Get-LabActionNames, Get-LabAction

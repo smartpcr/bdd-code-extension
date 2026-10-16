@@ -9,6 +9,9 @@
         # The runner and the extension API.
         'Invoke-BddSuite', 'Import-SuiteExtension', 'New-SuiteComposite', 'Start-SuiteExtension', 'Protect-SuiteText',
         'Get-SuiteCaseLimitSec', 'Initialize-SuiteActionRegistry', 'Import-SuiteActionSource', 'Get-SuiteRunLoad',
+        # The command line (suiterun).
+        'Invoke-BddSuiteCli', 'Get-BddSuiteCliUsage', 'ConvertFrom-BddSuiteCliArgument', 'Resolve-BddSuiteCliPath',
+        'Get-BddSuiteCliCase', 'ConvertTo-BddSuiteCliJson',
         # The action registry.
         'Register-SuiteAction', 'Set-SuiteActionOwner', 'Get-SuiteAction', 'Get-SuiteActionOwner', 'Get-SuiteActionNames',
         'Reset-SuiteActionRegistry',

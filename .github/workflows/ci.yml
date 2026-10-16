@@ -23,10 +23,9 @@
 # release is safe: a version already on the Marketplace is skipped, and an
 # existing GitHub release gets its files replaced.
 #
-# Builds on Windows: the demo's suites run through PowerShell, and Windows is
-# where the extension is developed and used. The demo is self-contained;
-# the integration suite (npm run test:integration) needs a full workspace
-# checkout (OS_CONTEXT_ROOT), so it is not run here.
+# The extension builds and its demo and integration suite run on Windows, where
+# it is developed and used; both are self-contained (the integration suite runs
+# against samples/workspace, whose bindings it builds from runtimes/).
 name: CI
 
 on:
@@ -203,6 +202,42 @@ jobs:
           $config.Output.Verbosity = 'Normal'
           Invoke-Pester -Configuration $config
 
+  integration:
+    name: Extension integration suite against samples/workspace
+    # E4: the extension in a real VS Code against the sample workspace, whose
+    # five bindings are built from this commit's runtimes. No os-context.
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtimes/go/go.mod
+          cache-dependency-path: runtimes/go/go.sum
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: The PowerShell modules the PowerShell binding needs
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
+
+      - run: npm ci
+
+      - name: Integration suite (builds the sample's bindings first)
+        run: npm run test:integration
+
   divergence:
     name: The corpus catches a divergent runtime (Go, TypeScript)
     runs-on: ubuntu-latest
@@ -253,7 +288,7 @@ jobs:
 
   release:
     name: Release v${{ needs.version.outputs.version }}
-    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, divergence, version]
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, divergence, integration, version]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: marketplace

@@ -1,12 +1,14 @@
-// session: oscontext
-// E-B2 except its completion-order assertion (B2.3).
+// session: sample
+// E-B2 except its completion-order assertion (B2.3), on the sample's smoke.yml
+// (shop.state is PowerShell only).
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { parseLintOutput } from '../../../src/core/diagnostics';
 import { lintCommand } from '../../../src/tools/profiles';
 import { runTool } from '../../../src/tools/runTool';
-import { api, folder, hasTypeScript, open, within } from './helpers';
+import { sig, validateEntries } from '../harness/corpus';
+import { api, folder, open, within } from './helpers';
 import { lint, setting, shown } from './lintHelpers';
 
 const G = vscode.ConfigurationTarget.Global;
@@ -35,6 +37,10 @@ describe('E-B2 a step the target binding cannot run is marked, and says who can'
     const terminal = parsed.value.filter(d => d.code === 'E201').map(d => `${d.code} ${d.severity} ${d.line}:${d.column}`);
     assert.ok(terminal.length > 0, 'smoke.yml uses actions rust does not implement');
     assert.deepStrictEqual(editor.map(d => d.sig), terminal);
+    // And both equal what the five programs report (the oracle).
+    const oracle = validateEntries().entries.find(e => e.rel === 'test/e2e/suites/smoke.yml' && e.target === 'rust')!;
+    assert.deepStrictEqual(terminal, oracle.diagnostics.filter(d => d.code === 'E201').map(sig));
+    assert.ok(oracle.diagnostics.filter(d => d.code === 'E201').every(d => /shop\.state/.test(d.message!)));
     console.log(`    smoke.yml under rust: ${terminal.length} E201`);
   });
 
@@ -56,8 +62,8 @@ describe('E-B2 a step the target binding cannot run is marked, and says who can'
       assert.strictEqual(h.label, want, s.action);
     }
     const labels = new Map(steps.map(s => [s.action, ours.find(x => x.position.line === s.actionRange!.end.line)!.label]));
-    assert.strictEqual(labels.get('cluster.state'), 'PS');
-    assert.strictEqual(labels.get('core.noop'), hasTypeScript() ? 'PS C# Go Rs TS' : 'PS C# Go Rs');
+    assert.strictEqual(labels.get('shop.state'), 'PS');
+    assert.strictEqual(labels.get('core.noop'), 'PS C# Go Rs TS');
     assert.match(String(ours.find(h => h.label === 'PS')!.tooltip), /Not implemented by Rust/);
   });
 

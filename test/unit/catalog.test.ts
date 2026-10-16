@@ -145,13 +145,11 @@ test('actionHoverMarkdown: deprecated, open shape, implemented without a site, n
   assert.match(bare, /Captures: nothing declared/);
 });
 
+// The sample workspace in this repository (D8): a real catalog that imports the core.
+const SAMPLE = path.resolve(__dirname, '../../../samples/workspace');
+
 test('B1.2-1 the real catalog: counts read from the file, no errors', (t) => {
-  const root = process.env.OS_CONTEXT_ROOT;
-  if (!root) {
-    t.skip('OS_CONTEXT_ROOT is not set; the real catalog was not checked');
-    return;
-  }
-  const file = path.join(root, 'test/e2e/schema/actions.catalog.yaml');
+  const file = path.join(SAMPLE, 'test/e2e/schema/actions.catalog.yaml');
   const text = fs.readFileSync(file, 'utf8');
   const c = parseCatalog(text, file);
   assert.deepStrictEqual(c.errors, []);
@@ -162,6 +160,15 @@ test('B1.2-1 the real catalog: counts read from the file, no errors', (t) => {
   const portableInText = (text.match(new RegExp(`^ {4}bindings: \\[${c.bindings.join(', ')}\\]`, 'gm')) ?? []).length;
   assert.strictEqual(portable, portableInText);
   t.diagnostic(`real catalog: ${c.actions.size} actions, ${portable} list every binding (${c.bindings.join(', ')})`);
+  // With its import resolved (DEC-S10), the core's actions join the sample's, each keeping its file.
+  const resolved = resolveCatalog(text, file, f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : undefined));
+  assert.deepStrictEqual(resolved.errors, []);
+  const core = path.resolve(SAMPLE, '../../spec/core.catalog.yaml');
+  assert.deepStrictEqual(resolved.imports, [fileKey(core)]);
+  const coreNames = fs.readFileSync(core, 'utf8').match(/^ {2}- name: /gm)!.length;
+  assert.strictEqual(resolved.actions.size, names + coreNames);
+  assert.strictEqual(resolved.actions.get('wait')!.file, fileKey(core));
+  assert.strictEqual(resolved.actions.get('inventory.get')!.file, undefined);
 });
 
 test('a parameter with only a name renders empty cells', () => {

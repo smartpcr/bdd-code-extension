@@ -1,41 +1,39 @@
 // B2.1 E2E (the parse-and-map half of E-B1) and B2.5's latency measurement:
-// every real binding program through runTool and parseLintOutput, no editor.
+// every binding program of the sample workspace, through the extension's
+// runTool, lintCommand and parseLintOutput, no editor. The expectation is the
+// lint oracle (harness/corpus.ts): what the five programs report when run
+// directly. Each runtime proves the conformance corpus in its own CI job; this
+// proves the extension's tool runner reproduces the binding CLI exactly.
 import * as assert from 'assert';
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as path from 'path';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import { DEFAULT_SETTINGS } from '../../../src/config/defaults';
 import { WorkspaceLayout } from '../../../src/config/layout';
 import { parseLintOutput } from '../../../src/core/diagnostics';
 import { lintCommand } from '../../../src/tools/profiles';
 import { runTool } from '../../../src/tools/runTool';
-import { sig, validateEntries } from '../harness/corpus';
-import { osContextRoot } from '../harness/worktree';
+import { prepareSample, sig, ValidateEntry } from '../harness/corpus';
+import { BINDINGS, sampleRoot, testStorage } from '../harness/sample';
 
-const repo = path.resolve(__dirname, '../../../..');
-const root = osContextRoot();
-const storage = path.join(repo, '.vscode-test', 'user-data', 'User', 'globalStorage', 'asz.bdd-suite');
-const layout = WorkspaceLayout.create(root, DEFAULT_SETTINGS, storage, p => fs.existsSync(p))!;
-const TOOLS = ['go', 'rust', 'csharp', 'powershell'];
+const root = sampleRoot();
+const layout = WorkspaceLayout.create(root, DEFAULT_SETTINGS, testStorage(), p => fs.existsSync(p))!;
 const pwshVersion = (): string => execFileSync('pwsh', ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'], { encoding: 'utf8' }).trim();
 
-/** The PowerShell 7.6.7 Test-Json defect: structural (schema) findings vanish. Recorded in docs/evidence/stage-b2.md. */
-export const KNOWN_BLOCKED: Record<string, () => string | undefined> = {
-  powershell: () => (pwshVersion() === '7.6.7'
-    ? 'PowerShell 7.6.7: Test-Json returns false against suite.schema.json with no error, so SuiteLint.psm1 loses every schema finding (os-context defect)'
-    : undefined),
-};
-
-describe('B2.1 E2E: each binding program, through runTool and parseLintOutput, against the corpus', () => {
-  const { entries, excluded } = validateEntries(root);
-  it('the corpus has the entries this scenario expects', () => {
-    assert.ok(entries.length >= 40, `${entries.length} entries`);
-    console.log(`    ${entries.length} validate entries; excluded: ${excluded.join(', ')}`);
+describe('B2.1 E2E: each binding program, through runTool and parseLintOutput, against the lint oracle', () => {
+  let entries: ValidateEntry[] = [];
+  before(async () => {
+    entries = await prepareSample(root);
   });
-  for (const tool of TOOLS) {
-    it(`${tool}: every entry gives exactly the expected diagnostics and exit code`, async (t) => {
+
+  it('the oracle has every sample suite against every target', () => {
+    assert.ok(entries.length >= 40, `${entries.length} entries`);
+    assert.ok(entries.some(e => e.exitCode !== 0) && entries.some(e => e.exitCode === 0));
+    console.log(`    ${entries.length} oracle entries`);
+  });
+  for (const tool of BINDINGS) {
+    it(`${tool}: every entry gives exactly the oracle's diagnostics and exit code`, async () => {
       const binding = layout.bindings.find(b => b.name === tool)!;
       const mismatches: string[] = [];
       for (const e of entries) {
@@ -51,27 +49,20 @@ describe('B2.1 E2E: each binding program, through runTool and parseLintOutput, a
         }
         const got = parsed.value.map(sig);
         const want = e.diagnostics.map(sig);
-        const wantExit = tool === 'powershell' ? 0 : e.exitCode;
-        if (JSON.stringify(got) !== JSON.stringify(want) || r.code !== wantExit) {
-          mismatches.push(`${e.suite}: got [${got.join(', ')}] exit ${r.code}; want [${want.join(', ')}] exit ${wantExit}`);
+        if (JSON.stringify(got) !== JSON.stringify(want) || r.code !== e.exitCode) {
+          mismatches.push(`${e.suite}: got [${got.join(', ')}] exit ${r.code}; want [${want.join(', ')}] exit ${e.exitCode}`);
         }
       }
-      if (mismatches.length && KNOWN_BLOCKED[tool]?.()) {
-        console.log(`    ${tool}: ${mismatches.length} of ${entries.length} entries differ:\n      ${mismatches.join('\n      ')}`);
-        t.skip(`BLOCKED, not passed: ${KNOWN_BLOCKED[tool]!()}`);
-        return;
-      }
-      assert.deepStrictEqual(mismatches, [], `${tool} differs from the corpus`);
+      assert.deepStrictEqual(mismatches, [], `${tool} through the extension differs from the oracle`);
     });
   }
 });
 
-describe('B2.5 lint latency per program on lifecycle-stage1.yml (1 warm-up, 20 timed)', () => {
-  const results: string[] = [];
-  for (const tool of TOOLS) {
+describe('B2.5 lint latency per program on large.yml (1 warm-up, 20 timed)', () => {
+  for (const tool of BINDINGS) {
     it(`${tool}`, async () => {
       const binding = layout.bindings.find(b => b.name === tool)!;
-      const cmd = lintCommand(binding, layout.root, 'test/e2e/suites/lifecycle-stage1.yml', 'powershell');
+      const cmd = lintCommand(binding, layout.root, 'test/e2e/suites/large.yml', 'powershell');
       const first = await runTool(cmd);
       assert.strictEqual(first.kind, 'exited');
       const times: number[] = [];
@@ -83,9 +74,7 @@ describe('B2.5 lint latency per program on lifecycle-stage1.yml (1 warm-up, 20 t
       }
       times.sort((a, b) => a - b);
       const p = (q: number) => times[Math.min(times.length - 1, Math.ceil(q * times.length) - 1)].toFixed(0);
-      const line = `| ${tool} | ${p(0.5)} | ${p(0.95)} | ${times[times.length - 1].toFixed(0)} |`;
-      results.push(line);
-      console.log(`    ${line}`);
+      console.log(`    | ${tool} | ${p(0.5)} | ${p(0.95)} | ${times[times.length - 1].toFixed(0)} |`);
     });
   }
   it('machine', () => {

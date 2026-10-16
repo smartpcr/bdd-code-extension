@@ -1,0 +1,31 @@
+suite: shipping
+description: Shipping is quoted under the default policy and an explicit one.
+tests:
+  - name: the-default-policy-is-standard
+    steps:
+      - when: a three-kilogram parcel is quoted with no policy
+        action: shipping.quote
+        weightKg: 3
+        captureAs: quote
+      - then: it is standard, five per kilogram
+        action: core.noop
+        asserts:
+          - var: quote.policy
+            equals: Standard
+          - var: quote.cost
+            equals: 15
+  - name: express-costs-double
+    examples:
+      - { weight: 1, cost: 10 }
+      - { weight: 4, cost: 40 }
+    steps:
+      - when: a parcel of ${row.weight} kilograms is quoted express
+        action: shipping.quote
+        weightKg: ${row.weight}
+        policy: Express
+        captureAs: quote
+      - then: it costs ten per kilogram
+        action: core.noop
+        asserts:
+          - var: quote.cost
+            equals: ${row.cost}

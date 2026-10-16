@@ -37,10 +37,10 @@ function build(): WorkspaceIndex {
   ix.updateSuite(parseSuite(ORPHAN, f('orphan.yml')));
   const scan = (binding: string, file: string, text: string) =>
     ix.updateSources(file, scanRegistrations(text, file, binding, compileRecognizers(DEFAULT_BINDINGS[binding].recognizers).ok));
-  scan('go', '/r/go/a.go', '\t"core.noop": noop,\n');
-  scan('powershell', '/r/ps/a.ps1', "Register-LabAction -Name 'core.noop' -Handler {\nRegister-LabAction -Name 'lib.only' -Handler {\n");
-  scan('rust', '/r/rs/a.rs', '    map.insert("core.noop", core_noop);\n');
-  scan('go', '/r/go/b.go', '\t"core.noop": noopAgain,\n\t"core.noop": thrice,\n');
+  scan('go', '/r/go/a.go', '\t{Name: "core.noop", Handler: noop},\n');
+  scan('powershell', '/r/ps/a.ps1', "Register-SuiteAction -Name 'core.noop' -Handler {\nRegister-SuiteAction -Name 'lib.only' -Handler {\n");
+  scan('rust', '/r/rs/a.rs', '        Action::new("core.noop", core_noop),\n');
+  scan('go', '/r/go/b.go', '\t{Name: "core.noop", Handler: noopAgain},\n\t{Name: "core.noop", Handler: thrice},\n');
   return ix;
 }
 
@@ -101,7 +101,7 @@ test('stepAt, actionNameAt from a step, a catalog name and a site', () => {
   const entry = ix.catalog!.actions.get('core.noop')!;
   assert.strictEqual(ix.actionNameAt('/r/test/e2e/schema/actions.catalog.yaml', entry.nameRange.start), 'core.noop');
   assert.strictEqual(ix.catalogActionAt('/r/test/e2e/schema/actions.catalog.yaml', { line: 0, character: 0 }), undefined);
-  assert.strictEqual(ix.actionNameAt('/r/go/a.go', { line: 0, character: 3 }), 'core.noop');
+  assert.strictEqual(ix.actionNameAt('/r/go/a.go', { line: 0, character: 10 }), 'core.noop');
   assert.strictEqual(ix.actionNameAt('/r/go/a.go', { line: 5, character: 0 }), undefined);
 });
 
@@ -196,9 +196,9 @@ test('B8.2 importersOf: direct and transitive importers, sorted; a cycle ends; a
 test('siteAt and actionNameAt find a registration from its handler\'s declaration too', () => {
   const ix = new WorkspaceIndex();
   const file = '/r/go/h.go';
-  ix.updateSources(file, scanRegistrations('\t\t"demo.greet": demoGreet,\n\nfunc demoGreet(r *Request) {\n}\n', file, 'go',
+  ix.updateSources(file, scanRegistrations('\t{Name: "demo.greet", Handler: demoGreet},\n\nfunc demoGreet(r *Request) {\n}\n', file, 'go',
     compileRecognizers(DEFAULT_BINDINGS.go.recognizers).ok));
   assert.strictEqual(ix.siteAt(file, { line: 2, character: 7 })?.action, 'demo.greet', 'on the handler name in `func demoGreet(`');
-  assert.strictEqual(ix.actionNameAt(file, { line: 0, character: 5 }), 'demo.greet', 'on the registration');
+  assert.strictEqual(ix.actionNameAt(file, { line: 0, character: 10 }), 'demo.greet', 'on the registration');
   assert.strictEqual(ix.actionNameAt(file, { line: 2, character: 1 }), undefined, 'on `func`, not the name');
 });

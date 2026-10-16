@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The sample workspace's suiterun, C# binding: its shop actions (Actions.cs),
+    its extension (ShopExtension.cs) and the runtime's command line
+    (Program.cs), built on the C# runtime of this repository by project
+    reference.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Shop.Suite</RootNamespace>
+    <AssemblyName>suiterun</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\..\..\runtimes\csharp\Bdd.Suite\Bdd.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

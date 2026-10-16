@@ -46,6 +46,15 @@ test('extra, duplicate (same recognizer only) and other-binding sites', () => {
   assert.strictEqual(rows.length, 2, 'a site of a binding the catalog does not list adds no row');
 });
 
+test('DEC-S10 an imported (core) action is no row\'s Declared, Found or drift: the runtime registers it', () => {
+  const actions = new Map<string, { bindings: string[]; file?: string }>(catalog.actions);
+  actions.set('core.noop', { bindings: ['powershell', 'go'], file: 'C:\\spec\\core.catalog.yaml' });
+  const withCore = { ...catalog, actions };
+  const rows = computeCoverage(withCore, [...clean, site('go', 'core.noop')], bindings);
+  assert.deepStrictEqual(rows.map(r => [r.declared.includes('core.noop'), driftCount(r)]), [[false, 0], [false, 1]]);
+  assert.deepStrictEqual(rows[1].foundNotDeclared, ['core.noop'], 'a workspace that registers a core name itself is drift');
+});
+
 test('a catalog binding with no settings uses its name and no source', () => {
   const rows = computeCoverage({ ...catalog, bindings: ['rust'] }, [], []);
   assert.deepStrictEqual([rows[0].label, rows[0].source, rows[0].declared], ['rust', '', []]);

@@ -1,21 +1,23 @@
 // session: worktree
 // B8.1 and the typescript half of E-B11: lint through the library in the lint
-// worker, in a disposable worktree whose library this test builds and breaks.
+// worker, in the worktree's sample, whose library this test builds and breaks.
+// The library is the sample's test/e2e/bindings/typescript/dist/index.js: it
+// re-exports the TypeScript runtime and defines createLinter with the shop
+// extension applied, and it is the file the extension loads and watches. The
+// breaks are made there: an apiVersion export of its own (an explicit export
+// wins over the runtime's re-exported one), and a createLinter whose lint()
+// loops or throws.
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { api, at, hasTypeScript, open, within } from './helpers';
+import { api, at, open, within } from './helpers';
 import { lint, nextLint, setting, shown, typeScriptLibrary } from './lintHelpers';
 
 const W = vscode.ConfigurationTarget.Workspace;
 
 describe('B8.1 the lint worker, and E-B11 for the typescript library', function () {
   this.timeout(600_000);
-  const uri = () => at('test', 'e2e', 'conformance', 'validate', 'dataflow.yml');
-
-  before(function () {
-    if (!hasTypeScript()) this.skip();
-  });
+  const uri = () => at('test', 'e2e', 'suites', 'flawed', 'dataflow.yml');
 
   it('B8.1 item 4: Build lint tool builds the typescript library; open lints through one worker', async () => {
     const lib = typeScriptLibrary();
@@ -56,12 +58,13 @@ describe('B8.1 the lint worker, and E-B11 for the typescript library', function 
     return next;
   }
 
+  const CREATE = 'export function createLinter(options) {';
   const breaks: [string, (text: string) => string | undefined, string][] = [
     ['the library renamed away', () => undefined, 'Lint: typescript not built'],
-    ['apiVersion 2.0.0', t => t.replace("export const apiVersion = '1.0.0';", "export const apiVersion = '2.0.0';"),
+    ['apiVersion 2.0.0', t => (t.includes("export * from '@bdd-suite/runtime';") ? `${t}\nexport const apiVersion = '2.0.0';\n` : t),
       'Lint: the typescript library speaks API 2.0.0; this extension speaks 1.x'],
-    ['lint() loops forever', t => t.replace('lint(request) {', 'lint(request) { for (;;) { }'), 'Lint timed out after 5 s'],
-    ['lint() throws', t => t.replace('lint(request) {', "lint(request) { throw new Error('the library is broken on purpose');"),
+    ['lint() loops forever', t => t.replace(CREATE, `${CREATE} return { invalidate() { }, lint(request) { for (;;) { } } };`), 'Lint timed out after 5 s'],
+    ['lint() throws', t => t.replace(CREATE, `${CREATE} return { invalidate() { }, lint(request) { throw new Error('the library is broken on purpose'); } };`),
       'Lint: the typescript library failed'],
   ];
   for (const [name, broken, text] of breaks) {

@@ -1,0 +1,21 @@
+suite: dataflow
+tests:
+  - name: reads-what-is-not-there
+    steps:
+      - action: inventory.get
+        sku: ${nowhere}
+        captureAs: stock
+      - action: cart.add
+        sku: ${capture.later.sku}
+        quantity: ${param.missing}
+        captureAs: line
+      - action: inventory.get
+        sku: ${var.missing}
+        captureAs: later
+    asserts:
+      - var: stock.quantity
+        equals: 50
+      - var: line.line
+        equals: APPLEx1
+      - var: nobodyCaptures.quantity
+        equals: 1

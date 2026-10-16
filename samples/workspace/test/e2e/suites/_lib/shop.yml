@@ -1,0 +1,22 @@
+# Shared steps for the shop's suites: a parameter, a variable and a meta step
+# with a parameter of its own, imported by checkout.yml.
+params:
+  - { name: defaultSku, type: string, default: APPLE, description: The product a suite checks when it names none. }
+vars:
+  greeting: welcome
+metaSteps:
+  - name: check-stock
+    description: Read the stock of one product and require some on hand.
+    params:
+      - { name: sku, type: string, default: APPLE }
+    exports: [stock]
+    steps:
+      - given: the stock of ${param.sku}
+        action: inventory.get
+        sku: ${param.sku}
+        captureAs: stock
+      - then: some is on hand
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true

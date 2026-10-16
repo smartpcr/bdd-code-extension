@@ -2,7 +2,7 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "asz",
   "license": "MIT",
   "repository": {
@@ -237,7 +237,6 @@
             "powershell": {
               "label": "PowerShell",
               "abbreviation": "PS",
-              "kind": "powershell",
               "sources": [
                 "scripts/e2e/actions/*.ps1"
               ],
@@ -246,40 +245,37 @@
               ],
               "recognizers": [
                 {
-                  "pattern": "Register-LabAction\\s+-Name\\s+'(?<name>[^'$]+)'"
+                  "pattern": "Register-(?:Suite|Lab)Action\\s+-Name\\s+'(?<name>[^'$]+)'"
                 },
                 {
-                  "pattern": "Register-LabAction\\s+-Name\\s+\"(?<name>[^\"$]+)\""
-                },
-                {
-                  "pattern": "@\\{\\s*name\\s*=\\s*'(?<name>[^']+)';\\s*verb\\s*=\\s*'lifecycle\\.",
-                  "prefix": "lifecycle."
+                  "pattern": "Register-(?:Suite|Lab)Action\\s+-Name\\s+\"(?<name>[^\"$]+)\""
                 }
               ],
               "tool": [
                 "pwsh",
                 "-NoProfile",
-                "-NonInteractive"
-              ]
+                "-NonInteractive",
+                "-File",
+                "scripts/e2e/suiterun.ps1"
+              ],
+              "selectsOneCase": true
             },
             "csharp": {
               "label": "C#",
               "abbreviation": "C#",
-              "kind": "suiterun",
               "sources": [
-                "test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs"
+                "test/e2e/bindings/dotnet/**/*.cs"
               ],
-              "exclude": [],
+              "exclude": [
+                "**/{artifacts,bin,obj}/**"
+              ],
               "recognizers": [
                 {
-                  "pattern": "^\\s*\\[\\s*\"(?<name>[a-z]\\w*(?:\\.\\w+)+)\"\\s*\\]\\s*=\\s*(?<handler>.+?),?\\s*$"
-                },
-                {
-                  "pattern": "names\\.Add\\(\"(?<name>[^\"]+)\"\\)"
+                  "pattern": "new ActionRegistration\\(\\s*\"(?<name>[^\"]+)\"(?:\\s*,\\s*(?<handler>[\\w.]+)\\s*\\))?"
                 }
               ],
               "tool": [
-                "test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe"
+                "test/e2e/bindings/dotnet/artifacts/bin/Suite.Cli/Debug/net10.0/suiterun.exe"
               ],
               "build": {
                 "command": "dotnet build",
@@ -289,19 +285,15 @@
             "go": {
               "label": "Go",
               "abbreviation": "Go",
-              "kind": "suiterun",
               "sources": [
-                "test/e2e/bindings/go/internal/**/*.go"
+                "test/e2e/bindings/go/**/*.go"
               ],
               "exclude": [
                 "**/*_test.go"
               ],
               "recognizers": [
                 {
-                  "pattern": "^\\s*\"(?<name>[a-z][\\w]*(?:\\.[\\w]+)+)\"\\s*:\\s*(?<handler>[\\w.]+)"
-                },
-                {
-                  "pattern": "append\\(names,\\s*\"(?<name>[\\w.]+)\"\\)"
+                  "pattern": "\\{\\s*Name:\\s*\"(?<name>[^\"]+)\",\\s*Handler:(?:\\s*(?<handler>[\\w.]+)\\s*[,}])?"
                 }
               ],
               "tool": [
@@ -315,20 +307,13 @@
             "rust": {
               "label": "Rust",
               "abbreviation": "Rs",
-              "kind": "suiterun",
               "sources": [
                 "test/e2e/bindings/rust/src/**/*.rs"
               ],
               "exclude": [],
               "recognizers": [
                 {
-                  "pattern": "map\\.insert\\(\\s*\"(?<name>[a-z]\\w*(?:\\.\\w+)+)\"\\s*,\\s*(?<handler>\\w+)\\s*\\)"
-                },
-                {
-                  "pattern": "^\\s*\"(?<name>[a-z]\\w*(?:\\.\\w+)+)\"\\s*=>\\s*(?<handler>\\w+)\\("
-                },
-                {
-                  "pattern": "names\\.push\\(\"(?<name>[^\"]+)\"\\.to_string\\(\\)\\)"
+                  "pattern": "Action::new\\(\\s*\"(?<name>[^\"]+)\"(?:\\s*,\\s*(?<handler>[\\w:]+)\\s*\\))?"
                 }
               ],
               "tool": [
@@ -342,7 +327,6 @@
             "typescript": {
               "label": "TypeScript",
               "abbreviation": "TS",
-              "kind": "suiterun",
               "sources": [
                 "test/e2e/bindings/typescript/src/**/*.ts"
               ],
@@ -351,7 +335,7 @@
               ],
               "recognizers": [
                 {
-                  "pattern": "\\baction\\(\\s*'(?<name>[^']+)'\\s*,\\s*(?<handler>[\\w.]+)\\s*\\)"
+                  "pattern": "\\baction\\(\\s*'(?<name>[^']+)'(?:\\s*,\\s*(?<handler>[\\w.]+)\\s*\\))?"
                 }
               ],
               "tool": [
@@ -366,7 +350,7 @@
               "library": "test/e2e/bindings/typescript/dist/index.js"
             }
           },
-          "description": "Per binding: source globs, registration recognizers, program and build command."
+          "description": "Per binding: source globs, registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name."
         },
         "bddSuite.schemaGenerator": {
           "type": "array",
@@ -419,6 +403,14 @@
             "wait"
           ],
           "description": "Actions that run without a lab, as names or `prefix.*`; a suite using any other action is a lab suite, and its run asks for the lab and a confirmation.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bddSuite.contextKeys": {
+          "type": "array",
+          "default": [],
+          "description": "Context keys the workspace's runtime extensions add (each read as ${key}), offered by completion beside the core's `timeoutSec` and `defaults`.",
           "items": {
             "type": "string"
           }
@@ -504,7 +496,6 @@
     "test:unit": "npm run build:test && c8 --100 --include \"out-test/src/core/**\" --include \"out-test/src/config/**\" --include \"out-test/src/tools/**\" --include \"out-test/src/lint/workerHost.js\" --reporter=text --reporter=text-summary node --test \"out-test/test/unit/**/*.test.js\"",
     "test:integration": "npm run compile && npm run build:test && node --test --test-timeout=900000 \"out-test/test/integration/node/*.test.js\" && node out-test/test/integration/runTest.js",
     "sync-defaults": "npm run build:test && node scripts/sync-defaults.mjs",
-    "test:lab": "npm run compile && npm run build:test && node out-test/test/integration/runTest.js --lab",
     "test:demo": "npm run build:test && node out-test/test/e2e-demo/run.js",
     "demo:workspace": "node scripts/demo-workspace.mjs",
     "install:local": "node scripts/install-local.mjs",

@@ -1,0 +1,32 @@
+suite: smoke
+owner: storefront
+description: The shop is open and its shelves hold what the catalogue says.
+tags: [smoke]
+tests:
+  - name: the-shop-is-open
+    steps:
+      - given: the state of the ${store} shop
+        action: shop.state
+        shop: ${store}
+        captureAs: shop
+      - then: the shop is open
+        action: core.noop
+        asserts:
+          - var: shop.Open
+            equals: true
+          - var: shop.Name
+            equals: main
+  - name: the-shelves-hold-two-items
+    steps:
+      - given: the state of the main shop
+        action: shop.state
+        captureAs: shop
+      - then: the first item is apples, five of them
+        action: core.noop
+        asserts:
+          - var: shop.Items
+            count: 2
+          - var: shop.Items.0.Sku
+            equals: APPLE
+          - var: shop.Items.0.Quantity
+            equals: 5

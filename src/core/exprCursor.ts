@@ -11,7 +11,8 @@ export const FUNCTIONS: Record<string, string> = {
   env: 'env(name) - non-deterministic', uuid: 'uuid() - non-deterministic', nowIso: 'nowIso() - non-deterministic',
 };
 
-export const CONTEXT_KEYS = ['cluster', 'target', 'timeoutSec', 'labId', 'apiUrl', 'defaults'];
+/** The context keys every runtime's core has; a workspace's extensions add their own (bddSuite.contextKeys). */
+export const CONTEXT_KEYS = ['timeoutSec', 'defaults'];
 export const NAMESPACES = ['capture', 'param', 'var', 'row'];
 
 export type ExprContext =

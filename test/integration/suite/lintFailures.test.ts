@@ -1,10 +1,11 @@
 // session: worktree
-// E-B11 (B2.4), B2.2-2, B2.2-3 and the save half of E-B1, in a disposable worktree.
+// E-B11 (B2.4), B2.2-2, B2.2-3 and the save half of E-B1, in a disposable worktree's sample.
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { api, at, open, within } from './helpers';
+import { sig, validateEntries } from '../harness/corpus';
+import { api, at, mainProgram, open, within } from './helpers';
 import { lint, setting, shown } from './lintHelpers';
 
 const W = vscode.ConfigurationTarget.Workspace;
@@ -19,8 +20,8 @@ const alive = (pid: number) => {
   }
 };
 
-/** The worktree has no build output; the real program is the main checkout's, run from the worktree. */
-const REAL_RUST = () => [path.join(process.env.OS_CONTEXT_ROOT!, 'test', 'e2e', 'bindings', 'rust', 'target', 'debug', 'suiterun.exe')];
+/** The worktree has no build output; the real program is the main sample's (runTest built it), run from the worktree. */
+const REAL_RUST = () => mainProgram('rust');
 
 async function rustTool(tool: string[] | undefined) {
   const want = tool ?? REAL_RUST();
@@ -35,22 +36,25 @@ describe('B2.2 lint on save', () => {
   });
 
   it('E-B1 save half: saving gives the same set, not a doubled one', async () => {
-    const uri = at('test', 'e2e', 'conformance', 'validate', 'typos.yml');
+    const uri = at('test', 'e2e', 'suites', 'flawed', 'typos.yml');
     const doc = await open(uri);
     await lint(uri);
     const before = shown(uri).map(d => d.sig);
+    // The oracle: what the five programs report for this file against powershell.
+    const want = validateEntries().entries.find(e => e.rel === 'test/e2e/suites/flawed/typos.yml' && e.target === 'powershell')!;
+    assert.deepStrictEqual(before, want.diagnostics.map(sig));
     assert.deepStrictEqual(before, ['E101 error 4:5', 'E104 error 6:17', 'E101 error 8:5']);
     const edit = new vscode.WorkspaceEdit();
     edit.insert(uri, new vscode.Position(doc.lineCount, 0), '# saved\n');
     await vscode.workspace.applyEdit(edit);
     await doc.save();
-    await within(5000, async () => (await api()).controllers[0].lintsStarted > 0 && shown(uri).length === 3);
+    await within(5000, async () => (await api()).controllers[0].lintsStarted > 0 && shown(uri).length === before.length);
     await new Promise(r => setTimeout(r, 1000));
     assert.deepStrictEqual(shown(uri).map(d => d.sig), before);
   });
 
   it('B2.2-2 two saves within LINT_DEBOUNCE_MS produce one lint', async () => {
-    const uri = at('test', 'e2e', 'conformance', 'validate', 'typos.yml');
+    const uri = at('test', 'e2e', 'suites', 'flawed', 'typos.yml');
     const doc = await open(uri);
     const c = (await api()).controllers[0];
     await new Promise(r => setTimeout(r, 1000));
@@ -69,7 +73,7 @@ describe('B2.2 lint on save', () => {
     const answer = path.join(require('os').tmpdir(), 'bdd-suite-empty.json');
     fs.writeFileSync(answer, '[]');
     await rustTool(['node', fake(), '--sleep=2000', `--print-file=${answer}`]);
-    const uri = at('test', 'e2e', 'conformance', 'validate', 'typos.yml');
+    const uri = at('test', 'e2e', 'suites', 'flawed', 'typos.yml');
     const c = (await api()).controllers[0];
     const first = c.lintNow(uri);
     await new Promise(r => setTimeout(r, 300));
@@ -82,7 +86,7 @@ describe('B2.2 lint on save', () => {
 });
 
 describe('E-B11 a missing, slow or broken lint tool is reported, not hidden', () => {
-  const uri = () => at('test', 'e2e', 'conformance', 'validate', 'dataflow.yml');
+  const uri = () => at('test', 'e2e', 'suites', 'flawed', 'dataflow.yml');
 
   before(async () => {
     await setting('lintTool', 'rust', W, a => a.controllers[0].tool === 'rust');
@@ -131,6 +135,8 @@ describe('E-B11 a missing, slow or broken lint tool is reported, not hidden', ()
 
   it('B2.4-4 Build lint tool for Go produces the program, after which the next lint publishes', async () => {
     const a = await setting('lintTool', 'go', W, x => x.controllers[0].tool === 'go');
+    // Go's default program is in the test profile's storage, which runTest filled from the main
+    // sample; it is set aside, rebuilt from the worktree's source, and put back afterwards.
     const exe = a.indexers[0].layout.bindings.find(b => b.name === 'go')!.tool[0];
     if (fs.existsSync(exe)) fs.renameSync(exe, `${exe}.bak`);
     try {
@@ -143,7 +149,7 @@ describe('E-B11 a missing, slow or broken lint tool is reported, not hidden', ()
       assert.strictEqual(e.outcome, 'published');
       console.log(`    built ${exe}`);
     } finally {
-      if (fs.existsSync(`${exe}.bak`)) fs.rmSync(`${exe}.bak`);
+      if (fs.existsSync(`${exe}.bak`)) fs.renameSync(`${exe}.bak`, exe);
     }
   });
 });

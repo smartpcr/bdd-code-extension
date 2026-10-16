@@ -1,0 +1,6 @@
+@@ registration
+Action::new("{{action}}", {{rustName}}),
+@@ handler
+fn {{rustName}}(_request: &Request) -> Outcome {
+    Err(ActionError::action("{{action}}: not implemented in the Rust binding yet"))
+}

@@ -53,7 +53,7 @@ function expressionItems(ix: FolderIndexer, file: string, pos: vscode.Position, 
   if (ctx.kind === 'root') {
     const out = ['capture', 'param', 'var', ...(scope.rows ? ['row'] : [])]
       .map(n => item(n, K.Module, range, 'namespace'));
-    out.push(...CONTEXT_KEYS.map(k => item(k, K.Variable, range, 'context')));
+    out.push(...[...CONTEXT_KEYS, ...ix.layout.settings.contextKeys].map(k => item(k, K.Variable, range, 'context')));
     out.push(...Object.entries(FUNCTIONS).map(([name, sig]) => {
       const i = item(name, K.Function, range, sig);
       i.insertText = new vscode.SnippetString(`${name}($0)`);

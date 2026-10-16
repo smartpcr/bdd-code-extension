@@ -2,8 +2,9 @@
 // self-contained fixture open. Each step says what it shows, so the output
 // reads as a walkthrough: navigation from a YAML step to the action's catalog
 // entry and to its implementation in each language, back again, and code
-// generation from an undeclared action to stubs in four languages, which the
-// navigation then reaches.
+// generation from an undeclared action to stubs in five languages, which the
+// navigation then reaches. The fixture is in the default layout (DEC-S11): each
+// language's actions are the workspace's extension of that language's runtime.
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,10 +18,10 @@ const SUITE = () => at('test', 'e2e', 'suites', 'demo.yml');
 const ORDERS = () => at('test', 'e2e', 'suites', 'orders.yml');
 const LIBRARY = () => at('test', 'e2e', 'suites', '_lib', 'orders-steps.yml');
 const CATALOG = () => at('test', 'e2e', 'schema', 'actions.catalog.yaml');
-const GO = () => at('test', 'e2e', 'bindings', 'go', 'internal', 'actions', 'actions.go');
+const GO = () => at('test', 'e2e', 'bindings', 'go', 'actions', 'actions.go');
 const RUST = () => at('test', 'e2e', 'bindings', 'rust', 'src', 'actions.rs');
-const CSHARP = () => at('test', 'e2e', 'bindings', 'dotnet', 'Hci.E2E.Suite', 'Actions', 'CoreActions.cs');
-const TS = () => at('test', 'e2e', 'bindings', 'typescript', 'src', 'actions', 'core.ts');
+const CSHARP = () => at('test', 'e2e', 'bindings', 'dotnet', 'Suite.Cli', 'Actions.cs');
+const TS = () => at('test', 'e2e', 'bindings', 'typescript', 'src', 'actions.ts');
 const PS = (name: string) => at('scripts', 'e2e', 'actions', `${name}.ps1`);
 // LF whatever the checkout used: on a Windows CI runner git checks the fixture out
 // with CRLF, and the extension's edits keep each file's own line endings.
@@ -150,12 +151,13 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
       assert.deepStrictEqual(r('greets-and-counts'), { state: 'passed' });
       assert.deepStrictEqual(r('greets-again'), { state: 'passed' });
       assert.deepStrictEqual(r('says-farewell'), { state: 'failed', message: 'then: a farewell is said failed (demo.farewell is not implemented in PowerShell)' });
-      assert.match(t.lastCommand.get(rel(SUITE()))!.join(' '), /Invoke-LabTestSuite\.ps1/);
+      assert.match(t.lastCommand.get(rel(SUITE()))!.join(' '), /scripts[\\/]e2e[\\/]suiterun\.ps1 run --path test\/e2e\/suites\/demo\.yml .*--format nunit3$/,
+        'the PowerShell program, with the verb and flags of every program and no lab flags offline');
       show(`Run of demo.yml (${Date.now() - started} ms):`, ['greets-and-counts', 'greets-again', 'says-farewell'].map(line));
 
       await run(item.children.get(`${rel(SUITE())}::greets-and-counts`)!);
       assert.deepStrictEqual([...t.results.keys()], [`${rel(SUITE())}::greets-and-counts`], 'only the chosen case has a result');
-      assert.ok(t.lastCommand.get(rel(SUITE()))!.join(' ').includes('-TestName greets-and-counts'));
+      assert.ok(t.lastCommand.get(rel(SUITE()))!.join(' ').includes('--test-name greets-and-counts'));
       show('Run of greets-and-counts alone:', [line('greets-and-counts')]);
     } finally {
       t.ui = ui;
@@ -166,11 +168,11 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     const doc = await open(SUITE());
     const found = await describeAll(await definitions(doc.uri, find(doc, 'action: demo.greet', 'action: '.length + 2)));
     assert.deepStrictEqual(found, [
-      "scripts/e2e/actions/DemoGreet.ps1:5  Register-LabAction -Name 'demo.greet' -Handler {",
-      'test/e2e/bindings/dotnet/Hci.E2E.Suite/Actions/CoreActions.cs:24  private static object? DemoGreet(ActionRequest request) =>',
-      'test/e2e/bindings/go/internal/actions/actions.go:25  func demoGreet(request *Request) (any, error) {',
-      'test/e2e/bindings/rust/src/actions.rs:22  fn demo_greet(_request: &Request) -> Outcome {',
-      'test/e2e/bindings/typescript/src/actions/core.ts:13  function demoGreet(request: Request): unknown {',
+      "scripts/e2e/actions/DemoGreet.ps1:5  Register-SuiteAction -Name 'demo.greet' -Handler {",
+      'test/e2e/bindings/dotnet/Suite.Cli/Actions.cs:17  private static object? DemoGreet(ActionRequest request) =>',
+      'test/e2e/bindings/go/actions/actions.go:19  func demoGreet(request *actions.Request) (any, error) {',
+      'test/e2e/bindings/rust/src/actions.rs:13  fn demo_greet(request: &Request) -> Outcome {',
+      'test/e2e/bindings/typescript/src/actions.ts:8  async function demoGreet(request: Request) {',
       'test/e2e/schema/actions.catalog.yaml:8  - name: demo.greet',
     ]);
     show('Go to Definition (Ctrl+click) on demo.greet; PowerShell\'s handler is its inline script block:', found);
@@ -192,7 +194,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
   it('implementation to YAML: from each language\'s registration, Find References lists the YAML steps that use the action', async () => {
     const want = ['test/e2e/suites/demo.yml:7  action: demo.greet', 'test/e2e/suites/demo.yml:17  action: demo.greet'];
     const sources: [vscode.Uri, string][] = [
-      [GO(), '"demo.greet":'], [RUST(), 'map.insert("demo.greet"'], [CSHARP(), '["demo.greet"]'],
+      [GO(), 'Name: "demo.greet"'], [RUST(), 'Action::new("demo.greet"'], [CSHARP(), 'ActionRegistration("demo.greet"'],
       [TS(), "action('demo.greet'"], [PS('DemoGreet'), "'demo.greet'"], [CATALOG(), '- name: demo.greet'],
     ];
     for (const [uri, needle] of sources) {
@@ -202,7 +204,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     }
     // Shift+F12 on the handler's own name, where the method or function is declared.
     const methods: [vscode.Uri, string][] = [
-      [CSHARP(), 'DemoGreet(ActionRequest'], [GO(), 'demoGreet(request *Request'], [RUST(), 'demo_greet(_request'], [TS(), 'demoGreet(request: Request'],
+      [CSHARP(), 'DemoGreet(ActionRequest'], [GO(), 'demoGreet(request *actions.Request'], [RUST(), 'demo_greet(request'], [TS(), 'demoGreet(request: Request'],
     ];
     for (const [uri, needle] of methods) {
       const doc = await open(uri);
@@ -294,7 +296,8 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     const doc = await open(SUITE());
     const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>('vscode.executeCodeLensProvider', doc.uri, 100);
     const at = (needle: string) => lenses.filter(l => l.range.start.line === find(doc, needle).line).map(l => l.command?.title);
-    assert.deepStrictEqual(at('action: demo.count'), ['Not implemented in C#, Rust, TypeScript', '$(add) Implement in C#', '$(add) Implement in Rust']);
+    assert.deepStrictEqual(at('action: demo.count'),
+      ['Not implemented in C#, Rust, TypeScript', '$(add) Implement in C#', '$(add) Implement in Rust', '$(add) Implement in TypeScript']);
     assert.deepStrictEqual(at('action: demo.farewell'), ['$(lightbulb) Declare action demo.farewell']);
     assert.deepStrictEqual(at('action: demo.greet'), [], 'implemented everywhere: nothing to offer');
     show('CodeLens above `action: demo.count`:', at('action: demo.count').map(String));
@@ -373,7 +376,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     assert.match(catalog, /- name: demo\.farewell\n {4}summary: TODO describe demo\.farewell\.\n {4}bindings: \[powershell\]/);
     assert.match(catalog, /- \{ name: name, type: string \}/);
     assert.match(catalog, /- \{ name: loud, type: boolean \}/);
-    assert.match(read(PS('DemoFarewell')), /Register-LabAction -Name 'demo\.farewell' -Handler \{/);
+    assert.match(read(PS('DemoFarewell')), /Register-SuiteAction -Name 'demo\.farewell' -Handler \{/);
     assert.ok(JSON.parse(read(at('test', 'e2e', 'schema', 'suite.schema.json'))).$defs['step.demo.farewell'], 'the schema has a branch for the new action');
 
     const relinted = await lintSettled(SUITE());
@@ -381,43 +384,47 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     assert.deepStrictEqual(lintShown(SUITE()).map(d => d.code), [], 'E104 is gone');
     console.log(`      ${r.message}`);
     show('generated catalog entry:', excerpt(catalog, '- name: demo.farewell', 8));
-    show('generated scripts/e2e/actions/DemoFarewell.ps1:', excerpt(read(PS('DemoFarewell')), 'Register-LabAction', 5));
+    show('generated scripts/e2e/actions/DemoFarewell.ps1:', excerpt(read(PS('DemoFarewell')), 'Register-SuiteAction', 5));
   });
 
-  it('code generation 2: Implement demo.farewell in C#, Go and Rust adds a registration and a handler stub to each', async () => {
+  it('code generation 2: Implement demo.farewell in C#, Go, Rust and TypeScript adds a registration and a handler stub to each', async () => {
     // The index reloads the edited catalog and the new PowerShell file from their file watchers.
     await within(10_000, () => !!api.indexers[0].index.catalog?.actions.has('demo.farewell') && sitesOf('demo.farewell').includes('powershell'));
     const doc = await open(SUITE());
     const offered = (await codeActions(doc.uri, find(doc, 'action: demo.farewell', 10))).map(a => a.title).filter(t => t.startsWith('Implement'));
-    assert.deepStrictEqual(offered.sort(), ['Implement demo.farewell in C#', 'Implement demo.farewell in Go', 'Implement demo.farewell in Rust'],
+    assert.deepStrictEqual(offered.sort(), ['Implement demo.farewell in C#', 'Implement demo.farewell in Go', 'Implement demo.farewell in Rust', 'Implement demo.farewell in TypeScript'],
       'offered for each binding with a stub template that does not have it yet');
-    for (const binding of ['go', 'rust', 'csharp']) {
+    for (const binding of ['go', 'rust', 'csharp', 'typescript']) {
       const r = await vscode.commands.executeCommand<ScaffoldResult>('bddSuite.implementAction', 'demo.farewell', binding);
       assert.ok(r.ok, r.message);
       console.log(`      ${r.message}`);
     }
     const go = read(GO());
-    assert.match(go, /"demo\.farewell": demoFarewell,/);
-    assert.match(go, /func demoFarewell\(request \*Request\) \(any, error\) \{/);
+    assert.match(go, /\{Name: "demo\.farewell", Handler: demoFarewell\},/);
+    assert.match(go, /func demoFarewell\(request \*actions\.Request\) \(any, error\) \{\n\treturn nil, actions\.Failed\("demo\.farewell: not implemented in the Go binding yet"\)/);
     const rust = read(RUST());
-    assert.match(rust, /map\.insert\("demo\.farewell", demo_farewell\);/);
+    assert.match(rust, /Action::new\("demo\.farewell", demo_farewell\),/);
     assert.match(rust, /fn demo_farewell\(_request: &Request\) -> Outcome \{/);
     assert.ok(rust.indexOf('fn demo_farewell') < rust.indexOf('#[cfg(test)]'), 'the Rust handler goes before the tests');
     const cs = read(CSHARP());
-    assert.match(cs, /\["demo\.farewell"\] = DemoFarewell,/);
+    assert.match(cs, /new ActionRegistration\("demo\.farewell", DemoFarewell\),/);
     assert.match(cs, /private static object\? DemoFarewell\(ActionRequest request\) =>/);
-    assert.match(read(CATALOG()), /- name: demo\.farewell[\s\S]*?bindings: \[powershell, csharp, go, rust\]/);
+    const ts = read(TS());
+    assert.match(ts, /action\('demo\.farewell', demoFarewell\),\n\];/);
+    assert.match(ts, /async function demoFarewell\(_request: Request\): Promise<never> \{\n {2}throw failed\('demo\.farewell: not implemented in the TypeScript binding yet'\);/);
+    assert.match(read(CATALOG()), /- name: demo\.farewell[\s\S]*?bindings: \[powershell, csharp, go, rust, typescript\]/);
     show('generated in actions.go:', [...excerpt(go, '"demo.farewell"', 1), ...excerpt(go, 'func demoFarewell', 3)]);
-    show('generated in actions.rs:', [...excerpt(rust, 'map.insert("demo.farewell"', 1), ...excerpt(rust, 'fn demo_farewell', 3)]);
-    show('generated in CoreActions.cs:', [...excerpt(cs, '["demo.farewell"]', 1), ...excerpt(cs, 'DemoFarewell(ActionRequest', 2)]);
+    show('generated in actions.rs:', [...excerpt(rust, 'Action::new("demo.farewell"', 1), ...excerpt(rust, 'fn demo_farewell', 3)]);
+    show('generated in Actions.cs:', [...excerpt(cs, 'ActionRegistration("demo.farewell"', 1), ...excerpt(cs, 'DemoFarewell(ActionRequest', 2)]);
+    show('generated in actions.ts:', [...excerpt(ts, "action('demo.farewell'", 1), ...excerpt(ts, 'async function demoFarewell', 3)]);
   });
 
   it('navigation reaches the generated code: Go to Definition on `action: demo.farewell`, and Find References back from the new Go line', async () => {
-    await within(10_000, () => sitesOf('demo.farewell').length === 4);
+    await within(10_000, () => sitesOf('demo.farewell').length === 5);
     const doc = await open(SUITE());
     const found = await describeAll(await definitions(doc.uri, find(doc, 'action: demo.farewell', 'action: '.length + 2)));
-    assert.strictEqual(found.length, 5, found.join('\n'));
-    for (const where of ['actions.catalog.yaml', 'DemoFarewell.ps1', 'actions.go', 'actions.rs', 'CoreActions.cs']) {
+    assert.strictEqual(found.length, 6, found.join('\n'));
+    for (const where of ['actions.catalog.yaml', 'DemoFarewell.ps1', 'actions.go', 'actions.rs', 'Suite.Cli/Actions.cs', 'actions.ts']) {
       assert.ok(found.some(f => f.includes(where)), `${where} in\n${found.join('\n')}`);
     }
     const go = await open(GO());
@@ -431,11 +438,11 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     const doc = await open(SUITE());
     const found = await describeAll(await implementations(doc.uri, find(doc, 'action: demo.greet', 'action: '.length + 2)));
     assert.deepStrictEqual(found, [
-      "scripts/e2e/actions/DemoGreet.ps1:5  Register-LabAction -Name 'demo.greet' -Handler {",
-      'test/e2e/bindings/dotnet/Hci.E2E.Suite/Actions/CoreActions.cs:20  ["demo.greet"] = DemoGreet,',
-      'test/e2e/bindings/go/internal/actions/actions.go:20  "demo.greet": demoGreet,',
-      'test/e2e/bindings/rust/src/actions.rs:18  map.insert("demo.greet", demo_greet);',
-      "test/e2e/bindings/typescript/src/actions/core.ts:18  action('demo.greet', demoGreet),",
+      "scripts/e2e/actions/DemoGreet.ps1:5  Register-SuiteAction -Name 'demo.greet' -Handler {",
+      'test/e2e/bindings/dotnet/Suite.Cli/Actions.cs:13  new ActionRegistration("demo.greet", DemoGreet),',
+      'test/e2e/bindings/go/actions/actions.go:15  {Name: "demo.greet", Handler: demoGreet},',
+      'test/e2e/bindings/rust/src/actions.rs:9  Action::new("demo.greet", demo_greet),',
+      "test/e2e/bindings/typescript/src/actions.ts:5  action('demo.greet', demoGreet),",
     ]);
     show('Go to Implementations (Ctrl+F12) on demo.greet:', found);
   });
@@ -446,7 +453,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     assert.deepStrictEqual(meta, ['test/e2e/suites/_lib/orders-steps.yml:2  - name: place-order']);
     const lib = await open(LIBRARY());
     const impl = await describeAll(await definitions(lib.uri, find(lib, 'action: orders.create', 'action: '.length + 2)));
-    assert.ok(impl.includes('test/e2e/bindings/dotnet/Hci.E2E.Suite/Actions/CoreActions.cs:29  private static object? OrdersCreate(ActionRequest request)'), impl.join('\n'));
+    assert.ok(impl.includes('test/e2e/bindings/dotnet/Suite.Cli/Actions.cs:22  private static object? OrdersCreate(ActionRequest request)'), impl.join('\n'));
 
     const cs = await open(CSHARP());
     const method = find(cs, 'OrdersCreate(ActionRequest', 3);
@@ -457,7 +464,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     assert.strictEqual(onMethod?.command?.title, '1 suite step', 'a CodeLens on the method itself');
     show('orders.yml `meta: place-order`, Go to Definition:', meta);
     show('_lib/orders-steps.yml `action: orders.create`, Go to Definition (Ctrl+click):', impl);
-    show('CoreActions.cs, Find References on the OrdersCreate method:', back);
+    show('Actions.cs, Find References on the OrdersCreate method:', back);
     console.log(`      CodeLens on the OrdersCreate method: "${onMethod!.command!.title}"`);
   });
 
@@ -465,24 +472,25 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     const orders = await open(ORDERS());
     const pos = find(orders, 'action: orders.ship', 10);
     const offered = (await codeActions(orders.uri, pos)).filter(a => a.title.startsWith('Implement'));
-    assert.deepStrictEqual(offered.map(a => a.title).sort(), ['Implement orders.ship in C#', 'Implement orders.ship in Go', 'Implement orders.ship in Rust']);
+    assert.deepStrictEqual(offered.map(a => a.title).sort(),
+      ['Implement orders.ship in C#', 'Implement orders.ship in Go', 'Implement orders.ship in Rust', 'Implement orders.ship in TypeScript']);
     const csharp = offered.find(a => a.title === 'Implement orders.ship in C#')!;
     const r = await vscode.commands.executeCommand<ScaffoldResult>(csharp.command!.command, ...(csharp.command!.arguments ?? []));
     assert.ok(r.ok, r.message);
     const text = read(CSHARP());
-    assert.match(text, /\["orders\.ship"\] = OrdersShip,/);
+    assert.match(text, /new ActionRegistration\("orders\.ship", OrdersShip\),/);
     assert.match(text, /private static object\? OrdersShip\(ActionRequest request\) =>\r?\n\s+throw ActionException\.Failed\("orders\.ship: not implemented in the C# binding yet"\);/);
     assert.match(read(CATALOG()), /- name: orders\.ship[\s\S]*?bindings: \[powershell, csharp\]/);
 
     await within(10_000, () => api.indexers[0].index.sitesFor('orders.ship').some(s => s.binding === 'csharp' && !!s.handlerRange));
     const impl = await describeAll(await definitions(orders.uri, pos));
-    const generated = impl.find(l => l.includes('CoreActions.cs'));
-    assert.match(generated ?? '', /CoreActions\.cs:\d+ {2}private static object\? OrdersShip\(ActionRequest request\) =>/);
+    const generated = impl.find(l => l.includes('Suite.Cli/Actions.cs'));
+    assert.match(generated ?? '', /Actions\.cs:\d+ {2}private static object\? OrdersShip\(ActionRequest request\) =>/);
     const cs = await open(CSHARP());
     const back = await describeAll(await references(cs.uri, find(cs, 'OrdersShip(ActionRequest', 3)));
     assert.deepStrictEqual(back, ['test/e2e/suites/orders.yml:10  action: orders.ship']);
     console.log(`      ${r.message}`);
-    show('generated in CoreActions.cs:', [...excerpt(text, '["orders.ship"]', 1), ...excerpt(text, 'OrdersShip(ActionRequest', 2)]);
+    show('generated in Actions.cs:', [...excerpt(text, 'ActionRegistration("orders.ship"', 1), ...excerpt(text, 'OrdersShip(ActionRequest', 2)]);
     show('Go to Definition (Ctrl+click) on orders.ship now:', impl);
     show('Find References on the generated OrdersShip method:', back);
   });
@@ -507,7 +515,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     await within(10_000, () => api.indexers[0].index.sitesFor('orders.refund').some(s => s.binding === 'csharp' && !!s.handlerRange));
 
     const impl = await describeAll(await definitions(orders.uri, pos));
-    assert.ok(impl.some(l => /CoreActions\.cs:\d+ {2}private static object\? OrdersRefund\(ActionRequest request\) =>/.test(l)), impl.join('\n'));
+    assert.ok(impl.some(l => /Suite\.Cli\/Actions\.cs:\d+ {2}private static object\? OrdersRefund\(ActionRequest request\) =>/.test(l)), impl.join('\n'));
     const cs = await open(CSHARP());
     const back = await describeAll(await references(cs.uri, find(cs, 'OrdersRefund(ActionRequest', 3)));
     assert.deepStrictEqual(back, ['test/e2e/suites/orders.yml:18  action: orders.refund']);
@@ -517,7 +525,7 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
     console.log(`      ${declared.message}`);
     console.log(`      ${implemented.message}`);
     show('generated catalog entry:', excerpt(read(CATALOG()), '- name: orders.refund', 9));
-    show('generated in CoreActions.cs:', [...excerpt(read(CSHARP()), '["orders.refund"]', 1), ...excerpt(read(CSHARP()), 'OrdersRefund(ActionRequest', 2)]);
+    show('generated in Actions.cs:', [...excerpt(read(CSHARP()), 'ActionRegistration("orders.refund"', 1), ...excerpt(read(CSHARP()), 'OrdersRefund(ActionRequest', 2)]);
     show('Go to Definition (Ctrl+click) on orders.refund:', impl);
     show('Find References on the generated OrdersRefund method:', back);
   });
@@ -537,9 +545,9 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
         .filter(l => l.range.start.line === line).map(l => l.command?.title);
       return titles[0] === 'Not implemented in Rust, TypeScript';
     });
-    assert.deepStrictEqual(titles, ['Not implemented in Rust, TypeScript', '$(add) Implement in Rust']);
+    assert.deepStrictEqual(titles, ['Not implemented in Rust, TypeScript', '$(add) Implement in Rust', '$(add) Implement in TypeScript']);
     const found = await describeAll(await definitions(doc.uri, find(doc, 'action: demo.count', 10)));
-    assert.ok(found.some(f => /CoreActions\.cs:\d+ {2}private static object\? DemoCount\(ActionRequest request\) =>/.test(f)), found.join('\n'));
+    assert.ok(found.some(f => /Suite\.Cli\/Actions\.cs:\d+ {2}private static object\? DemoCount\(ActionRequest request\) =>/.test(f)), found.join('\n'));
     console.log(`      ${r.message}`);
     show('CodeLens above `action: demo.count` now:', titles.map(String));
   });

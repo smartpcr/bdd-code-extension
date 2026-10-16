@@ -1,0 +1,10 @@
+suite: typos
+tests:
+  - name: a-case-with-three-mistakes
+    timeout: 30
+    steps:
+      - action: inventory.gte
+        sku: APPLE
+    assert:
+      - var: stock.quantity
+        equal: 50

@@ -22,8 +22,10 @@ Requirements: PowerShell 7.2 or later (tested on 7.6.7), the
 | `BddSuite/StepExecution.psm1` | One step, bounded by cancelling it in a second runspace; the action registry lives here. |
 | `BddSuite/Expression.psm1`, `Assertions.psm1`, `ReportCompare.psm1` | The `${...}` language, the operator table, the canonical report form. |
 | `BddSuite/actions/` | `ActionRegistry.ps1` (`Register-SuiteAction`), `Core.ps1`, `Wait.ps1`. |
-| `Invoke-BddSuite.ps1` | The command line: a thin entry over `Invoke-BddSuite` that sets the exit code. |
-| `tests/` | `BddSuite.Tests.ps1` (the runtime's own tests) and `Conformance.Tests.ps1` (the corpus). |
+| `BddSuite/Cli.ps1` | `Invoke-BddSuiteCli`, the `suiterun` command line every program has (below). |
+| `suiterun.ps1` | That command line as a script, with the core alone; a workspace's own `suiterun.ps1` adds its extensions. |
+| `Invoke-BddSuite.ps1` | The older entry: `Invoke-BddSuite`'s own parameters as a script, which sets the exit code. |
+| `tests/` | `BddSuite.Tests.ps1` (the runtime's own tests), `Cli.Tests.ps1` (the command line) and `Conformance.Tests.ps1` (the corpus). |
 | `example/` | An example extension and its workspace (E3). |
 | `HANDOVER.md` | What of os-context's runner stayed there, and what its wrapper must do (D10). |
 
@@ -69,6 +71,44 @@ directory.
 **The catalog** may import others (DEC-S10): `imports` are read depth first in
 the order listed, each relative to the file that names it; a name declared
 twice is refused naming both files, and an import cycle is refused.
+
+## The suiterun command line
+
+The same verbs, flags, outputs and exit codes as every program's `suiterun`
+(`runtimes/typescript/src/cli.ts` and `run.ts`), so a tool calls the
+PowerShell binding like any other (DEC-S11):
+
+```text
+pwsh -File runtimes/powershell/suiterun.ps1 lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
+pwsh -File runtimes/powershell/suiterun.ps1 run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
+                                                    [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>]
+pwsh -File runtimes/powershell/suiterun.ps1 list    --path <glob> [--tags a,b] [--test-name <case>]
+pwsh -File runtimes/powershell/suiterun.ps1 actions [--json]
+```
+
+`--schema-root <dir>` works with every verb, and each option an extension
+declares is a flag, `--<name> <value>` (the example's `--region eu`).
+`--test-name` is this runtime's addition: run (or list) exactly one case of
+one suite file; an outline case selects all of its rows. Exit codes: 0 passed
+(or a clean lint), 1 a case failed, 2 refused. A command line that cannot be
+read prints `suiterun: <why>` and the usage on standard error; `lint --json`
+prints the diagnostic array and nothing else; `list` prints `<file name>
+<case>` per case; `run` prints `=== Suite: <file> ===`, one `  [<status>]
+<case>` line per case and the verdict, and writes a report only with
+`--results`. The run still lints first, so a suite the lint refuses is exit 2
+with its findings and "Nothing was executed.".
+
+A workspace's `suiterun.ps1` is the runtime's with its extensions:
+
+```powershell
+Import-Module <path to runtimes/powershell>/BddSuite/BddSuite.psd1 -DisableNameChecking
+exit (Invoke-BddSuiteCli -Arguments $args -Extension "$PSScriptRoot/My.Extension.psm1")
+```
+
+`Invoke-BddSuiteCli` returns the exit code and never exits; `-Out` and
+`-ErrorOut` take any `TextWriter` (the console by default), which is how
+`tests/Cli.Tests.ps1` reads what it prints. `samples/workspace/scripts/e2e/suiterun.ps1`
+is a complete one.
 
 ## Extensions
 

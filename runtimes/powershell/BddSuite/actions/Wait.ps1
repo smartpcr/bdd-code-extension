@@ -35,7 +35,15 @@ Register-SuiteAction -Name 'wait' -Handler {
             # Inline, with no runspace of its own: the poll runs inside the bound
             # the wait step already holds, and Invoke-SuiteStep is what records
             # the nested capture.
-            $null = Invoke-SuiteStep -Step $Step.forStep -Ctx $Ctx
+            try {
+                $null = Invoke-SuiteStep -Step $Step.forStep -Ctx $Ctx
+                # Each poll is a step of the case, and the trace says so, as every
+                # runtime's does: the runner reads $Ctx.__nested after the wait.
+                if ($Ctx.__nested -is [System.Collections.IList]) { $null = $Ctx.__nested.Add(@{ step = $Step.forStep; status = 'passed'; reason = '' }) }
+            } catch {
+                if ($Ctx.__nested -is [System.Collections.IList]) { $null = $Ctx.__nested.Add(@{ step = $Step.forStep; status = 'failed'; reason = (Get-StepFailureReason -Failure $_.Exception) }) }
+                throw
+            }
             if ($Step.until) {
                 try {
                     Test-Assertion -Assert $Step.until -Ctx $Ctx

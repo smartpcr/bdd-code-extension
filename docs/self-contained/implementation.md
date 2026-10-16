@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: implementation plan
 
-Status: **stages S1 to S4 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md), [S2](../evidence/self-contained-s2.md), [S3](../evidence/self-contained-s3.md) and [S4](../evidence/self-contained-s4.md); S5 to S7 not started.** The design, its outcomes
+Status: **stages S1 to S4, S5a and S5 built (2026-10-15), evidence in [S1](../evidence/self-contained-s1.md), [S2](../evidence/self-contained-s2.md), [S3](../evidence/self-contained-s3.md), [S4](../evidence/self-contained-s4.md) and [S5a/S5](../evidence/self-contained-s5.md); S6 and S7 not started.** The design, its outcomes
 (O1–O5), decisions (DEC-S01–DEC-S10) and scenarios (E1–E8) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -179,7 +179,7 @@ pinned). Priority orders the work; it never weakens a completion condition.
   from os-context (`smoke.yml`, the typo and dataflow files, the large suite,
   the scratch suites it writes) to equivalents using the sample catalog;
   record each mapping in the stage evidence.
-* **Depends on.** D3–D7.
+* **Depends on.** D3–D7, D14 (the layout).
 * **Done when.** Each language's `suiterun` built for the sample lints and
   runs every sample suite with the same results.
 * **Proved by.** E4.
@@ -254,10 +254,41 @@ pinned). Priority orders the work; it never weakens a completion condition.
   cycles; E8's editor part passes in the integration suite.
 * **Proved by.** E8.
 
+### <a id="d14"></a>D14. The VS Code extension follows the runtimes, in a neutral layout (P0)
+
+* **Result.** The extension's defaults, registration recognizers, *Implement*
+  stubs and PowerShell profile follow the runtimes' extension APIs in the
+  layout of DEC-S11, with no os-context name or path; the PowerShell runtime
+  has the `suiterun`-compatible command line the profile calls.
+* **Why.** O1, O3: a new workspace gets defaults that work with these
+  runtimes, and *Implement in C#/Go/Rust* writes code they compile.
+* **How.** `src/config/defaults.ts`: sources, recognizers (`Register-SuiteAction`
+  and `Register-LabAction`; `{Name: "x", Handler:`; `Action::new("x"`;
+  `new ActionRegistration("x"`; `action('x'`), tools and builds per DEC-S11; the
+  os-context-only recognizer (its lifecycle table) goes. `src/tools/profiles.ts`:
+  PowerShell becomes a program binding run as `pwsh -File scripts/e2e/suiterun.ps1`,
+  with `--test-name` for its one-case runs; the offline `-ApiUrl` placeholder
+  goes. `src/core/stubs.ts` and `templates/`: one target per language
+  (DEC-S11's files and anchors), the `lifecycle` variants removed, a TypeScript
+  stub added. `runtimes/powershell`: a `suiterun.ps1`-style entry (verbs
+  `lint`, `run`, `list`, `actions`; the programs' flags; `--test-name`). The
+  demo fixture (`test/e2e-demo/fixture`) moves to the same layout, and the demo
+  test's expected generated code follows. `package.json` settings defaults are
+  regenerated (`npm run sync-defaults`).
+* **Files.** `src/config/defaults.ts`, `src/tools/profiles.ts`,
+  `src/core/stubs.ts`, `templates/*`, `runtimes/powershell/*`,
+  `test/e2e-demo/**`, `test/unit/*`, `package.json`, `README.md`.
+* **Depends on.** D3–D7 (the APIs it follows).
+* **Done when.** Unit tests at 100% coverage; `Build-Schema`-free stub tests
+  write each language's registration and handler into a file in the DEC-S11
+  layout; the demo passes on the rebuilt package; the PowerShell runtime's
+  tests cover its command line.
+* **Proved by.** E4, E8.
+
 ## 2. Order and dependencies
 
 ```text
-D1 spec ──> D13 editor imports
+D1 spec ──> D13 editor imports ──> D14 extension follows the runtimes (after D3–D7) ──> D8
    │
    └──> D2 corpus ──> D3 TypeScript ──┬─> D4 Go ──┐
                                           ├─> D5 Rust ├─> D8 samples ──> D9 CI ──> D12 release ──> D10 os-context ──> D11 lab
@@ -346,21 +377,36 @@ divergence check for Go and TypeScript.
 - [x] S4.9 Divergence check runs against `runtimes/go` and `runtimes/typescript`.
 - [ ] S4.10 CI jobs for PowerShell and the divergence check. (Built: `runtime-powershell` on Windows and `divergence`, plus the example schema in the `spec` job's check; open until they pass on GitHub.)
 
+### Stage S5a: the extension follows the runtimes (P0)
+
+Result: D14. Entry: S4. Exit evidence: unit tests at 100%; stub tests per
+language; the demo on the rebuilt package; the PowerShell command line tested.
+Added 2026-10-15 (DEC-S11): the S5 sample cannot be satisfied while the
+extension's defaults describe os-context.
+
+- [x] S5a.1 `defaults.ts`: sources, recognizers, tools and builds per DEC-S11; `package.json` defaults regenerated.
+- [x] S5a.2 PowerShell as a program binding (`scripts/e2e/suiterun.ps1`), `--test-name` for one-case runs, no `-ApiUrl` placeholder.
+- [x] S5a.3 PowerShell runtime: the `suiterun`-compatible command line, with tests.
+- [x] S5a.4 Stub targets and anchors per DEC-S11; templates for Go, Rust, C#, PowerShell and TypeScript; `lifecycle` variants removed.
+- [x] S5a.5 Unit tests (registrations, stubs, profiles, layout) at 100% coverage.
+- [x] S5a.6 Demo fixture in the DEC-S11 layout; demo test expectations follow; demo passes on the rebuilt package.
+- [x] S5a.7 README: the layout a workspace uses, per language.
+
 ### Stage S5: sample workspace, extension tests and CI self-contained (P0)
 
-Result: D8, D9. Entry: S1–S4. Exit evidence: E1, E4 and E8 in CI.
+Result: D8, D9. Entry: S1–S4 and S5a. Exit evidence: E1, E4 and E8 in CI.
 
-- [ ] S5.1 `samples/workspace` catalog and layout.
-- [ ] S5.2 Port each integration fixture from os-context; record the mapping.
-- [ ] S5.3 A large suite for the latency test.
-- [ ] S5.4 Example actions in five languages; each `suiterun` lints and runs every sample suite.
-- [ ] S5.11 E8: the sample catalog imports the core; generator, five runtimes and the editor see one catalog.
-- [ ] S5.5 Integration harness uses `samples/workspace`; remove `OS_CONTEXT_ROOT`.
-- [ ] S5.6 Integration suite passes locally (E4, local).
-- [ ] S5.7 CI: extension job builds the runtimes and runs the integration suite.
-- [ ] S5.8 E1 on a clean clone with no os-context on the machine.
+- [x] S5.1 `samples/workspace` catalog and layout.
+- [x] S5.2 Port each integration fixture from os-context to neutral sample suites; record the mapping; where a test asserted a corpus expectation, compare with the runtimes' own output instead (DEC-S11).
+- [x] S5.3 A large suite for the latency test.
+- [x] S5.4 Example actions in five languages; each `suiterun` lints and runs every sample suite.
+- [x] S5.11 E8: the sample catalog imports the core; generator, five runtimes and the editor see one catalog.
+- [x] S5.5 Integration harness uses `samples/workspace`; remove `OS_CONTEXT_ROOT` and the lab session (E-B10 moves to S7).
+- [ ] S5.6 Integration suite passes locally (E4, local). (All but one: node 14, sample 27 + 1 pending, empty 1, worktree 61, untrusted 5 pass; "Copy binding table" fails because this machine's clipboard reads back empty even outside VS Code. Open until it passes, in CI or here.)
+- [ ] S5.7 CI: extension job builds the runtimes and runs the integration suite. (Built: the `integration` job; open until it runs on GitHub.)
+- [x] S5.8 E1 on a clean clone with no os-context on the machine. (Local equivalent: a fresh copy of exactly what git would commit, no build output, `OS_CONTEXT_ROOT` unset; the clone-based E1 is S5.9 in CI.)
 - [ ] S5.9 E1 and E4 in CI on a pull request.
-- [ ] S5.10 README and docs updated: layout, building each runtime, writing an extension.
+- [x] S5.10 README and docs updated: layout, building each runtime, writing an extension.
 
 ### Stage S6: os-context consumes the pin (P1, os-context worktree)
 
@@ -397,11 +443,11 @@ Result: D11. Entry: S6 and a lab. Exit evidence: E6 with cleanup.
 
 | Scenario | Deliverables | Stage | Needs a lab | Status |
 | --- | --- | --- | --- | --- |
-| [E1](design.md#e1) | D1–D9 | S5 | no | not run |
+| [E1](design.md#e1) | D1–D9 | S5 | no | passed locally on a fresh copy of the working tree (2026-10-15); the clone in CI not run |
 | [E2](design.md#e2) | D2–D7 | S1–S4 | no | all five runtimes and the divergence check (Go, TypeScript) passed locally (2026-10-15); not yet in CI |
 | [E3](design.md#e3) | D3–D7 | S1–S4 | no | all five runtimes passed locally (2026-10-15); PowerShell lints before it runs, so its passing run uses a copy within the ceiling (see S4 evidence); not yet in CI |
-| [E4](design.md#e4) | D8, D9 | S5 | no | not run |
+| [E4](design.md#e4) | D8, D9, D14 | S5a, S5 | no | locally all but one test (the clipboard, environmental); not yet in CI |
 | [E5](design.md#e5) | D10 | S6 | no | not run |
 | [E6](design.md#e6) | D11 | S7 | yes | not run |
 | [E7](design.md#e7) | D12 | S6 | no | not run |
-| [E8](design.md#e8) | D1, D3–D7, D13 | S1, S5 | no | not run |
+| [E8](design.md#e8) | D1, D3–D7, D13 | S1, S5 | no | passed locally (2026-10-15); not yet in CI |

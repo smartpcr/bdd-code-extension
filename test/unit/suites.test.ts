@@ -205,12 +205,11 @@ test('B1.3-4 a broken file is BDD030 at the parser position', () => {
   assert.strictEqual(broken.steps.length, 0);
 });
 
+// The sample workspace in this repository (D8): real suites, a library and deliberately flawed files.
+const SAMPLE = path.resolve(__dirname, '../../../samples/workspace');
+
 test('B1.3-1 indexed steps equal the oracle for every real suite', (t) => {
-  const root = process.env.OS_CONTEXT_ROOT;
-  if (!root) {
-    t.skip('OS_CONTEXT_ROOT is not set; the real tree was not checked');
-    return;
-  }
+  const root = SAMPLE;
   let files = 0, steps = 0;
   const times: number[] = [];
   for (const file of oracleSuiteFiles(root)) {
@@ -224,16 +223,12 @@ test('B1.3-1 indexed steps equal the oracle for every real suite', (t) => {
     files++;
     steps += mine.length;
   }
+  assert.ok(files >= 9 && steps >= 100, `${files} files, ${steps} steps`);
   t.diagnostic(`B1.3-1: ${files} files, ${steps} action steps agree with the oracle`);
 });
 
-test('B1.3 item 6: parse time of lifecycle-stage1.yml over 20 runs', (t) => {
-  const root = process.env.OS_CONTEXT_ROOT;
-  if (!root) {
-    t.skip('OS_CONTEXT_ROOT is not set');
-    return;
-  }
-  const file = path.join(root, 'test/e2e/suites/lifecycle-stage1.yml');
+test('B1.3 item 6: parse time of large.yml over 20 runs', (t) => {
+  const file = path.join(SAMPLE, 'test/e2e/suites/large.yml');
   const text = fs.readFileSync(file, 'utf8');
   parseSuite(text, file);
   const times: number[] = [];
@@ -243,7 +238,7 @@ test('B1.3 item 6: parse time of lifecycle-stage1.yml over 20 runs', (t) => {
     times.push(Number(process.hrtime.bigint() - s) / 1e6);
   }
   times.sort((a, b) => a - b);
-  t.diagnostic(`lifecycle-stage1.yml (${text.length} chars): p50 ${times[9].toFixed(1)} ms, max ${times[19].toFixed(1)} ms`);
+  t.diagnostic(`large.yml (${text.length} chars): p50 ${times[9].toFixed(1)} ms, max ${times[19].toFixed(1)} ms`);
 });
 
 test('an empty action, meta or captureAs is not the string "null"', () => {

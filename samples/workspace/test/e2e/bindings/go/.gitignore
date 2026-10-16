@@ -1,0 +1,3 @@
+# What go build leaves when run without -o elsewhere.
+/suiterun
+/suiterun.exe

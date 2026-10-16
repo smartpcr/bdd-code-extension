@@ -1,6 +1,8 @@
 // session: worktree
 // E-B5 (B3.1-B3.5), the completion-order assertion of E-B2 (B3.1) and the
-// capture-path hover (B3.4), on a scratch suite in a disposable worktree.
+// capture-path hover (B3.4), on a scratch suite in the worktree's sample: it
+// imports _lib/shop.yml (a parameter and the meta step check-stock) and
+// captures shop.state, whose capture holds an array of objects (Items).
 import * as assert from 'assert';
 import * as fs from 'fs';
 import { parse } from 'yaml';
@@ -11,9 +13,9 @@ import { setting } from './lintHelpers';
 const W = vscode.ConfigurationTarget.Workspace;
 const SCRATCH = `suite: scratch-b5
 imports:
-  - _lib/lifecycle.yml
+  - _lib/shop.yml
 params:
-  - { name: node, type: string }
+  - { name: region, type: string }
 vars:
   limit: 3
 setup:
@@ -23,25 +25,25 @@ setup:
 tests:
   - name: first
     steps:
-      - action: cluster.state
+      - action: shop.state
         captureAs: cs
       - action: core.noop
         note: ROOT:\${}
         a: CAP:\${capture.}
         b: CS:\${capture.cs.}
         c: PARAM:\${param.}
-        d: HOVER:\${capture.cs.Nodes}
+        d: HOVER:\${capture.cs.Items}
       - action: core.noop
         captureAs: later
-      - action: cluster.state
-        target: ROWT:\${row.}
+      - action: inventory.get
+        sku: ROWT:\${row.}
         rootT: RT:\${}
         table:
-          - { node: N1, drain: true }
+          - { sku: APPLE, shelf: A1 }
       - meta:
-      - meta: select-lab
+      - meta: check-stock
         with:
-          la
+          sk
       - action:
   - name: second
     examples:
@@ -88,11 +90,14 @@ describe('E-B5 completion offers what is in scope, and nothing the format forbid
     catalogActions = [...a.indexers[0].index.catalog!.actions.keys()];
   });
 
-  it('after ${: namespaces, context keys and the 21 functions; row only where a table or examples applies', async () => {
+  // The context keys are the core's (timeoutSec, defaults) and the ones the workspace's runtime extensions add,
+  // which the sample names in bddSuite.contextKeys (`store`); os-context's lab keys are not offered.
+  it('after ${: namespaces, the core and workspace context keys and the 21 functions; row only where a table or examples applies', async () => {
     const got = await labels('ROOT:${');
-    for (const n of ['capture', 'param', 'var', 'cluster', 'target', 'timeoutSec', 'labId', 'apiUrl', 'defaults',
+    for (const n of ['capture', 'param', 'var', 'timeoutSec', 'defaults', 'store',
       'lower', 'upper', 'trim', 'replace', 'format', 'split', 'join', 'startsWith', 'endsWith', 'contains', 'len',
       'first', 'last', 'int', 'float', 'str', 'bool', 'default', 'env', 'uuid', 'nowIso']) assert.ok(got.includes(n), n);
+    for (const n of ['cluster', 'target', 'labId', 'apiUrl']) assert.ok(!got.includes(n), `${n} is not a context key here`);
     assert.ok(!got.includes('row'), 'no row outside a table or examples');
     assert.ok((await labels('RT:${')).includes('row'), 'row in a table step');
     assert.ok((await labels('ROWE:${')).includes('row'), 'row in an outline case');
@@ -103,35 +108,38 @@ describe('E-B5 completion offers what is in scope, and nothing the format forbid
     assert.deepStrictEqual(await labels('CAP2:${capture.', [vscode.CompletionItemKind.Field]), ['agent']);
   });
 
-  it('B3.4-1 after ${capture.cs.: exactly the cluster.state capture properties', async () => {
+  it('B3.4-1 after ${capture.cs.: exactly the shop.state capture properties', async () => {
     const a = await api();
-    const want = [...a.indexers[0].index.catalog!.actions.get('cluster.state')!.captures.properties.keys()].sort();
-    assert.ok(want.length > 0);
+    const want = [...a.indexers[0].index.catalog!.actions.get('shop.state')!.captures.properties.keys()].sort();
+    assert.deepStrictEqual(want, ['Items', 'Name', 'Open']);
     assert.deepStrictEqual((await labels('CS:${capture.cs.', [vscode.CompletionItemKind.Property])).sort(), want);
   });
 
-  it('after ${param.: node and the parameters _lib/lifecycle.yml declares', async () => {
-    const lib = parse(fs.readFileSync(at('test', 'e2e', 'suites', '_lib', 'lifecycle.yml').fsPath, 'utf8'));
-    const want = ['node', ...(lib.params ?? []).map((p: { name: string }) => p.name)].sort();
+  it('after ${param.: region and the parameters _lib/shop.yml declares', async () => {
+    const lib = parse(fs.readFileSync(at('test', 'e2e', 'suites', '_lib', 'shop.yml').fsPath, 'utf8'));
+    const want = ['region', ...(lib.params ?? []).map((p: { name: string }) => p.name)].sort();
+    assert.ok(want.includes('defaultSku'));
     assert.deepStrictEqual((await labels('PARAM:${param.', [vscode.CompletionItemKind.Variable])).sort(), want);
   });
 
   it('after ${row. in the table step: the two column names', async () => {
-    assert.deepStrictEqual((await labels('ROWT:${row.', [vscode.CompletionItemKind.Variable])).sort(), ['drain', 'node']);
+    assert.deepStrictEqual((await labels('ROWT:${row.', [vscode.CompletionItemKind.Variable])).sort(), ['shelf', 'sku']);
   });
 
   it('B3.5 after meta: the visible meta steps; inside its with:, that meta step\'s parameters', async () => {
-    const lib = parse(fs.readFileSync(at('test', 'e2e', 'suites', '_lib', 'lifecycle.yml').fsPath, 'utf8'));
+    const lib = parse(fs.readFileSync(at('test', 'e2e', 'suites', '_lib', 'shop.yml').fsPath, 'utf8'));
     const metas = (lib.metaSteps ?? []) as { name: string; params?: { name: string }[] }[];
     // The YAML extension adds its own key suggestions here; the extension's items name the defining file.
     const mine = (await complete(uri, posAfter('      - meta: ')))
       .filter(i => i.kind === vscode.CompletionItemKind.Module && /\.yml$/.test(i.detail ?? '')).map(label);
     assert.deepStrictEqual(mine.sort(), metas.map(m => m.name).sort());
-    const selectLab = metas.find(m => m.name === 'select-lab')!;
+    assert.deepStrictEqual(mine, ['check-stock']);
+    const checkStock = metas.find(m => m.name === 'check-stock')!;
     const withLine = doc.getText().split(/\r?\n/).findIndex(l => l.trim() === 'with:') + 1;
     const keys = (await complete(uri, new vscode.Position(withLine, 12)))
       .filter(i => i.detail === 'required' || i.detail === 'optional').map(label);
-    assert.deepStrictEqual(keys.sort(), (selectLab.params ?? []).map(p => p.name).sort());
+    assert.deepStrictEqual(keys.sort(), (checkStock.params ?? []).map(p => p.name).sort());
+    assert.deepStrictEqual(keys, ['sku']);
   });
 
   it('B3.1-1 after action: every catalog action exactly once; what the YAML extension adds is recorded', async () => {
@@ -160,11 +168,11 @@ describe('E-B5 completion offers what is in scope, and nothing the format forbid
     }
   });
 
-  it('B3.4 hover on ${capture.cs.Nodes} names the producing step and the declared type', async () => {
-    const pos = posAfter('HOVER:${capture.cs.No');
+  it('B3.4 hover on ${capture.cs.Items} names the producing step and the declared type', async () => {
+    const pos = posAfter('HOVER:${capture.cs.It');
     const text = await hoverText(uri, pos);
-    assert.match(text, /`capture\.cs\.Nodes`/);
-    assert.match(text, /Captured by `cluster\.state` at \[_scratch-b5\.yml:15\]/);
+    assert.match(text, /`capture\.cs\.Items`/);
+    assert.match(text, /Captured by `shop\.state` at \[_scratch-b5\.yml:15\]/);
     assert.match(text, /Type: `array`/);
   });
 

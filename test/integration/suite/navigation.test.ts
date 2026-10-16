@@ -1,11 +1,12 @@
-// session: oscontext
-// B1.3-1 in the real host, and E-B3. The TypeScript locations (B7.5, B7.7)
-// are expected when the checkout carries the TypeScript binding.
+// session: sample
+// B1.3-1 in the real host, and E-B3, on the sample workspace: inventory.get is
+// implemented by all five bindings, shop.state by PowerShell only, and wait is
+// a core action the catalog imports from spec/core.catalog.yaml (DEC-S10).
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { oracleSteps, oracleSuiteFiles } from '../harness/oracle';
-import { api, asLocations, at, find, folder, hasTypeScript, key, lineText, open } from './helpers';
+import { api, asLocations, at, find, folder, key, lineText, open } from './helpers';
 
 async function definitions(uri: vscode.Uri, pos: vscode.Position): Promise<vscode.Location[]> {
   return asLocations(await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
@@ -44,58 +45,65 @@ describe('B1.3 the suite index in a real VS Code', () => {
 
 describe('E-B3 Go to Definition on an action', () => {
   // F12 and Ctrl+click land on each binding's handler where it is declared, else on its registration
-  // (a C# lambda, PowerShell's inline script block, a name list); Ctrl+F12 lists the registrations.
-  it('lifecycle.get: the catalog entry and each binding\'s handler, or its registration when the handler is inline', async () => {
-    const doc = await open(at('test', 'e2e', 'suites', 'lifecycle-stage0.yml'));
-    const locs = await definitions(doc.uri, find(doc, 'action: lifecycle.get', 10));
+  // (PowerShell's inline script block); Ctrl+F12 lists the registrations.
+  it('inventory.get: the catalog entry and each of the five bindings\' handler, or its registration when the handler is inline', async () => {
+    const doc = await open(at('test', 'e2e', 'suites', '_lib', 'shop.yml'));
+    const pos = find(doc, 'action: inventory.get', 10);
+    const locs = await definitions(doc.uri, pos);
     const found = await described(locs);
     const expected: [string, string][] = [
-      [path.join('test', 'e2e', 'schema', 'actions.catalog.yaml'), '- name: lifecycle.get'],
-      [path.join('scripts', 'e2e', 'actions'), "Register-LabAction -Name 'lifecycle.get'"],
-      [path.join('Actions', 'Lifecycle', 'LifecycleActions.cs'), '["lifecycle.get"] ='],
-      [path.join('go', 'internal', 'lifecycle', 'actions.go'), 'func get(held *Context'],
-      [path.join('rust', 'src', 'lifecycle', 'actions.rs'), 'pub fn get(context: &Shared'],
+      [path.join('test', 'e2e', 'schema', 'actions.catalog.yaml'), '- name: inventory.get'],
+      [path.join('scripts', 'e2e', 'actions', 'Shop.ps1'), "Register-SuiteAction -Name 'inventory.get'"],
+      [path.join('dotnet', 'Suite.Cli', 'Actions.cs'), 'private static object? InventoryGet(ActionRequest request)'],
+      [path.join('go', 'actions', 'actions.go'), 'func inventoryGet(request *actions.Request)'],
+      [path.join('rust', 'src', 'actions.rs'), 'fn inventory_get(request: &Request)'],
+      [path.join('typescript', 'src', 'actions.ts'), 'async function inventoryGet(request: Request)'],
     ];
-    if (hasTypeScript()) expected.push([path.join('typescript', 'src', 'lifecycle', 'actions.ts'), 'async function lifecycleGet(request: Request)']);
     assert.strictEqual(locs.length, expected.length, found.join('\n'));
     expectEach(found, expected);
     const registrations = await described(asLocations(await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
-      'vscode.executeImplementationProvider', doc.uri, find(doc, 'action: lifecycle.get', 10))));
-    // Ctrl+F12 lists the registration lines.
-    assert.ok(registrations.some(r => r.includes('"lifecycle.get":')) && registrations.some(r => r.includes('"lifecycle.get" =>')), registrations.join('\n'));
-  });
-
-  it('cluster.state: exactly the catalog entry and PowerShell', async () => {
-    const doc = await open(at('test', 'e2e', 'suites', 'smoke.yml'));
-    const found = await described(await definitions(doc.uri, find(doc, 'action: cluster.state', 10)));
-    assert.strictEqual(found.length, 2, found.join('\n'));
-    expectEach(found, [
-      ['actions.catalog.yaml', '- name: cluster.state'],
-      [path.join('scripts', 'e2e', 'actions'), "Register-LabAction -Name 'cluster.state'"],
+      'vscode.executeImplementationProvider', doc.uri, pos)));
+    // Ctrl+F12 lists each binding's registration line.
+    expectEach(registrations, [
+      ['Shop.ps1', "Register-SuiteAction -Name 'inventory.get'"],
+      ['Actions.cs', 'new ActionRegistration("inventory.get", InventoryGet)'],
+      ['actions.go', '{Name: "inventory.get", Handler: inventoryGet}'],
+      ['actions.rs', 'Action::new("inventory.get", inventory_get)'],
+      ['actions.ts', "action('inventory.get', inventoryGet)"],
     ]);
   });
 
-  it('wait: the catalog, Wait.ps1, and the wait lines in Go exec.go, Rust actions.rs and C# Executor.cs', async () => {
-    const doc = await open(at('test', 'e2e', 'suites', 'lifecycle-stage2.yml'));
-    const found = await described(await definitions(doc.uri, find(doc, 'action: wait', 10)));
-    const expected: [string, string][] = [
-      ['actions.catalog.yaml', '- name: wait'],
-      ['Wait.ps1', "Register-LabAction -Name 'wait'"],
-      ['Executor.cs', 'names.Add("wait")'],
-      ['exec.go', 'append(names, "wait")'],
-      ['actions.rs', 'names.push("wait"'],
-    ];
-    if (hasTypeScript()) expected.push([path.join('typescript', 'src', 'actions', 'core.ts'), 'async function wait(request: Request)']);
-    assert.strictEqual(found.length, expected.length, found.join('\n'));
-    expectEach(found, expected);
+  it('shop.state: exactly the catalog entry and PowerShell', async () => {
+    const doc = await open(at('test', 'e2e', 'suites', 'smoke.yml'));
+    const found = await described(await definitions(doc.uri, find(doc, 'action: shop.state', 10)));
+    assert.strictEqual(found.length, 2, found.join('\n'));
+    expectEach(found, [
+      ['actions.catalog.yaml', '- name: shop.state'],
+      [path.join('scripts', 'e2e', 'actions', 'Shop.ps1'), "Register-SuiteAction -Name 'shop.state'"],
+    ]);
   });
 
-  it('E-B3 meta half: meta: select-lab in stage 0 resolves to _lib/lifecycle.yml', async () => {
-    const doc = await open(at('test', 'e2e', 'suites', 'lifecycle-stage0.yml'));
-    const locs = await definitions(doc.uri, find(doc, 'meta: select-lab', 7));
+  // wait is a core action: its entry is in the catalog the sample imports (spec/core.catalog.yaml,
+  // DEC-S10), and every runtime registers it in the runtime's own code, outside the workspace's
+  // binding sources. The extension indexes only the workspace's sources, so F12 lands on the
+  // imported entry alone and Ctrl+F12 lists no registration.
+  it('wait: exactly the entry in the imported core catalog; no workspace registration', async () => {
+    const doc = await open(at('test', 'e2e', 'suites', 'waiting.yml'));
+    const pos = find(doc, 'action: wait', 10);
+    const found = await described(await definitions(doc.uri, pos));
+    const core = path.resolve(folder(), '..', '..', 'spec', 'core.catalog.yaml');
+    assert.deepStrictEqual(found, [`${key(core)}|  - name: wait`]);
+    const registrations = asLocations(await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
+      'vscode.executeImplementationProvider', doc.uri, pos));
+    assert.deepStrictEqual(registrations, []);
+  });
+
+  it('E-B3 meta half: meta: check-stock in checkout.yml resolves to _lib/shop.yml', async () => {
+    const doc = await open(at('test', 'e2e', 'suites', 'checkout.yml'));
+    const locs = await definitions(doc.uri, find(doc, 'meta: check-stock', 7));
     assert.strictEqual(locs.length, 1);
-    assert.ok(key(locs[0].uri).endsWith(key(path.join('suites', '_lib', 'lifecycle.yml'))));
-    assert.ok((await lineText(locs[0])).includes('select-lab'));
+    assert.ok(key(locs[0].uri).endsWith(key(path.join('suites', '_lib', 'shop.yml'))));
+    assert.ok((await lineText(locs[0])).includes('check-stock'));
   });
 
   it('a position that is not an action or a meta use has no definition from this extension', async () => {

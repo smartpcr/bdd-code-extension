@@ -12,7 +12,7 @@ import {
 } from '../core/trace';
 import { CaseInfo, SuiteFile } from '../core/types';
 import { MAX_STDERR_BYTES } from '../limits';
-import { LabValues, listCommand, runCommand, runnerPath } from '../tools/profiles';
+import { LabValues, listCommand, programPath, runCommand } from '../tools/profiles';
 import { runTool } from '../tools/runTool';
 import { FolderIndexer, toRange } from './indexer';
 
@@ -226,7 +226,7 @@ export class SuiteTesting implements vscode.Disposable {
     const binding = ix.layout.bindings.find(b => b.name === settings.targetBinding);
     if (!suite || !binding) return all('errored', !suite ? 'the suite is not indexed' : `no binding named ${settings.targetBinding}`);
     // Checked before any question, so a workspace without the runner fails at once rather than after the lab prompts.
-    const runner = runnerPath(binding, ix.layout.root);
+    const runner = programPath(binding, ix.layout.root);
     if (runner && !fs.existsSync(runner)) {
       this.log(`Run (${binding.label}) of ${rel}: not started, ${runner} does not exist.`);
       return all('errored', `not run: the ${binding.label} runner ${runner} does not exist (choose another target binding, or build it)`);
@@ -234,7 +234,7 @@ export class SuiteTesting implements vscode.Disposable {
 
     const cases = suite.cases.map((c: CaseInfo) => ({ name: c.name, tags: [...new Set([...suite.tags, ...c.tags])] }));
     const tags = selectionTags(cases, included);
-    const testName = binding.kind === 'powershell' && tags === undefined && included.size === 1 ? [...included][0] : undefined;
+    const testName = binding.selectsOneCase && tags === undefined && included.size === 1 ? [...included][0] : undefined;
     const lab = isLabSuite(this.actionsOf(ix, suite), settings.offlineActions);
     let labValues: LabValues | undefined;
     if (lab) {
@@ -266,7 +266,7 @@ export class SuiteTesting implements vscode.Disposable {
     const cmd = runCommand(binding, ix.layout.root, rel, { traceFile, resultsFile, dryRun, tags, testName, lab: labValues });
     this.lastCommand.set(rel, cmd.argv);
     this.log(`Run (${binding.label}${dryRun ? ', dry run' : ''}${lab ? ', lab' : ''}) in ${cmd.cwd}: ${cmd.argv.map(quoteArg).join(' ')}`);
-    if (binding.kind !== 'powershell' && included.size < suite.cases.length && !tags?.length) {
+    if (!binding.selectsOneCase && included.size < suite.cases.length && !tags?.length) {
       run.appendOutput(crlf(`${binding.label} runs whole files; this run reports every case in ${rel}.\n`));
     }
     for (const item of leaves(chosen)) run.started(item);

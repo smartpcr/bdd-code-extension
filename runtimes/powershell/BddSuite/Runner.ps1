@@ -287,9 +287,20 @@ function Invoke-Step {
     $ownLimit = [int]$Step.timeoutSec
     $remaining = Get-StepLimitSec -Deadline $Ctx.deadline
     $boundedByCase = ($ownLimit -le 0 -or $ownLimit -ge $remaining)
+    # The steps a wait polls, each recorded ahead of the wait itself (Wait.ps1).
+    $nested = [Collections.Generic.List[object]]::new()
+    $Ctx.__nested = $nested
     try {
-        $result = Invoke-SuiteStep -Step $Step -Ctx $Ctx -Runspace (Get-StepRunspace) -Deadline $Ctx.deadline `
-            -Interruptible (Test-ActionInterruptible -Name ([string]$Step.action)) -Description $Description
+        try {
+            $result = Invoke-SuiteStep -Step $Step -Ctx $Ctx -Runspace (Get-StepRunspace) -Deadline $Ctx.deadline `
+                -Interruptible (Test-ActionInterruptible -Name ([string]$Step.action)) -Description $Description
+        } finally {
+            $Ctx.Remove('__nested')
+            foreach ($poll in @($nested.ToArray())) {
+                Add-SuiteTrace -Phase $Phase -CaseName $CaseName -StepLabel (Format-StepLabel $poll.step) -Action ([string]$poll.step.action) `
+                    -Status $poll.status -Reason $poll.reason
+            }
+        }
         Add-SuiteTrace -Phase $Phase -CaseName $CaseName -StepLabel $label -Action $action -Status 'passed'
         $stepWatch.Stop()
         Add-StepTiming -Phase $Phase -Suite $suiteName -CaseName $CaseName -StepLabel $label -Action $action `
@@ -412,7 +423,7 @@ function Invoke-BddSuite {
         Run exactly one named case of one suite, with its setup and cleanup. An
         outline case runs every one of its rows. A missing case is an error.
     .PARAMETER ResultsFile
-        Where the report is written.
+        Where the report is written; empty writes none.
     .PARAMETER ReportFormat
         NUnit3 (the default) or JUnit.
     .PARAMETER DryRun
@@ -842,11 +853,16 @@ function Invoke-BddSuiteRun {
     }
     $Outcome.Suites = @($results.ToArray())
 
-    $doc = if ($ReportFormat -eq 'JUnit') { New-JUnitXml -Suites $results } else { New-NUnit3Xml -Suites $results }
-    $absResultsFile = if ([IO.Path]::IsPathRooted($ResultsFile)) { $ResultsFile } else { Join-Path (Get-Location).Path $ResultsFile }
-    $resultsDir = Split-Path $absResultsFile -Parent
-    if ($resultsDir -and -not (Test-Path -LiteralPath $resultsDir)) { New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null }
-    $doc.Save($absResultsFile)
+    # An empty -ResultsFile writes no report (the command line's run without
+    # --results, as every program's suiterun).
+    $absResultsFile = ''
+    if ($ResultsFile) {
+        $doc = if ($ReportFormat -eq 'JUnit') { New-JUnitXml -Suites $results } else { New-NUnit3Xml -Suites $results }
+        $absResultsFile = if ([IO.Path]::IsPathRooted($ResultsFile)) { $ResultsFile } else { Join-Path (Get-Location).Path $ResultsFile }
+        $resultsDir = Split-Path $absResultsFile -Parent
+        if ($resultsDir -and -not (Test-Path -LiteralPath $resultsDir)) { New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null }
+        $doc.Save($absResultsFile)
+    }
 
     if ($TraceFile) {
         # An array even when the run did one thing, and empty rather than absent
@@ -865,14 +881,14 @@ function Invoke-BddSuiteRun {
         if ($timingDir -and -not (Test-Path -LiteralPath $timingDir)) { New-Item -ItemType Directory -Path $timingDir -Force | Out-Null }
         @{
             schema       = 'bdd.suite.timings.v1'
-            reportSha256 = (Get-FileHash -LiteralPath $absResultsFile).Hash
+            reportSha256 = $(if ($absResultsFile) { (Get-FileHash -LiteralPath $absResultsFile).Hash } else { '' })
             startedUtc   = $runStartedUtc.ToString('o')
             finishedUtc  = [DateTime]::UtcNow.ToString('o')
             cases        = @($run.suiteTimings.ToArray())
             steps        = @($run.stepTimings.ToArray())
         } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $TimingFile
     }
-    Write-RunHost "`nResults written to $ResultsFile" Cyan
+    if ($ResultsFile) { Write-RunHost "`nResults written to $ResultsFile" Cyan }
 
     if ($anyFailures) {
         Write-RunHost 'One or more tests failed.' Red

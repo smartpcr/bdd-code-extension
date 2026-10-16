@@ -17,9 +17,9 @@
   "bddSuite.offlineActions": ["core.*", "wait", "demo.*", "orders.*"],
   "bddSuite.bindings": {
     "powershell": { "sources": ["test/e2e-demo/fixture/scripts/e2e/actions/*.ps1"] },
-    "csharp": { "sources": ["test/e2e-demo/fixture/test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs"] },
+    "csharp": { "sources": ["test/e2e-demo/fixture/test/e2e/bindings/dotnet/**/*.cs"] },
     "go": {
-      "sources": ["test/e2e-demo/fixture/test/e2e/bindings/go/internal/**/*.go"],
+      "sources": ["test/e2e-demo/fixture/test/e2e/bindings/go/**/*.go"],
       "tool": ["node", "tools/fake-lint.mjs"]
     },
     "rust": { "sources": ["test/e2e-demo/fixture/test/e2e/bindings/rust/src/**/*.rs"] },

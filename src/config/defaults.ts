@@ -18,13 +18,18 @@ export interface BuildCommand {
 export interface BindingSettings {
   label: string;
   abbreviation: string;
-  kind: 'suiterun' | 'powershell';
   sources: string[];
   exclude: string[];
   recognizers: Recognizer[];
+  /**
+   * The binding's `suiterun`: argv before the verb. Every binding's program
+   * takes the same verbs and flags (lint, actions, list, run).
+   */
   tool: string[];
   build?: BuildCommand;
   library?: string;
+  /** The program runs one case of a file by name (`--test-name`); otherwise a run covers whole files. */
+  selectsOneCase?: boolean;
 }
 
 export interface Settings {
@@ -42,45 +47,45 @@ export interface Settings {
   'lab.labId': string;
   'lab.connectionFile': string;
   offlineActions: string[];
+  contextKeys: string[];
 }
 
+// DEC-S11: the layout a workspace built on the runtimes gets. A workspace's own
+// actions are its extension of the runtimes, one project per language; each
+// recognizer matches the registration idiom of that language's extension API,
+// and its optional `handler` group names the handler for navigation.
 export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
   powershell: {
     label: 'PowerShell',
     abbreviation: 'PS',
-    kind: 'powershell',
     sources: ['scripts/e2e/actions/*.ps1'],
     exclude: ['**/*.Tests.ps1'],
     recognizers: [
-      { pattern: "Register-LabAction\\s+-Name\\s+'(?<name>[^'$]+)'" },
-      { pattern: 'Register-LabAction\\s+-Name\\s+"(?<name>[^"$]+)"' },
-      // lab-lifecycle.ps1 registers five lifecycle actions in a loop over a table of these entries.
-      { pattern: "@\\{\\s*name\\s*=\\s*'(?<name>[^']+)';\\s*verb\\s*=\\s*'lifecycle\\.", prefix: 'lifecycle.' },
+      // Register-LabAction is the runtime's alias of Register-SuiteAction.
+      { pattern: "Register-(?:Suite|Lab)Action\\s+-Name\\s+'(?<name>[^'$]+)'" },
+      { pattern: 'Register-(?:Suite|Lab)Action\\s+-Name\\s+"(?<name>[^"$]+)"' },
     ],
-    tool: ['pwsh', '-NoProfile', '-NonInteractive'],
+    tool: ['pwsh', '-NoProfile', '-NonInteractive', '-File', 'scripts/e2e/suiterun.ps1'],
+    selectsOneCase: true,
   },
   csharp: {
     label: 'C#',
     abbreviation: 'C#',
-    kind: 'suiterun',
-    sources: ['test/e2e/bindings/dotnet/Hci.E2E.Suite/**/*.cs'],
-    exclude: [],
+    sources: ['test/e2e/bindings/dotnet/**/*.cs'],
+    exclude: ['**/{artifacts,bin,obj}/**'],
     recognizers: [
-      { pattern: '^\\s*\\[\\s*"(?<name>[a-z]\\w*(?:\\.\\w+)+)"\\s*\\]\\s*=\\s*(?<handler>.+?),?\\s*$' },
-      { pattern: 'names\\.Add\\("(?<name>[^"]+)"\\)' },
+      { pattern: 'new ActionRegistration\\(\\s*"(?<name>[^"]+)"(?:\\s*,\\s*(?<handler>[\\w.]+)\\s*\\))?' },
     ],
-    tool: ['test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe'],
+    tool: ['test/e2e/bindings/dotnet/artifacts/bin/Suite.Cli/Debug/net10.0/suiterun.exe'],
     build: { command: 'dotnet build', cwd: 'test/e2e/bindings/dotnet' },
   },
   go: {
     label: 'Go',
     abbreviation: 'Go',
-    kind: 'suiterun',
-    sources: ['test/e2e/bindings/go/internal/**/*.go'],
+    sources: ['test/e2e/bindings/go/**/*.go'],
     exclude: ['**/*_test.go'],
     recognizers: [
-      { pattern: '^\\s*"(?<name>[a-z][\\w]*(?:\\.[\\w]+)+)"\\s*:\\s*(?<handler>[\\w.]+)' },
-      { pattern: 'append\\(names,\\s*"(?<name>[\\w.]+)"\\)' },
+      { pattern: '\\{\\s*Name:\\s*"(?<name>[^"]+)",\\s*Handler:(?:\\s*(?<handler>[\\w.]+)\\s*[,}])?' },
     ],
     tool: ['${storage}/go/suiterun.exe'],
     build: { command: 'go build -o ${storage}/go/suiterun.exe ./cmd/suiterun', cwd: 'test/e2e/bindings/go' },
@@ -88,13 +93,10 @@ export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
   rust: {
     label: 'Rust',
     abbreviation: 'Rs',
-    kind: 'suiterun',
     sources: ['test/e2e/bindings/rust/src/**/*.rs'],
     exclude: [],
     recognizers: [
-      { pattern: 'map\\.insert\\(\\s*"(?<name>[a-z]\\w*(?:\\.\\w+)+)"\\s*,\\s*(?<handler>\\w+)\\s*\\)' },
-      { pattern: '^\\s*"(?<name>[a-z]\\w*(?:\\.\\w+)+)"\\s*=>\\s*(?<handler>\\w+)\\(' },
-      { pattern: 'names\\.push\\("(?<name>[^"]+)"\\.to_string\\(\\)\\)' },
+      { pattern: 'Action::new\\(\\s*"(?<name>[^"]+)"(?:\\s*,\\s*(?<handler>[\\w:]+)\\s*\\))?' },
     ],
     tool: ['test/e2e/bindings/rust/target/debug/suiterun.exe'],
     build: { command: 'cargo build', cwd: 'test/e2e/bindings/rust' },
@@ -102,11 +104,10 @@ export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
   typescript: {
     label: 'TypeScript',
     abbreviation: 'TS',
-    kind: 'suiterun',
     sources: ['test/e2e/bindings/typescript/src/**/*.ts'],
     exclude: ['**/*.test.ts'],
     recognizers: [
-      { pattern: "\\baction\\(\\s*'(?<name>[^']+)'\\s*,\\s*(?<handler>[\\w.]+)\\s*\\)" },
+      { pattern: "\\baction\\(\\s*'(?<name>[^']+)'(?:\\s*,\\s*(?<handler>[\\w.]+)\\s*\\))?" },
     ],
     tool: ['node', 'test/e2e/bindings/typescript/dist/cli.js'],
     build: { command: 'npm ci && npm run build', cwd: 'test/e2e/bindings/typescript', shell: true },
@@ -118,7 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   catalogPath: 'test/e2e/schema/actions.catalog.yaml',
   suiteGlobs: ['test/e2e/**/*.yml'],
   exclude: '**/{node_modules,bin,obj,target,artifacts,.git}/**',
-  // B8.3: the in-editor TypeScript lint met O10 (p95 429 ms on lifecycle-stage1.yml), so it is the default (DEC-B04).
+  // B8.3: the in-editor TypeScript lint met O10 (p95 429 ms on os-context's largest suite), so it is the default (DEC-B04).
   lintTool: 'typescript',
   targetBinding: 'powershell',
   bindings: DEFAULT_BINDINGS,
@@ -131,6 +132,8 @@ export const DEFAULT_SETTINGS: Settings = {
   'lab.connectionFile': '',
   // B6.4 item 1: by default only the built-in core actions and wait run without a lab.
   offlineActions: ['core.*', 'wait'],
+  // Only the runtimes' extensions know their context keys; the workspace names them once for completion.
+  contextKeys: [],
 };
 
 /** The description each setting carries in package.json. */
@@ -140,7 +143,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   exclude: 'Glob of files never indexed.',
   lintTool: 'The binding whose code lints suites.',
   targetBinding: 'The binding suites are meant to run with; lint reports actions it does not implement (E201).',
-  bindings: 'Per binding: source globs, registration recognizers, program and build command.',
+  bindings: 'Per binding: source globs, registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name.',
   schemaGenerator: 'Command that regenerates suite.schema.json after a catalog edit.',
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
   'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',
@@ -149,4 +152,5 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   'lab.labId': 'The id of the environment (lab) a lab run targets; prompted when empty.',
   'lab.connectionFile': 'The connection file of the environment (lab) a lab run targets; prompted when empty.',
   offlineActions: 'Actions that run without a lab, as names or `prefix.*`; a suite using any other action is a lab suite, and its run asks for the lab and a confirmation.',
+  contextKeys: 'Context keys the workspace\'s runtime extensions add (each read as ${key}), offered by completion beside the core\'s `timeoutSec` and `defaults`.',
 };

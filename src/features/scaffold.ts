@@ -78,10 +78,11 @@ export function registerScaffoldActions(owner: Owner): vscode.Disposable {
       }
       const step = stepAt(steps, range.start);
       const entry = step?.action ? catalog.actions.get(step.action) : undefined;
-      if (entry) {
+      // An imported action (the core's, say) is implemented where it is declared, not in this workspace.
+      if (entry && !entry.file) {
         const sites = ix.index.sitesFor(entry.name);
         for (const b of ix.layout.bindings) {
-          if (!stubTarget(b.name, entry.name) || sites.some(s => s.binding === b.name)) continue;
+          if (!stubTarget(b.name) || sites.some(s => s.binding === b.name)) continue;
           const act = new vscode.CodeAction(`Implement ${entry.name} in ${b.label}`, vscode.CodeActionKind.Refactor.append('bddSuite'));
           act.command = { title: act.title, command: 'bddSuite.implementAction', arguments: [entry.name, b.name] };
           out.push(act);
@@ -116,8 +117,9 @@ export function registerImplementLens(owner: Owner, changed: vscode.Event<void>)
           out.push(new vscode.CodeLens(range, { title: `$(lightbulb) Declare action ${action}`, command: 'bddSuite.declareAction', arguments: [doc.uri, action] }));
           continue;
         }
+        if (catalog.actions.get(action)!.file) continue;
         const registered = ix.index.sitesFor(action).map(s => s.binding);
-        const { missing, generate } = missingImplementations(registered, bindings, b => !!stubTarget(b, action));
+        const { missing, generate } = missingImplementations(registered, bindings, b => !!stubTarget(b));
         if (!missing.length) continue;
         out.push(new vscode.CodeLens(range, { title: `Not implemented in ${missing.map(b => b.label).join(', ')}`, command: '' }));
         for (const b of generate) {
@@ -241,7 +243,7 @@ export async function implementAction(host: ScaffoldHost, action?: string, bindi
   if (!action) return refused('Implement action: no action chosen.');
   const chosen = action;
   if (!binding) {
-    const open = ix.layout.bindings.filter(b => stubTarget(b.name, chosen) && !ix.index.sitesFor(chosen).some(s => s.binding === b.name));
+    const open = ix.layout.bindings.filter(b => stubTarget(b.name) && !ix.index.sitesFor(chosen).some(s => s.binding === b.name));
     binding = (await vscode.window.showQuickPick(open.map(b => ({ label: b.label, description: b.name })),
       { placeHolder: `Implement ${chosen} in which binding?` }))?.description;
     if (!binding) return refused('Implement action: no binding chosen.');
@@ -253,7 +255,7 @@ export async function implementAction(host: ScaffoldHost, action?: string, bindi
   const imported = catalog.actions.get(chosen)?.file;
   if (!entry && imported) return report(host, refused(`Implement action: ${chosen} is declared in the imported catalog ${imported}, which this workspace does not edit.`));
   if (!entry) return report(host, refused(`Implement action: ${chosen} is not in the catalog; declare it first.`));
-  const target = stubTarget(binding, chosen);
+  const target = stubTarget(binding);
   if (!target) return report(host, refused(`Implement action: there is no stub template for the ${binding} binding.`));
   const file = path.join(ix.layout.root, target.file);
   if (!fs.existsSync(file)) return report(host, refused(`Implement action: ${target.file} does not exist in this checkout.`));

@@ -1,0 +1,11 @@
+{
+  "$schema": "../../../../../spec/suite.extension.schema.json",
+  "description": "The sample workspace's own suite field, added to the core by import (DEC-S10): owner, the team that maintains a suite.",
+  "suite": {
+    "owner": {
+      "description": "The team that maintains this suite.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: design
 
-Status: **stages S1 to S4 built and locally accepted for all five runtimes (2026-10-15); S5 to S7 not started.** Revised the
+Status: **stages S1 to S5 built (2026-10-15): all five runtimes, the extension following them, and the sample workspace, locally accepted; S6 and S7 not started.** Revised the
 same day: the core is extended by import (DEC-S10). The plan that builds it is [implementation.md](implementation.md); every outcome
 here links to the deliverables that produce it and the scenarios that prove it.
 
@@ -369,6 +369,45 @@ subdirectory tag to resolve a version.
 
 **Serves.** O5. **Verified by.** E7.
 
+### DEC-S11. The VS Code extension follows the runtimes' extension APIs, in a neutral default layout
+
+**Choice.** The extension's defaults stop describing os-context and describe a
+workspace built on these runtimes. A workspace's own actions are its
+extension, one project per language, in this layout:
+
+| Language | Where the workspace's actions are | How one is registered (what the extension finds, and what *Implement* writes) | The workspace's `suiterun` |
+| --- | --- | --- | --- |
+| PowerShell | `scripts/e2e/actions/*.ps1` | `Register-SuiteAction -Name 'x' -Handler { ... }` (`Register-LabAction` still recognized) | `pwsh -File scripts/e2e/suiterun.ps1 <verb> ...`, the same verbs and flags as every program, plus `--test-name` |
+| Go | `test/e2e/bindings/go/actions/actions.go` (module root `test/e2e/bindings/go`) | `{Name: "x", Handler: x},` in `var Registrations = []actions.Registration{` | `go build -o <storage>/go/suiterun.exe ./cmd/suiterun` |
+| Rust | `test/e2e/bindings/rust/src/actions.rs` | `Action::new("x", x),` in `pub fn actions() -> Vec<Action> { vec![ ... ] }` | `test/e2e/bindings/rust/target/debug/suiterun(.exe)` |
+| C# | `test/e2e/bindings/dotnet/Suite.Cli/Actions.cs` | `new ActionRegistration("x", X),` in `public static IReadOnlyList<ActionRegistration> All { get; } = [ ... ];` | `test/e2e/bindings/dotnet/artifacts/bin/Suite.Cli/Debug/net10.0/suiterun(.exe)` |
+| TypeScript | `test/e2e/bindings/typescript/src/**/*.ts` | `action('x', x),` | `test/e2e/bindings/typescript/dist/cli.js`, library `dist/index.js` |
+
+Concretely: `defaults.ts` (sources, recognizers, tools, builds), the
+PowerShell profile (it calls the workspace's `suiterun.ps1` like any program,
+instead of os-context's `SuiteLint.psm1`, `ActionRegistry.ps1` and
+`Invoke-LabTestSuite.ps1 -ApiUrl ...`), and the *Implement* stubs and their
+templates (one per language, no `lifecycle.*` variants). The PowerShell
+runtime gains the `suiterun`-compatible command line the profile calls. The
+integration suite runs against `samples/workspace` built in this layout with
+neutral actions; where a test asserted a corpus expectation it now asks the
+runtimes for the answer (an oracle), because each runtime already proves the
+corpus in its own CI job.
+
+**Why.** The extension serves any workspace (O1, O3); its defaults are the
+layout a new workspace gets, so they must be the runtimes' layout, not one
+product's. Stubs and recognizers that match os-context's dispatch tables
+would generate code the new runtimes no longer compile.
+
+**Tradeoff.** os-context's defaults change: from S6 it sets its own
+`bddSuite.bindings` (sources, recognizers, tools) in its workspace settings, as
+any workspace with a different layout does. The lab scenario E-B10 (B9.3)
+moves to os-context's acceptance (S7); this repository keeps no lab session.
+
+**Serves.** O1, O3. **Verified by.** E4, E8.
+
+---
+
 ## 5. Failure, rollback and cleanup
 
 * **Nothing in os-context changes until D10**, and D10 happens in a worktree
@@ -443,8 +482,10 @@ commands, results and cleanup.
 * **When** `npm run test:integration` runs locally and in CI.
 * **Then** every scenario that ran against os-context passes against the
   sample workspace (navigation, lint parity, run parity across bindings,
-  scaffolding, live lint through the TypeScript library); the lab scenario
-  (B9.3 of the extension's plan) is excluded and still needs a lab.
+  scaffolding, live lint through the TypeScript library), with findings and
+  traces compared against what the five runtimes themselves report (DEC-S11);
+  the lab scenario (B9.3 of the extension's plan) leaves this repository for
+  os-context's acceptance (S7).
 * **Cleanup.** The suite's own restores; `git status` is clean.
 
 ### <a id="e5"></a>E5. os-context, built from the pin, behaves exactly as before
@@ -506,8 +547,8 @@ commands, results and cleanup.
 
 | Outcome | Decisions | Deliverables | Scenarios |
 | --- | --- | --- | --- |
-| O1 | DEC-S01, DEC-S08 | D1–D9 | E1, E2, E4 |
+| O1 | DEC-S01, DEC-S08, DEC-S11 | D1–D9, D14 | E1, E2, E4 |
 | O2 | DEC-S01, DEC-S02, DEC-S07, DEC-S10 | D1, D2, D13 | E2, E8 |
-| O3 | DEC-S03, DEC-S04, DEC-S05, DEC-S10 | D3–D7, D13 | E3, E8 |
+| O3 | DEC-S03, DEC-S04, DEC-S05, DEC-S10, DEC-S11 | D3–D7, D13, D14 | E3, E8 |
 | O4 | DEC-S03, DEC-S05, DEC-S06, DEC-S07, DEC-S10 | D10, D11 | E5, E6 |
 | O5 | DEC-S06, DEC-S09 | D12 | E7 |

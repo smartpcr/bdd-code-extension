@@ -1,8 +1,10 @@
 // session: worktree
 // B6.5 cancellation and the lab path of B6.4, with scratch suites in the
-// disposable worktree. The lab path runs a fake binding program
-// (test/fake-tool/fake-lab-runner.mjs) and answers the run's questions through
-// SuiteTesting.ui, so nothing reaches a lab. E-B10 against a real lab is B9.3.
+// worktree's sample. A lab suite is one using an action outside
+// bddSuite.offlineActions (by default core.* and wait): here inventory.get.
+// The lab path runs a fake binding program (test/fake-tool/fake-lab-runner.mjs)
+// and answers the run's questions through SuiteTesting.ui, so nothing reaches a
+// lab. E-B10 against a real lab is os-context's acceptance (S7, DEC-S11).
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -65,11 +67,13 @@ tests:
   - name: first
     steps:
       - when: the lab is read
-        action: lifecycle.get
+        action: inventory.get
+        sku: APPLE
   - name: second
     steps:
       - when: the lab is read again
-        action: lifecycle.get
+        action: inventory.get
+        sku: APPLE
 `);
     const a = await api();
     ui = a.testing.ui;
@@ -103,6 +107,11 @@ tests:
       console.log(`    ${binding}: the run's process was gone ${ms} ms after the cancel (${Date.now() - t0} ms to the result)`);
     });
   }
+
+  it('B6.4 item 1 the lab scratch is a lab suite under the default offlineActions', async () => {
+    const offline = (await api()).indexers[0].layout.settings.offlineActions;
+    assert.deepStrictEqual(offline, ['core.*', 'wait']);
+  });
 
   it('B6.4-1 / B6.4-2 a lab suite asks for the missing value, shows the list output, and Cancel starts nothing', async () => {
     const a = await setting('targetBinding', 'go', W, x => x.indexers[0]?.layout.settings.targetBinding === 'go');

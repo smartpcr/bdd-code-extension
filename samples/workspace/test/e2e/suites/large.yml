@@ -1,0 +1,1012 @@
+# A large suite: twenty cases of six steps (120 steps), about a thousand lines.
+# The editor's live-lint latency test edits it; it is lint clean and runs in
+# every binding, using only actions all five implement.
+suite: large
+owner: storefront
+description: Twenty products, each checked, carted, shipped and confirmed.
+tags: [large]
+defaults:
+  timeoutSec: 60
+params:
+  - { name: customerId, type: string, default: G-1, description: The customer every case serves. }
+tests:
+  - name: product-01-apple
+    description: APPLE from shelf to parcel.
+    tags: [product, batch-0]
+    steps:
+      - given: the stock of APPLE is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: APPLE
+        captureAs: stock
+      - and: APPLE is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 1 of APPLE go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 1
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: APPLEx1 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 5
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 1
+      - var: line.sku
+        equals: APPLE
+  - name: product-02-pear
+    description: PEAR from shelf to parcel.
+    tags: [product, batch-1]
+    steps:
+      - given: the stock of PEAR is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: PEAR
+        captureAs: stock
+      - and: PEAR is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 40
+      - when: 2 of PEAR go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 2
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: PEARx2 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 20
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 2
+      - var: line.sku
+        equals: PEAR
+  - name: product-03-plum
+    description: PLUM from shelf to parcel.
+    tags: [product, batch-2]
+    steps:
+      - given: the stock of PLUM is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: PLUM
+        captureAs: stock
+      - and: PLUM is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 40
+      - when: 3 of PLUM go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 3
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 3 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 3
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: PLUMx3 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 15
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 3
+      - var: line.sku
+        equals: PLUM
+  - name: product-04-fig
+    description: FIG from shelf to parcel.
+    tags: [product, batch-3]
+    steps:
+      - given: the stock of FIG is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: FIG
+        captureAs: stock
+      - and: FIG is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 30
+      - when: 4 of FIG go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 4
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: FIGx4 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 10
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 4
+      - var: line.sku
+        equals: FIG
+  - name: product-05-kiwi
+    description: KIWI from shelf to parcel.
+    tags: [product, batch-4]
+    steps:
+      - given: the stock of KIWI is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: KIWI
+        captureAs: stock
+      - and: KIWI is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 40
+      - when: 1 of KIWI go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 1
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: KIWIx1 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 10
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 1
+      - var: line.sku
+        equals: KIWI
+  - name: product-06-mango
+    description: MANGO from shelf to parcel.
+    tags: [product, batch-0]
+    steps:
+      - given: the stock of MANGO is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: MANGO
+        captureAs: stock
+      - and: MANGO is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 2 of MANGO go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 2
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 3 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 3
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: MANGOx2 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 30
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 2
+      - var: line.sku
+        equals: MANGO
+  - name: product-07-lemon
+    description: LEMON from shelf to parcel.
+    tags: [product, batch-1]
+    steps:
+      - given: the stock of LEMON is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: LEMON
+        captureAs: stock
+      - and: LEMON is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 3 of LEMON go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 3
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: LEMONx3 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 5
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 3
+      - var: line.sku
+        equals: LEMON
+  - name: product-08-lime
+    description: LIME from shelf to parcel.
+    tags: [product, batch-2]
+    steps:
+      - given: the stock of LIME is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: LIME
+        captureAs: stock
+      - and: LIME is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 40
+      - when: 4 of LIME go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 4
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: LIMEx4 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 20
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 4
+      - var: line.sku
+        equals: LIME
+  - name: product-09-date
+    description: DATE from shelf to parcel.
+    tags: [product, batch-3]
+    steps:
+      - given: the stock of DATE is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: DATE
+        captureAs: stock
+      - and: DATE is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 40
+      - when: 1 of DATE go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 1
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 3 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 3
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: DATEx1 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 15
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 1
+      - var: line.sku
+        equals: DATE
+  - name: product-10-guava
+    description: GUAVA from shelf to parcel.
+    tags: [product, batch-4]
+    steps:
+      - given: the stock of GUAVA is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: GUAVA
+        captureAs: stock
+      - and: GUAVA is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 2 of GUAVA go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 2
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: GUAVAx2 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 10
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 2
+      - var: line.sku
+        equals: GUAVA
+  - name: product-11-papaya
+    description: PAPAYA from shelf to parcel.
+    tags: [product, batch-0]
+    steps:
+      - given: the stock of PAPAYA is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: PAPAYA
+        captureAs: stock
+      - and: PAPAYA is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 60
+      - when: 3 of PAPAYA go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 3
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: PAPAYAx3 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 10
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 3
+      - var: line.sku
+        equals: PAPAYA
+  - name: product-12-cherry
+    description: CHERRY from shelf to parcel.
+    tags: [product, batch-1]
+    steps:
+      - given: the stock of CHERRY is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: CHERRY
+        captureAs: stock
+      - and: CHERRY is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 60
+      - when: 4 of CHERRY go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 4
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 3 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 3
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: CHERRYx4 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 30
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 4
+      - var: line.sku
+        equals: CHERRY
+  - name: product-13-grape
+    description: GRAPE from shelf to parcel.
+    tags: [product, batch-2]
+    steps:
+      - given: the stock of GRAPE is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: GRAPE
+        captureAs: stock
+      - and: GRAPE is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 1 of GRAPE go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 1
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: GRAPEx1 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 5
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 1
+      - var: line.sku
+        equals: GRAPE
+  - name: product-14-melon
+    description: MELON from shelf to parcel.
+    tags: [product, batch-3]
+    steps:
+      - given: the stock of MELON is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: MELON
+        captureAs: stock
+      - and: MELON is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 2 of MELON go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 2
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: MELONx2 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 20
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 2
+      - var: line.sku
+        equals: MELON
+  - name: product-15-olive
+    description: OLIVE from shelf to parcel.
+    tags: [product, batch-4]
+    steps:
+      - given: the stock of OLIVE is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: OLIVE
+        captureAs: stock
+      - and: OLIVE is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 3 of OLIVE go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 3
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 3 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 3
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: OLIVEx3 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 15
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 3
+      - var: line.sku
+        equals: OLIVE
+  - name: product-16-peach
+    description: PEACH from shelf to parcel.
+    tags: [product, batch-0]
+    steps:
+      - given: the stock of PEACH is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: PEACH
+        captureAs: stock
+      - and: PEACH is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 4 of PEACH go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 4
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: PEACHx4 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 10
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 4
+      - var: line.sku
+        equals: PEACH
+  - name: product-17-quince
+    description: QUINCE from shelf to parcel.
+    tags: [product, batch-1]
+    steps:
+      - given: the stock of QUINCE is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: QUINCE
+        captureAs: stock
+      - and: QUINCE is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 60
+      - when: 1 of QUINCE go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 1
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: QUINCEx1 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 10
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 1
+      - var: line.sku
+        equals: QUINCE
+  - name: product-18-berry
+    description: BERRY from shelf to parcel.
+    tags: [product, batch-2]
+    steps:
+      - given: the stock of BERRY is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: BERRY
+        captureAs: stock
+      - and: BERRY is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 50
+      - when: 2 of BERRY go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 2
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 3 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 3
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: BERRYx2 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 30
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 2
+      - var: line.sku
+        equals: BERRY
+  - name: product-19-coconut
+    description: COCONUT from shelf to parcel.
+    tags: [product, batch-3]
+    steps:
+      - given: the stock of COCONUT is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: COCONUT
+        captureAs: stock
+      - and: COCONUT is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 70
+      - when: 3 of COCONUT go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 3
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 1 kilogram parcel is quoted standard
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 1
+        policy: Standard
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: COCONUTx3 for Customer G-1 by Standard
+          - var: shipping.cost
+            equals: 5
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 3
+      - var: line.sku
+        equals: COCONUT
+  - name: product-20-apricot
+    description: APRICOT from shelf to parcel.
+    tags: [product, batch-4]
+    steps:
+      - given: the stock of APRICOT is read
+        why: the cart may only hold what is on hand
+        action: inventory.get
+        sku: APRICOT
+        captureAs: stock
+      - and: APRICOT is in stock
+        action: core.noop
+        asserts:
+          - var: stock.inStock
+            equals: true
+          - var: stock.quantity
+            equals: 70
+      - when: 4 of APRICOT go in the cart
+        why: the quantity cycles from one to four across the products
+        action: cart.add
+        sku: ${capture.stock.sku}
+        quantity: 4
+        captureAs: line
+      - and: the customer is looked up
+        why: the tier decides nothing here, but the summary names the customer
+        action: customer.lookup
+        id: ${param.customerId}
+        captureAs: customer
+      - and: a 2 kilogram parcel is quoted express
+        why: odd products ship express, even ones standard
+        action: shipping.quote
+        weightKg: 2
+        policy: Express
+        captureAs: shipping
+      - then: the order summary reads right
+        why: one text joins what the three earlier steps captured
+        action: core.set
+        value: ${capture.line.line} for ${capture.customer.name} by ${capture.shipping.policy}
+        captureAs: summary
+        asserts:
+          - var: summary
+            equals: APRICOTx4 for Customer G-1 by Express
+          - var: shipping.cost
+            equals: 20
+          - var: customer.tier
+            equals: gold
+    asserts:
+      - var: line.quantity
+        equals: 4
+      - var: line.sku
+        equals: APRICOT

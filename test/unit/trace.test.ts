@@ -35,13 +35,10 @@ test('parseNUnit: each test-case\'s result and decoded message; self-closing and
   assert.strictEqual(parseNUnit('').size, 0);
 });
 
-const corpus = process.env.OS_CONTEXT_ROOT && path.join(process.env.OS_CONTEXT_ROOT, 'test/e2e/conformance/execute');
+// This repository's conformance corpus (DEC-S01): the traces every runtime must produce.
+const corpus = path.resolve(__dirname, '../../../conformance/execute');
 
-test('B6.2-1 mapTrace over every real expected trace: one result per case entry, with its state', t => {
-  if (!corpus || !fs.existsSync(corpus)) {
-    t.skip('OS_CONTEXT_ROOT is not set; the real traces were not read');
-    return;
-  }
+test('B6.2-1 mapTrace over every real expected trace: one result per case entry, with its state', () => {
   const states: Record<string, string> = { passed: 'passed', failed: 'failed', error: 'errored', skipped: 'skipped' };
   let n = 0;
   for (const f of fs.readdirSync(corpus).filter(x => x.endsWith('.expected.json'))) {

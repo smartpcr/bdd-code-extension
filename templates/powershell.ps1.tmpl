@@ -4,7 +4,7 @@
 # returns for captureAs. Declared by Suite: Declare action; it fails until the
 # handler is written.
 
-Register-LabAction -Name '{{action}}' -Handler {
+Register-SuiteAction -Name '{{action}}' -Handler {
     param([hashtable]$Step, [hashtable]$Ctx)
 
     throw '{{action}}: not implemented in the PowerShell binding yet'

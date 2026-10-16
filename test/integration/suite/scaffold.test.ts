@@ -1,8 +1,12 @@
 // session: worktree
-// E-B6, four-binding part (B5.1-B5.4): an unknown action is declared from the
-// quick fix and implemented in Go, Rust and C#; the repository's own checks,
-// builds and programs then accept it, and each program fails the step with
-// "not implemented". The TypeScript part waits for B5.5.
+// E-B6 (B5.1-B5.5) in the worktree's sample: an unknown action is declared
+// from the quick fix (catalog entry, PowerShell stub, regenerated schema) and
+// implemented in Go, Rust, C# and TypeScript. Each generated registry then
+// builds with the sample's real toolchain, its program's `actions --json`
+// lists the action, and a run of the suite using it fails the step "not
+// implemented in the <language> binding yet", as PowerShell's stub does. The
+// catalog's checks (harness/catalog-check.ps1) pass. Afterwards the sample is
+// exactly as this file found it, `git status -- samples/workspace` included.
 import * as assert from 'assert';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
@@ -11,7 +15,7 @@ import * as path from 'path';
 import { parse } from 'yaml';
 import * as vscode from 'vscode';
 import type { ScaffoldResult } from '../../../src/features/scaffold';
-import { api, at, find, folder, open, within } from './helpers';
+import { api, at, find, folder, open, restoreSample, sampleChanges, sampleSnapshot, sampleStatus, within } from './helpers';
 import { lint, nextLint, setting, shown } from './lintHelpers';
 
 const SCRATCH = ['test', 'e2e', 'suites', '_scratch-b6.yml'];
@@ -50,23 +54,16 @@ describe('E-B6 a new action is declared and implemented from the editor', functi
   this.timeout(1_800_000);
   const uri = at(...SCRATCH);
 
-  /** What `git status` said before this file ran, so `after` restores exactly that. */
+  /** What `git status -- samples/workspace` said, and every file's content, before this file ran: `after` restores both. */
   let baseline = '';
-  const status = () => exec(['git', 'status', '--porcelain', '--untracked-files=all'], folder()).out;
-  /**
-   * The text of files already changed when this file started (a worktree with
-   * uncommitted work copied in, BDD_WORKTREE_INCLUDE_CHANGES): their status line
-   * does not change when this file edits them again, and `git checkout` would
-   * restore HEAD rather than what this file found.
-   */
-  const changedBefore = new Map<string, string>();
+  let snapshot: Map<string, Buffer>;
+  /** How many actions the sample's catalog declares before this file adds one. */
+  let declaredBefore = 0;
 
   before(async () => {
-    baseline = status();
-    for (const line of baseline.split('\n').filter(l => l && !l.startsWith('??'))) {
-      const file = path.join(folder(), line.slice(3).trim());
-      if (fs.existsSync(file)) changedBefore.set(file, fs.readFileSync(file, 'utf8'));
-    }
+    baseline = sampleStatus();
+    snapshot = sampleSnapshot();
+    declaredBefore = (parse(fs.readFileSync(path.join(folder(), 'test/e2e/schema/actions.catalog.yaml'), 'utf8')).actions as unknown[]).length;
     // Lint by the Go program, which this scenario's E104 and quick fix were written against.
     await setting('lintTool', 'go', vscode.ConfigurationTarget.Workspace, a => a.controllers[0].tool === 'go');
     fs.writeFileSync(uri.fsPath, SUITE);
@@ -94,7 +91,7 @@ describe('E-B6 a new action is declared and implemented from the editor', functi
     assert.deepStrictEqual(entry?.bindings, ['powershell']);
     assert.deepStrictEqual(entry?.params, [{ name: 'text', type: 'string' }, { name: 'times', type: 'integer' }], 'B5.1-4: when and why are not parameters');
     const stub = fs.readFileSync(at('scripts', 'e2e', 'actions', 'DemoEcho.ps1').fsPath, 'utf8');
-    assert.match(stub, /Register-LabAction -Name 'demo\.echo' -Handler \{/);
+    assert.match(stub, /Register-SuiteAction -Name 'demo\.echo' -Handler \{/);
     assert.ok(/^[\x00-\x7F]*$/.test(stub), 'the PowerShell stub is ASCII');
     assert.match(fs.readFileSync(at('test', 'e2e', 'schema', 'suite.schema.json').fsPath, 'utf8'), /"demo\.echo"/);
 
@@ -135,88 +132,108 @@ describe('E-B6 a new action is declared and implemented from the editor', functi
     assert.strictEqual(fs.readFileSync(at('test', 'e2e', 'schema', 'actions.catalog.yaml').fsPath, 'utf8'), before);
   });
 
-  it('B5.2-B5.4 Implement in Go (from the step), Rust and C#: registry entry, stub, binding listed, no drift', async () => {
+  it('B5.2-B5.5 Implement in Go (from the step), Rust, C# and TypeScript: registry entry, stub, binding listed, no new drift', async () => {
     const doc = await open(uri);
     const pos = find(doc, 'demo.echo', 2);
     const offered = (await codeActions(uri, pos)).map(a => a.title).filter(t => t.startsWith('Implement'));
-    assert.deepStrictEqual(offered.sort(), ['Implement demo.echo in C#', 'Implement demo.echo in Go', 'Implement demo.echo in Rust']);
+    assert.deepStrictEqual(offered.sort(), ['Implement demo.echo in C#', 'Implement demo.echo in Go', 'Implement demo.echo in Rust', 'Implement demo.echo in TypeScript']);
     const go = (await codeActions(uri, pos)).find(a => a.title === 'Implement demo.echo in Go')!;
     const results = [await runAction(go)];
-    for (const binding of ['rust', 'csharp']) {
+    for (const binding of ['rust', 'csharp', 'typescript']) {
       results.push(await vscode.commands.executeCommand<ScaffoldResult>('bddSuite.implementAction', 'demo.echo', binding));
     }
     for (const r of results) {
       assert.ok(r.ok, r.message);
       assert.strictEqual(r.generator, 'exit 0', r.message);
     }
-    assert.deepStrictEqual(catalogEntry()?.bindings, ['powershell', 'csharp', 'go', 'rust'], 'in the catalog\'s top-level order');
+    assert.deepStrictEqual(catalogEntry()?.bindings, ['powershell', 'csharp', 'go', 'rust', 'typescript'], 'in the catalog\'s top-level order');
     const a = await api();
-    await within(10_000, () => a.coverage.rows().every(r => r.declaredNotFound.length === 0 && r.foundNotDeclared.length === 0));
+    // The sample's one deliberate drift (report.export, declared for csharp and registered nowhere) stays; nothing else.
+    const drift = () => a.coverage.rows().flatMap(r => [...r.declaredNotFound, ...r.foundNotDeclared, ...r.duplicates].map(n => `${r.binding} ${n}`));
+    await within(10_000, () => JSON.stringify(drift()) === JSON.stringify(['csharp report.export']));
+    assert.ok(a.coverage.rows().every(r => r.found.includes('demo.echo')), 'every binding registers demo.echo');
     const again = await vscode.commands.executeCommand<ScaffoldResult>('bddSuite.implementAction', 'demo.echo', 'go');
     assert.match(again.message, /already registered in the go binding/);
     assert.deepStrictEqual((await codeActions(uri, pos)).filter(x => x.title.startsWith('Implement')), [], 'nothing left to implement');
   });
 
-  it('B5.1-1 Build-Schema.ps1 -Check exits 0 and the catalog checks of SuiteLint.Tests.ps1 (Y1.3) pass', async () => {
+  it('B5.1-1 Build-Schema.ps1 -Check exits 0 and the catalog checks (harness/catalog-check.ps1) pass', async () => {
     const check = exec(['pwsh', '-NoProfile', '-NonInteractive', '-File', 'test/e2e/schema/Build-Schema.ps1', '-Check'], folder());
     assert.strictEqual(check.status, 0, check.out);
-    const y13 = exec(['pwsh', '-NoProfile', '-NonInteractive', '-File', path.resolve(__dirname, '../../../../test/integration/harness/catalog-y13.ps1'), '-Root', folder()], folder());
-    assert.strictEqual(y13.status, 0, y13.out);
-    assert.match(y13.out, /Y1\.3 passed: \d+ checks over 101 actions/);
-    console.log(`    ${y13.out.trim().split(/\r?\n/).pop()}`);
-    // The whole file cannot pass here (stage B5 evidence): record what it says, never count it as a pass.
-    const pester = exec(['pwsh', '-NoProfile', '-NonInteractive', '-Command',
-      "$r = Invoke-Pester -Path scripts/e2e/SuiteLint.Tests.ps1 -PassThru -Output None; 'passed={0} failed={1}' -f $r.PassedCount,$r.FailedCount; $r.Failed | ForEach-Object { $_.ErrorRecord[0].Exception.Message }"], folder());
-    console.log(`    SuiteLint.Tests.ps1 as a whole (open, blocked in os-context): ${pester.out.trim().split(/\r?\n/).join(' | ')}`);
-    assert.match(pester.out, /Expected 100 declared actions, found 101|Expected E101/, 'it fails only for the recorded reasons');
+    const checks = exec(['pwsh', '-NoProfile', '-NonInteractive', '-File', path.resolve(__dirname, '../../../../test/integration/harness/catalog-check.ps1'), '-Root', folder()], folder());
+    assert.strictEqual(checks.status, 0, checks.out);
+    assert.match(checks.out, new RegExp(`Catalog checks passed: \\d+ checks over ${declaredBefore + 1} workspace actions`));
+    console.log(`    ${checks.out.trim().split(/\r?\n/).pop()}`);
   });
 
-  const programs: [string, string, () => { status: number | null; out: string }, () => string][] = [
-    ['Go', 'test/e2e/bindings/go',
-      () => {
-        const b = exec(['go', 'build', '-o', path.join(os.tmpdir(), 'bdd-b6-go', 'suiterun.exe'), './cmd/suiterun'], path.join(folder(), 'test/e2e/bindings/go'));
-        const v = b.status === 0 ? exec(['go', 'vet', './...'], path.join(folder(), 'test/e2e/bindings/go')) : b;
-        return v;
+  const exe = process.platform === 'win32' ? '.exe' : '';
+  const bindingDir = (name: string) => path.join(folder(), 'test', 'e2e', 'bindings', name);
+  const GO_OUT = path.join(os.tmpdir(), 'bdd-b6-go');
+  /** Each language's build of the worktree sample (none for PowerShell) and the program it gives. */
+  const programs: { label: string; build?: () => { status: number | null; out: string }; argv: () => string[] }[] = [
+    {
+      label: 'Go',
+      build: () => {
+        const b = exec(['go', 'build', '-o', path.join(GO_OUT, `suiterun${exe}`), './cmd/suiterun'], bindingDir('go'));
+        return b.status === 0 ? exec(['go', 'vet', './...'], bindingDir('go')) : b;
       },
-      () => path.join(os.tmpdir(), 'bdd-b6-go', 'suiterun.exe')],
-    ['Rust', 'test/e2e/bindings/rust',
-      () => exec(['cargo', 'build'], path.join(folder(), 'test/e2e/bindings/rust'), { CARGO_TARGET_DIR: CARGO_TARGET }),
-      () => path.join(CARGO_TARGET, 'debug', 'suiterun.exe')],
-    ['C#', 'test/e2e/bindings/dotnet',
-      () => exec(['dotnet', 'build', 'Hci.E2E.Suite.sln'], path.join(folder(), 'test/e2e/bindings/dotnet')),
-      () => path.join(folder(), 'test/e2e/bindings/dotnet/artifacts/bin/Hci.E2E.Suite.Cli/Debug/net10.0/suiterun.exe')],
+      argv: () => [path.join(GO_OUT, `suiterun${exe}`)],
+    },
+    {
+      label: 'Rust',
+      build: () => exec(['cargo', 'build'], bindingDir('rust'), { CARGO_TARGET_DIR: CARGO_TARGET }),
+      argv: () => [path.join(CARGO_TARGET, 'debug', `suiterun${exe}`)],
+    },
+    {
+      label: 'C#',
+      build: () => exec(['dotnet', 'build', 'Suite.sln'], bindingDir('dotnet')),
+      argv: () => [path.join(bindingDir('dotnet'), 'artifacts', 'bin', 'Suite.Cli', 'Debug', 'net10.0', `suiterun${exe}`)],
+    },
+    {
+      label: 'TypeScript',
+      // npm is npm.cmd on Windows: one fixed command line through the shell.
+      build: () => {
+        const command = fs.existsSync(path.join(bindingDir('typescript'), 'node_modules')) ? 'npm run build' : 'npm ci && npm run build';
+        const r = spawnSync(command, { cwd: bindingDir('typescript'), shell: true, encoding: 'utf8', timeout: 900_000, maxBuffer: 64 * 1024 * 1024 });
+        return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}${r.error ? String(r.error) : ''}` };
+      },
+      argv: () => ['node', path.join(bindingDir('typescript'), 'dist', 'cli.js')],
+    },
+    {
+      label: 'PowerShell',
+      argv: () => ['pwsh', '-NoProfile', '-NonInteractive', '-File', path.join(folder(), 'scripts', 'e2e', 'suiterun.ps1')],
+    },
   ];
-  for (const [label, , build, exe] of programs) {
-    it(`B5.2-B5.4 ${label}: builds clean, actions --json lists demo.echo, running the suite fails the step "not implemented"`, async () => {
-      const b = build();
-      assert.strictEqual(b.status, 0, b.out);
-      if (label === 'Rust') assert.ok(!/^warning/m.test(b.out), `B5.3-1 no new warnings:\n${b.out}`);
-      const names = exec([exe(), 'actions', '--json'], folder());
+  for (const { label, build, argv } of programs) {
+    it(`B5.2-B5.5 ${label}: ${build ? 'builds clean, ' : ''}actions --json lists demo.echo, running the suite fails the step "not implemented"`, async () => {
+      if (build) {
+        const b = build();
+        assert.strictEqual(b.status, 0, b.out);
+        if (label === 'Rust') assert.ok(!/^warning/m.test(b.out), `B5.3-1 no new warnings:\n${b.out}`);
+      }
+      const names = exec([...argv(), 'actions', '--json'], folder());
       assert.strictEqual(names.status, 0, names.out);
       assert.ok((JSON.parse(names.out) as string[]).includes('demo.echo'), names.out);
       // The trace carries outcomes only; the failure message is in the results report.
-      const results = path.join(os.tmpdir(), `bdd-b6-${label === 'C#' ? 'cs' : label.toLowerCase()}-results.xml`);
+      const results = path.join(os.tmpdir(), `bdd-b6-${label.replace('#', 'sharp').toLowerCase()}-results.xml`);
       fs.rmSync(results, { force: true });
-      const run = exec([exe(), 'run', '--path', SCRATCH.join('/'), '--results', results, '--format', 'junit'], folder(), {}, 120_000);
+      const run = exec([...argv(), 'run', '--path', SCRATCH.join('/'), '--results', results, '--format', 'junit'], folder(), {}, 300_000);
       const said = run.out + (fs.existsSync(results) ? fs.readFileSync(results, 'utf8') : '');
+      fs.rmSync(results, { force: true });
       assert.strictEqual(run.status, 1, run.out);
       assert.match(said, new RegExp(`demo\\.echo: not implemented in the ${label.replace('#', '\\#')} binding yet`), said);
-      console.log(`    ${label}: built, actions --json has demo.echo, run exit 1 with "not implemented"`);
+      console.log(`    ${label}: ${build ? 'built, ' : ''}actions --json has demo.echo, run exit 1 with "not implemented"`);
     });
   }
 
-  // Later files in this session expect the tree this file found (watch.test.ts uses demo.echo as an undeclared name).
+  // Later files in this session expect the sample this file found (watch.test.ts uses demo.echo as an undeclared name).
   after(async () => {
-    fs.rmSync(path.join(os.tmpdir(), 'bdd-b6-go'), { recursive: true, force: true });
-    const was = new Set(baseline.split('\n').filter(Boolean));
-    for (const line of status().split('\n').filter(l => l && !was.has(l))) {
-      const file = line.slice(3).trim();
-      if (line.startsWith('??')) fs.rmSync(path.join(folder(), file), { force: true });
-      else exec(['git', 'checkout', '--', file], folder());
-    }
-    for (const [file, text] of changedBefore) if (fs.readFileSync(file, 'utf8') !== text) fs.writeFileSync(file, text);
-    assert.strictEqual(status(), baseline, 'the worktree is back to what this file found');
+    fs.rmSync(GO_OUT, { recursive: true, force: true });
     await vscode.workspace.getConfiguration('bddSuite').update('lintTool', undefined, vscode.ConfigurationTarget.Workspace);
+    const touched = restoreSample(snapshot);
+    console.log(`    put back ${touched.length} file(s) of the sample`);
+    assert.deepStrictEqual(sampleChanges(snapshot), [], 'every file of the sample has the content this file found');
+    assert.strictEqual(sampleStatus(), baseline, 'git status -- samples/workspace is what this file found');
     const a = await api();
     await within(10_000, () => !a.indexers[0].index.catalog?.actions.has('demo.echo'));
   });

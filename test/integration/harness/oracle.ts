@@ -36,13 +36,18 @@ export function oracleSteps(file: string, text = fs.readFileSync(file, 'utf8')):
   return out;
 }
 
-/** Every .yml under test/e2e that is a suite or a library a suite imports. */
+/** Build output and dependencies the bindings keep under test/e2e; never suites. */
+const BUILD_OUTPUT = new Set(['node_modules', 'target', 'artifacts', 'dist', 'bin', 'obj', '.git']);
+
+/** Every .yml under test/e2e (build output excluded) that is a suite or a library a suite imports. */
 export function oracleSuiteFiles(root: string): string[] {
   const all: string[] = [];
   const walk = (d: string) => {
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
       const p = path.join(d, e.name);
-      if (e.isDirectory()) walk(p);
+      if (e.isDirectory()) {
+        if (!BUILD_OUTPUT.has(e.name)) walk(p);
+      }
       else if (e.name.endsWith('.yml')) all.push(p);
     }
   };

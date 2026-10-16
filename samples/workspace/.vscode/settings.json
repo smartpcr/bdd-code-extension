@@ -1,0 +1,6 @@
+{
+  // This workspace's runtime extensions (one per language, under
+  // test/e2e/bindings and scripts/e2e) add the context key `store`; naming it
+  // here lets completion offer ${store} beside the core's keys.
+  "bddSuite.contextKeys": ["store"]
+}
