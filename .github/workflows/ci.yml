@@ -303,6 +303,11 @@ jobs:
       TAG: v${{ needs.version.outputs.version }}
       VSIX: bdd-suite-${{ needs.version.outputs.version }}.vsix
     steps:
+      # Only the files the release notes read the runtime versions from.
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: runtimes
+
       - uses: actions/download-artifact@v4
         with:
           name: vsix
@@ -333,6 +338,30 @@ jobs:
       - name: Publish to the Visual Studio Marketplace
         run: npx --yes @vscode/vsce@3 publish --packagePath "$VSIX" --skip-duplicate --azure-credential
 
+      # D12, DEC-S09: the notes name what a consumer pinning this tag gets.
+      - name: Release notes list the runtime versions
+        run: |
+          ts=$(node -p "require('./runtimes/typescript/package.json').version")
+          api=$(node -p "/apiVersion = '([^']+)'/.exec(require('fs').readFileSync('runtimes/typescript/src/index.ts', 'utf8'))[1]")
+          rs=$(sed -n 's/^version = "\(.*\)"/\1/p' runtimes/rust/Cargo.toml | head -1)
+          ps=$(sed -n "s/.*ModuleVersion *= *'\(.*\)'.*/\1/p" runtimes/powershell/BddSuite/BddSuite.psd1)
+          tick='`'
+          {
+            echo "## Runtimes in this release"
+            echo
+            echo "Pin this tag (for example as a git submodule) to get the format spec, the corpus and these runtimes together."
+            echo
+            echo "| Runtime | Version |"
+            echo "| --- | --- |"
+            echo "| Go module ${tick}github.com/${GITHUB_REPOSITORY}/runtimes/go${tick} | ${tick}runtimes/go/$TAG${tick} |"
+            echo "| Rust crate ${tick}suiterun${tick} | $rs |"
+            echo "| C# ${tick}Bdd.Suite${tick} | built from this tag by project reference |"
+            echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | $ts (lint API $api) |"
+            echo "| PowerShell module ${tick}BddSuite${tick} | $ps |"
+            echo
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
       - name: GitHub release with the .vsix and its SHA-256 (creates the tag)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -341,5 +370,26 @@ jobs:
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "$VSIX" "$VSIX.sha256" --clobber
           else
-            gh release create "$TAG" "$VSIX" "$VSIX.sha256" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+            gh release create "$TAG" "$VSIX" "$VSIX.sha256" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          fi
+
+      # D12, DEC-S09: Go resolves a module in a subdirectory only from a tag with that prefix.
+      - name: Tag the Go module at the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          go_tag="runtimes/go/$TAG"
+          release_sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
+          if existing=$(gh api "repos/$GH_REPO/git/ref/tags/$go_tag" --jq .object.sha 2> /dev/null); then
+            echo "$go_tag already exists at $existing."
+          else
+            gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$go_tag" -f sha="$release_sha" > /dev/null
+            existing=$release_sha
+            echo "Created $go_tag at $release_sha."
+          fi
+          # E7: both tags name the same commit.
+          if [ "$existing" != "$release_sha" ]; then
+            echo "::error::$go_tag is at $existing, but $TAG is at $release_sha."
+            exit 1
           fi

@@ -169,6 +169,18 @@ Describe 'S5a.3 suiterun: usage and refusals' {
         $r.Code | Should -Be 2
         $r.Err | Should -Be "suiterun: Option format is defined by both the core and clash.`n"
     }
+
+    It 'spells a camelCase option as lower-case words, as every program does: zoneName is --zone-name' {
+        $folder = Join-Path $TestDrive 'kebab'
+        $null = New-Item -ItemType Directory -Path $folder -Force
+        $module = Join-Path $folder 'Kebab.psm1'
+        Set-Content -LiteralPath $module -Value "function Get-SuiteExtension { @{ Name = 'kebab'; Options = @(@{ Name = 'zoneName'; Description = 'The zone' }) } }`nExport-ModuleMember -Function *"
+        (Invoke-Cli -Arguments @('bogus') -Extension @($module)).Err | Should -Match "Options the extensions add, for run:`n\s+--zone-name <value>  The zone"
+        (Invoke-Cli -Arguments @('lint', '--path', 'suites/pass.yml', '--zone-name', 'eu') -Extension @($module)).Code | Should -Be 0
+        (Invoke-Cli -Arguments @('lint', '--path', 'suites/pass.yml', '--zoneName', 'eu') -Extension @($module)).Err | Should -BeLike 'suiterun: lint does not take --zoneName.*'
+        Set-Content -LiteralPath $module -Value "function Get-SuiteExtension { @{ Name = 'kebab'; Options = @(@{ Name = 'testName'; Description = 't' }) } }`nExport-ModuleMember -Function *"
+        (Invoke-Cli -Arguments @('actions') -Extension @($module)).Err | Should -Be "suiterun: Option testName is defined by both the core and kebab.`n"
+    }
 }
 
 Describe 'S5a.3 suiterun actions' {

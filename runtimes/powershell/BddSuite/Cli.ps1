@@ -39,6 +39,17 @@ $script:CliVerbs = @('lint', 'run', 'list', 'actions')
 $script:CliSwitches = @('--json', '--strict', '--dry-run', '--binding-check')
 $script:CliValued = @('--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--test-name')
 
+function ConvertTo-BddSuiteOptionFlag {
+    <#
+    .SYNOPSIS
+        The command-line flag of an extension option: its camelCase name in
+        lower-case words, so zoneName is --zone-name, as every program spells it.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+    return "--" + ([regex]::Replace($Name, "(?<=[a-z0-9])([A-Z])", { "-" + $args[0].Value.ToLowerInvariant() }))
+}
+
 function Get-BddSuiteCliUsage {
     <#
     .SYNOPSIS
@@ -47,7 +58,7 @@ function Get-BddSuiteCliUsage {
     [CmdletBinding()]
     param([object[]]$Option = @())
     if (-not @($Option).Count) { return $script:CliUsage }
-    $lines = @(foreach ($o in @($Option)) { "                 --$($o.Name) <value>  $($o.Description)" })
+    $lines = @(foreach ($o in @($Option)) { "                 $(ConvertTo-BddSuiteOptionFlag $o.Name) <value>  $($o.Description)" })
     return $script:CliUsage + "`nOptions the extensions add, for run:`n" + ($lines -join "`n")
 }
 
@@ -66,7 +77,7 @@ function ConvertFrom-BddSuiteCliArgument {
 
     $usage = Get-BddSuiteCliUsage -Option $Option
     $extensionFlags = @{}
-    foreach ($o in @($Option)) { $extensionFlags["--$($o.Name)"] = [string]$o.Name }
+    foreach ($o in @($Option)) { $extensionFlags[(ConvertTo-BddSuiteOptionFlag $o.Name)] = [string]$o.Name }
     $parsed = [ordered]@{
         Verb = 'actions'; Path = ''; Tags = [Collections.Generic.List[string]]::new(); Results = ''; TraceFile = ''
         Format = 'nunit3'; Params = [Collections.Generic.List[string]]::new(); Binding = 'powershell'; Json = $false
@@ -231,7 +242,7 @@ function Invoke-BddSuiteCli {
         $composite = New-SuiteComposite -Extension $described -ActionPath $ActionPath
         # An option is its flag, so one the command line already has is a clash.
         foreach ($o in @($composite.Options)) {
-            if (($script:CliValued + $script:CliSwitches) -contains "--$($o.Name)") { throw "Option $($o.Name) is defined by both the core and $($o.Owner)." }
+            if (($script:CliValued + $script:CliSwitches) -contains (ConvertTo-BddSuiteOptionFlag $o.Name)) { throw "Option $($o.Name) is defined by both the core and $($o.Owner)." }
         }
         $options =ConvertFrom-BddSuiteCliArgument -Arguments $Arguments -Option $composite.Options
     } catch {

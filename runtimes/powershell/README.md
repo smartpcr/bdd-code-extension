@@ -123,7 +123,7 @@ optional:
 | `ActionPath` | Folders (or `.ps1` files) of action files, relative to the module's folder. Each file calls `Register-SuiteAction -Name <action> -Handler { param($Step, $Ctx) ... }`. |
 | `Modules` | Further modules the step runspace imports before the action files load: helpers the actions call. |
 | `ContextKeys` | Names readable as `${key}` in any expression and known to the dataflow lint. |
-| `Options` | `@(@{ Name = 'region'; Description = '...' })`: the values `-Option @{ region = 'eu' }` (or `-Option region=eu` on the command line) may give. A camelCase name. |
+| `Options` | `@(@{ Name = 'region'; Description = '...' })`: the values `-Option @{ region = 'eu' }` (or `-Option region=eu` on the command line) may give. A camelCase name; its flag is the name in lower-case words (`zoneName` is `--zone-name`). |
 | `Rules` | `@{ Lint = { param($In) <diagnostics> }; CaseLimitSec = { param($Suite, $DeclaredSec) <seconds> } }`. |
 | `EnvPrefix` | The prefix of `PARAM_<NAME>` and `RECORD_PATH`. Default `BDD_SUITE_`. |
 | `Start` | `{ param([hashtable]$Options) @{ Context = @{ key = value }; Redact = { param($Text) ... }; State = <anything> } }`, called once per run with the extension's own option values. |

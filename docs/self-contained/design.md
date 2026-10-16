@@ -499,8 +499,12 @@ commands, results and cleanup.
   -Check`; os-context's own unit and Pester tests; its CI workflows on a pushed
   branch.
 * **Then** action lists are identical per binding; lint output is identical
-  byte for byte after sorting; the generated `suite.schema.json` is identical;
-  all tests and workflows pass.
+  byte for byte after sorting; the generated `suite.schema.json` is the same
+  check: identical once wording (`$id`, `title`, `description`) is removed,
+  object keys are sorted, and the action list and its per-action branches are
+  compared as sets. Its wording differs by design, because the core's text is
+  neutral (DEC-S04) and imported actions come first (DEC-S10); the evidence
+  lists every wording difference. All tests and workflows pass.
 * **Cleanup.** The worktree and branch are kept for the record until D10
   merges, then removed.
 
