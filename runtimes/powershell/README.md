@@ -127,6 +127,7 @@ optional:
 | `Rules` | `@{ Lint = { param($In) <diagnostics> }; CaseLimitSec = { param($Suite, $DeclaredSec) <seconds> } }`. |
 | `EnvPrefix` | The prefix of `PARAM_<NAME>` and `RECORD_PATH`. Default `BDD_SUITE_`. |
 | `Start` | `{ param([hashtable]$Options) @{ Context = @{ key = value }; Redact = { param($Text) ... }; State = <anything> } }`, called once per run with the extension's own option values. |
+| `Cases` | **PowerShell only.** `@{ SkipCase = { param($In) ... }; AfterCase = { param($In) ... }; ... }`: hooks the runner calls around each case and step ([Case hooks](#case-hooks-the-cases-part-powershell-only) below). |
 
 What each part does at run time:
 
@@ -168,9 +169,51 @@ NAME. No extension of this runtime registers it.*
 `Register-LabAction`, `Get-LabActionNames` and `Get-LabAction` are kept as
 aliases, so an action file written against the old names loads unchanged.
 
-The example in [example/](example) adds one of each part: `example.echo`, the
+The example in [example/](example) adds one of each part but `Cases`: `example.echo`, the
 context key `region`, the option `region`, and a rule holding suites tagged
 `slow` to 10 seconds per case (lint E205 and the run-time limit).
+
+### Case hooks (the Cases part, PowerShell only)
+
+`Cases` is an optional part of this runtime alone: the TypeScript, Go, Rust
+and C# runtimes have no such part, and a suite whose meaning depends on it
+runs only here. It exists for what a workspace does around each case and step
+that the five portable parts cannot say: skip a case or a step the system
+under test cannot meet, give a case a context value of its own, check a step
+before anything runs, record the case's work, release what a case held open
+and fail a case or a suite hook on evidence only the extension has.
+
+Every hook is a scriptblock taking one hashtable, `$In`, and runs in the
+runner's own session (not the step runspace). `$In` always holds `State` (the
+hook's own extension's `State`, as `Start` returned it), `Suite` (the parsed
+suite), `SuiteName` and `DryRun`; each hook adds what its point has:
+
+| Hook | When | `$In` adds | Its answer |
+| --- | --- | --- | --- |
+| `SkipCase` | For each case the tag filter selected, before anything of it: before its context exists and before a failed suite setup is charged to it. | `Case`, `CaseName` | Nothing to run it; a sentence to skip it (trace reason `not-applicable`); or `@{ Message; Reason }`. The case is reported `skipped` with the sentence as its message, printed `[SKIP] <case> (<sentence>)`, has a `case` trace entry with the reason and no timings row. |
+| `CaseContext` | When a case's context is built (after `param` and `row`, before `vars`, which may read it), and when the suite hooks' context is built (no `Case`). | `Ctx`, `Case` (or `$null`), `CaseName` | A hashtable; of it, only the extension's own context keys are taken, replacing what `Start` or `defaults` gave. The hook may also add fields of its own to `$In.Ctx`, which actions read as `$Ctx.<field>`. |
+| `CheckStep` | For each step of the case and of its suite's hooks, right after the check that its action is registered, under `-DryRun` too. | `Step`, `Case`, `CaseName` | What it throws fails the case with that message, before anything runs. |
+| `SkipStep` | Before every step the runner drives, in any phase (suite setup and teardown, beforeEach, case setup, steps, cleanup, afterEach), before the step's `ifCapture` guard. Not for the steps a `wait` polls. | `Step`, `Ctx`, `Phase`, `CaseName` | As `SkipCase`. The step is not run and the case goes on; the trace entry takes the reason, the timings row and the `[STEP]` event the sentence. |
+| `WorkStarted` | When the case's own clock starts: after beforeEach and case setup passed, before its first step. | `Ctx`, `Case`, `CaseName` | None; what it throws fails the case. |
+| `AfterStep` | After each of the case's own steps passed (not hook, cleanup or afterEach steps). | `Step`, `Ctx`, `Case`, `CaseName` | A sentence fails the case with it; the case's cleanup still runs. |
+| `WorkFinished` | In the case's `finally`, when its clock stops, before cleanup. Also for a case that failed, ran under `-DryRun`, or was stopped. | `Ctx`, `Case`, `CaseName`, `Status`, `WorkSec` | None. |
+| `CaseFinally` | In the case's `finally`, after its cleanup and afterEach, whatever the case did. | `Ctx`, `Case`, `CaseName`, `Status` | None. What it throws ends the run (exit 2), as any runner fault does. |
+| `AfterCase` | After the case's `finally`, before its timings row, trace entry and result are recorded. Not for a case the run was stopped before. | `Ctx`, `Case`, `CaseName`, `Status` (as the hooks before it left it), `SuiteCtx` (the suite hooks' context, or `$null`) | Zero or more failures, each a sentence or `@{ Message; Reason; Line }`. Each fails the case: `Reason` (default `hook`) becomes its trace reason, `' ' + Message` is appended to its message, and `Line`, when given, is printed as `[FAIL] <case>: <Line>`. |
+| `AfterSuiteHook` | After the suite setup's or teardown's steps all passed, inside its own verdict. | `Hook` (`setup` or `teardown`), `Ctx` | A sentence fails that hook with it: a refused setup errors every case (*Suite setup failed: ...*), a refused teardown is its own failed `teardown` entry. |
+| `AfterTeardown` | After the suite teardown, passed or failed; only when the suite has a teardown that ran. | `Ctx` (the suite hooks' context) | None. |
+
+Several extensions compose in `-Extension` order at every point. For
+`SkipCase` and `SkipStep` the first that skips decides and later ones are not
+asked; `AfterStep` and `AfterSuiteHook` stop at the first sentence; every
+other hook is called for every extension. A hook's texts go through the
+extensions' redaction like every other text the runner reports.
+
+**Meta use sites.** Each step a meta use site stands for carries `__useSites`:
+the use sites it was expanded through, innermost first, each a hashtable of
+the use site's own fields except `meta`, `with` and `ifCapture`, which the core
+consumes. The core interprets none of them; a `SkipStep` hook reads them, so a
+field a workspace's suite-schema extension adds to a use site can decide every
+step it stands for.
 
 ## Tests
 

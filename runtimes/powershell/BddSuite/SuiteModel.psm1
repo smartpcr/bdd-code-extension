@@ -144,14 +144,25 @@ function Expand-SuiteStepList {
                 $arguments[$key] = $step.with[$key]
             }
             $body = Expand-MetaParameter -Value (Copy-SuiteValue -Value $definition.steps) -Arguments $arguments
+            # The use site's own fields beyond meta, with and ifCapture (which
+            # the core consumes here) are a workspace's, from a suite-schema
+            # extension. The core does not interpret them, but each step the
+            # use site stands for carries them in __useSites, innermost use
+            # site first, so an extension's case hooks can (README.md).
+            $site = @{}
+            foreach ($key in @($step.Keys)) {
+                if (@('meta', 'with', 'ifCapture') -cnotcontains $key) { $site[$key] = Copy-SuiteValue -Value $step[$key] }
+            }
             $subIndex = 0
             foreach ($inner in Expand-SuiteStepList -Steps $body -Definitions $Definitions -Where $Where `
                     -Depth ($Depth + 1) -Provenance "meta $name") {
                 # A nested step that carries a guard from the use site inherits
                 # it, so `- meta: x` with ifCapture skips the whole group.
                 if ($step.ifCapture -and -not $inner.ifCapture) { $inner['ifCapture'] = $step.ifCapture }
-                # A use site's own fields beyond these are a workspace's (a
-                # suite-schema extension's); the core does not interpret them.
+                $sites = [Collections.Generic.List[object]]::new()
+                foreach ($nested in @($inner.__useSites)) { if ($null -ne $nested) { $sites.Add($nested) } }
+                $sites.Add($site)
+                $inner['__useSites'] = $sites.ToArray()
                 # ST-10.3: where the step sits in what was authored. The index is
                 # the use site's; the sub-index is the step's place in the whole
                 # flattened group, where a nested group's steps and a table's

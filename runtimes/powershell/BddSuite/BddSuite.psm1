@@ -24,6 +24,9 @@
                         CaseLimitSec = { param($Suite, $DeclaredSec) <seconds> } }
         EnvPrefix    the prefix of PARAM_<NAME> and RECORD_PATH (default BDD_SUITE_)
         Start        { param([hashtable]$Options) @{ Context = @{...}; Redact = {...}; State = ... } }
+        Cases        @{ SkipCase = { param($In) ... }; AfterCase = { param($In) ... }; ... }:
+                     hooks the runner calls around each case and step (this
+                     runtime only; README.md, "Case hooks")
 
     Several extensions compose; a name two of them define, or one that clashes
     with the core, is refused before anything runs. README.md says the same
@@ -63,6 +66,11 @@ $script:ReservedContextNames = @('caseName', 'suiteName', 'recordPath', 'state',
 # whatever its case, because a reader could not tell them apart.
 $script:CoreOptionNames = @('Path', 'Tags', 'TestName', 'ResultsFile', 'ReportFormat', 'DryRun', 'Lint', 'Strict', 'Json',
     'Param', 'TraceFile', 'TimingFile', 'StopFile', 'SchemaRoot', 'ActionPath', 'Extension', 'Option', 'Binding', 'BindingCheck')
+
+# The hooks an extension's Cases part may hold, in the order the runner reaches
+# them for one case. PowerShell only: the other runtimes have no such part.
+$script:CaseHookNames = @('SkipCase', 'CaseContext', 'CheckStep', 'SkipStep', 'WorkStarted', 'AfterStep', 'WorkFinished',
+    'CaseFinally', 'AfterCase', 'AfterSuiteHook', 'AfterTeardown')
 
 # The core's own actions.
 $script:CoreActionFiles = @((Join-Path $PSScriptRoot 'actions/Core.ps1'), (Join-Path $PSScriptRoot 'actions/Wait.ps1'))
@@ -138,7 +146,7 @@ function Import-SuiteExtension {
     $described = & $describe
     if ($described -isnot [System.Collections.IDictionary]) { throw "Extension $Path`: Get-SuiteExtension returned no hashtable." }
 
-    $allowed = @('Name', 'ActionPath', 'Modules', 'ContextKeys', 'Options', 'Rules', 'EnvPrefix', 'Start')
+    $allowed = @('Name', 'ActionPath', 'Modules', 'ContextKeys', 'Options', 'Rules', 'EnvPrefix', 'Start', 'Cases')
     foreach ($key in @($described.Keys)) {
         if ($allowed -notcontains $key) { throw "Extension $Path declares $key; an extension declares $($allowed -join ', ')." }
     }
@@ -159,6 +167,15 @@ function Import-SuiteExtension {
         if ($rules[$key] -isnot [scriptblock]) { throw "Extension $name declares the rule $key as something other than a scriptblock." }
     }
     if ($null -ne $described.Start -and $described.Start -isnot [scriptblock]) { throw "Extension $name declares Start as something other than a scriptblock." }
+    $cases = @{}
+    if ($null -ne $described.Cases) {
+        if ($described.Cases -isnot [System.Collections.IDictionary]) { throw "Extension $name declares Cases as something other than a hashtable of hooks." }
+        foreach ($key in @($described.Cases.Keys)) {
+            if ($script:CaseHookNames -cnotcontains $key) { throw "Extension $name declares the case hook $key; a case hook is $($script:CaseHookNames -join ', ')." }
+            if ($described.Cases[$key] -isnot [scriptblock]) { throw "Extension $name declares the case hook $key as something other than a scriptblock." }
+            $cases[$key] = $described.Cases[$key]
+        }
+    }
     $options = foreach ($option in @($described.Options)) {
         if ($null -eq $option) { continue }
         if ($option -is [string]) { @{ Name = $option; Description = '' } }
@@ -177,6 +194,7 @@ function Import-SuiteExtension {
         CaseLimit   = $rules['CaseLimitSec']
         EnvPrefix   = $(if ($described.Contains('EnvPrefix') -and $null -ne $described.EnvPrefix) { [string]$described.EnvPrefix } else { $null })
         Start       = $described.Start
+        Cases       = $cases
     }
 }
 
@@ -210,6 +228,8 @@ function New-SuiteComposite {
     $contextKeys = [Collections.Generic.List[string]]::new()
     $options = [Collections.Generic.List[hashtable]]::new()
     $lintRules = [Collections.Generic.List[hashtable]]::new()
+    $caseHooks = @{}
+    foreach ($hookName in $script:CaseHookNames) { $caseHooks[$hookName] = [Collections.Generic.List[hashtable]]::new() }
 
     foreach ($e in @($Extension)) {
         if ($null -eq $e) { continue }
@@ -232,6 +252,11 @@ function New-SuiteComposite {
             $prefix = @{ value = $e.EnvPrefix; owner = $e.Name }
         }
         if ($e.Lint) { $lintRules.Add(@{ Owner = $e.Name; Rule = $e.Lint }) }
+        # In -Extension order, so every hook point calls the extensions in the
+        # order the run named them.
+        foreach ($hookName in $script:CaseHookNames) {
+            if ($e.Cases -and $e.Cases[$hookName]) { $caseHooks[$hookName].Add(@{ Owner = $e.Name; Keys = @($e.ContextKeys); Hook = $e.Cases[$hookName] }) }
+        }
         Import-SuiteActionSource -Owner $e.Name -File $e.ActionFiles
         $sources.Add(@{ owner = $e.Name; files = @($e.ActionFiles) })
         $extensions.Add($e)
@@ -243,6 +268,7 @@ function New-SuiteComposite {
         Import-SuiteActionSource -Owner $owner -File $files
         $sources.Add(@{ owner = $owner; files = $files })
     }
+    foreach ($hookName in $script:CaseHookNames) { $caseHooks[$hookName] = $caseHooks[$hookName].ToArray() }
     return @{
         Extensions  = $extensions.ToArray()
         ContextKeys = $contextKeys.ToArray()
@@ -250,6 +276,8 @@ function New-SuiteComposite {
         Options     = $options.ToArray()
         EnvPrefix   = $(if ($prefix) { $prefix.value } else { $script:DefaultEnvPrefix })
         LintRules   = $lintRules.ToArray()
+        # Hook name to its hooks, each @{ Owner; Keys; Hook }, in -Extension order.
+        CaseHooks   = $caseHooks
         # What the step runspace loads (New-StepRunspace -Load).
         Load        = @{
             modules = @($extensions | ForEach-Object { $_.Modules } | Where-Object { $_ })

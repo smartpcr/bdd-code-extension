@@ -226,6 +226,21 @@ the corpus does for behaviour.
 That is most of the work, and it happens while os-context still depends on the
 old shape, which is why os-context keeps its copies until D10 switches it.
 
+**Addition in S6: per-case hooks, PowerShell only (user decision 2026-10-15).**
+os-context's lab runner does things around each case that the five parts
+cannot express: skipping a case or a step whose `requires` the lab does not
+meet, a case-level `cluster:`/`target:` overriding the context key, failing a
+case on its operation evidence, closing event streams after each case and the
+teardown, and stage 7 completion. Only the PowerShell runner ever did them;
+the other four bindings accept `requires` and ignore it. So BddSuite alone
+gains a sixth, optional part, `Cases`: named scriptblocks the runner calls at
+fixed points of a case (skip a case, contribute to its context, check or skip
+a step, after each step, in its finally, after it, after the suite's hooks and
+teardown), composed in extension order. The other runtimes get the part when a
+consumer needs it there. Tradeoff: the runtimes are no longer symmetric in
+this one respect, which the README of each says; the alternative, the same
+hooks in all five, was several times the work for behaviour nobody else uses.
+
 **Serves.** O3, O4. **Verified by.** E3, E5.
 
 ### DEC-S04. Generic names: no product names in runtime code

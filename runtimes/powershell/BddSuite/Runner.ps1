@@ -241,6 +241,108 @@ function Add-StepTiming {
     $script:RunState.stepTimings.Add($entry)
 }
 
+function Get-CaseHook {
+    <#
+    .SYNOPSIS
+        The hooks of one name across this run's extensions, in -Extension
+        order, each @{ Owner; Keys; Hook }.
+    #>
+    param([Parameter(Mandatory)][string]$Name)
+    if (-not $script:RunState -or -not $script:RunState.composite -or -not $script:RunState.composite.CaseHooks) { return @() }
+    return @($script:RunState.composite.CaseHooks[$Name] | Where-Object { $null -ne $_ })
+}
+
+function Invoke-CaseHook {
+    <#
+    .SYNOPSIS
+        Call one extension's case hook with $In: what the call site gives, and
+        what every hook gets (State, Suite, SuiteName, DryRun).
+    .DESCRIPTION
+        State is the hook's own extension's, as Start returned it. Returns what
+        the hook wrote, as an array, with nulls and empty strings left out.
+    #>
+    param([Parameter(Mandatory)][hashtable]$Entry, [hashtable]$Values = @{})
+    $run = $script:RunState
+    $in = @{
+        State     = $(if ($run.started -and $run.started.States) { $run.started.States[$Entry.Owner] } else { $null })
+        Suite     = $run.currentSuiteModel
+        SuiteName = $run.currentSuite
+        DryRun    = [bool]$run.dryRun
+    }
+    foreach ($key in @($Values.Keys)) { $in[$key] = $Values[$key] }
+    return @(& $Entry.Hook $in | Where-Object { $null -ne $_ -and -not ($_ -is [string] -and $_ -eq '') })
+}
+
+function Get-CaseHookSkip {
+    <#
+    .SYNOPSIS
+        Whether an extension skips a case or a step (SkipCase, SkipStep), and
+        why: @{ Message; Reason }, or nothing when every hook lets it run.
+    .DESCRIPTION
+        A hook answers nothing to let it run, a sentence to skip it (the trace
+        reason is then not-applicable), or @{ Message; Reason } to name the
+        reason as well. The first extension that skips decides; later ones are
+        not asked.
+    #>
+    param([Parameter(Mandatory)][string]$Name, [hashtable]$Values = @{})
+    foreach ($entry in Get-CaseHook -Name $Name) {
+        foreach ($answer in Invoke-CaseHook -Entry $entry -Values $Values) {
+            if ($answer -is [System.Collections.IDictionary]) {
+                if (-not $answer.Message) { continue }
+                return @{ Message = [string]$answer.Message; Reason = $(if ($answer.Reason) { [string]$answer.Reason } else { 'not-applicable' }) }
+            }
+            return @{ Message = [string]$answer; Reason = 'not-applicable' }
+        }
+    }
+    return $null
+}
+
+function Get-CaseHookMessage {
+    <#
+    .SYNOPSIS
+        The first sentence any extension's hook of this name answers
+        (AfterStep, AfterSuiteHook): why the case or the hook must fail.
+    #>
+    param([Parameter(Mandatory)][string]$Name, [hashtable]$Values = @{})
+    foreach ($entry in Get-CaseHook -Name $Name) {
+        foreach ($answer in Invoke-CaseHook -Entry $entry -Values $Values) { return [string]$answer }
+    }
+    return $null
+}
+
+function Invoke-CaseHookList {
+    <#
+    .SYNOPSIS
+        Call every extension's hook of this name for what it does (WorkStarted,
+        WorkFinished, CaseFinally, AfterTeardown, CheckStep), discarding its
+        answers. What a hook throws reaches the caller.
+    #>
+    param([Parameter(Mandatory)][string]$Name, [hashtable]$Values = @{})
+    foreach ($entry in Get-CaseHook -Name $Name) { $null = Invoke-CaseHook -Entry $entry -Values $Values }
+}
+
+function Add-CaseHookContext {
+    <#
+    .SYNOPSIS
+        Every CaseContext hook's values for one case's context, or for a suite
+        hook context (no case).
+    .DESCRIPTION
+        A hook returns a hashtable; of it, only the extension's own context
+        keys are taken, in -Extension order, so a case-level field can
+        override what Start or the suite's defaults gave. A hook may also add
+        fields of its own to $In.Ctx, which an action reads as $Ctx.<field>.
+    #>
+    param([Parameter(Mandatory)][hashtable]$Ctx, $Case)
+    foreach ($entry in Get-CaseHook -Name 'CaseContext') {
+        $answers = @(Invoke-CaseHook -Entry $entry -Values @{ Ctx = $Ctx; Case = $Case; CaseName = $(if ($Case) { [string]$Case.name } else { '' }) })
+        $values = @($answers | Where-Object { $_ -is [System.Collections.IDictionary] }) | Select-Object -Last 1
+        if (-not $values) { continue }
+        foreach ($key in @($values.Keys)) {
+            if (@($entry.Keys) -ccontains [string]$key) { $Ctx[[string]$key] = $values[$key] }
+        }
+    }
+}
+
 function Get-CaseBudgetFailure {
     <#
     .SYNOPSIS
@@ -267,6 +369,19 @@ function Invoke-Step {
     $stepStartedUtc = [DateTime]::UtcNow
     $stepWatch = [Diagnostics.Stopwatch]::StartNew()
     $suiteName = $script:RunState.currentSuite
+    # A step an extension's SkipStep hook skips is not run, and the case goes
+    # on. The trace takes the reason's category, as a case's skip does; the
+    # timings and the step event take the sentence.
+    $skip = Get-CaseHookSkip -Name 'SkipStep' -Values @{ Step = $Step; Ctx = $Ctx; Phase = $Phase; CaseName = $CaseName }
+    if ($skip) {
+        Add-SuiteTrace -Phase $Phase -CaseName $CaseName -StepLabel $label -Action $action -Status 'skipped' -Reason $skip.Reason
+        $stepWatch.Stop()
+        Add-StepTiming -Phase $Phase -Suite $suiteName -CaseName $CaseName -StepLabel $label -Action $action `
+            -Status 'skipped' -StartedUtc $stepStartedUtc -DurationSec $stepWatch.Elapsed.TotalSeconds -Reason $skip.Message -Step $Step
+        Write-StepEvent -Step $Step -Phase $Phase -CaseName $CaseName -StepLabel $label -Status 'skipped' `
+            -DurationSec $stepWatch.Elapsed.TotalSeconds -Reason $skip.Message
+        return $null
+    }
     # A guard that does not hold is recorded here rather than left to
     # Invoke-SuiteStep, because a step that did not run and a step that ran and
     # returned nothing look the same to the caller and are not the same thing in
@@ -490,6 +605,10 @@ function Invoke-BddSuite {
         stopFile     = $StopFile
         recordPath   = ''
         currentSuite = ''
+        # The suite being run, and whether the run only validates, for the
+        # extensions' case hooks ($In.Suite, $In.DryRun).
+        currentSuiteModel = $null
+        dryRun       = [bool]$DryRun
         trace        = [Collections.Generic.List[object]]::new()
         suiteTimings = [Collections.Generic.List[object]]::new()
         stepTimings  = [Collections.Generic.List[object]]::new()
@@ -621,6 +740,7 @@ function Invoke-BddSuiteRun {
             tests = [Collections.Generic.List[hashtable]]::new()
         }
         $run.currentSuite = [string]$suiteResult.name
+        $run.currentSuiteModel = $suite
 
         $suiteTags = @($suite.tags)
         # An imported default is in scope, and a local one replaces it.
@@ -646,10 +766,14 @@ function Invoke-BddSuiteRun {
         $selectedCount = @($suite.tests | Where-Object { $null -ne $_ -and (Test-TagsMatch (@($_.tags) + $suiteTags) $tagFilter) }).Count
         if (-not $DryRun -and $selectedCount -gt 0 -and @($suite.setup | Where-Object { $null -ne $_ }).Count) {
             $suiteHookCtx = New-SuiteRunContext -Defaults $suiteDefaults -Capture $suiteBag -TimeoutSec $defaultTimeout
+            Add-CaseHookContext -Ctx $suiteHookCtx -Case $null
             Write-RunHost '  [HOOK] suite setup' DarkCyan
             try {
                 Invoke-HookList -Steps $suite.setup -Ctx $suiteHookCtx -Label 'suite setup' `
                     -TimeoutSec (Get-HookLimitSec -Suite $suite -Key 'setupTimeoutSec' -Default 300) -Phase 'suite-setup'
+                # An extension may still refuse a setup whose steps passed.
+                $hookFailure = Get-CaseHookMessage -Name 'AfterSuiteHook' -Values @{ Hook = 'setup'; Ctx = $suiteHookCtx }
+                if ($hookFailure) { throw $hookFailure }
             } catch {
                 $suiteSetupError = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
                 Write-RunHost "  [FAIL] suite setup: $suiteSetupError" Red
@@ -671,6 +795,22 @@ function Invoke-BddSuiteRun {
                 continue
             }
 
+            # A case an extension's SkipCase hook skips is reported skipped
+            # with its sentence, before any of its steps and before a failed
+            # suite setup is charged to it.
+            $caseSkip = Get-CaseHookSkip -Name 'SkipCase' -Values @{ Case = $t; CaseName = [string]$t.name }
+            if ($caseSkip) {
+                Write-RunHost "  [SKIP] $($t.name) ($($caseSkip.Message))" DarkGray
+                Add-SuiteTrace -Phase 'case' -CaseName ([string]$t.name) -Status 'skipped' -Reason $caseSkip.Reason
+                $now = Get-Date
+                $suiteResult.tests.Add(@{
+                        name = $t.name; status = 'skipped'; durationSec = 0.0
+                        startTime = $now; endTime = $now
+                        message = $caseSkip.Message; details = ''; stdout = ''
+                    })
+                continue
+            }
+
             $declaredTimeout = if ($null -ne $t.timeoutSec) { [int]$t.timeoutSec } else { $defaultTimeout }
             $caseLimit = Get-SuiteCaseLimitSec -Composite $composite -Suite $suite -DeclaredSec $declaredTimeout
             $ctx = New-SuiteRunContext -Defaults $suiteDefaults -Capture (@{} + $suiteBag) -TimeoutSec $declaredTimeout
@@ -681,6 +821,9 @@ function Invoke-BddSuiteRun {
             $ctx.param = (Resolve-SuiteParameter -Library $library -Model $suite -Case $t -CommandLine $commandLineParam -EnvPrefix $composite.EnvPrefix)
             # The row an outline is running, bound for the whole case.
             $ctx.row = $t.__row
+            # What the extensions add to this case's context, before its vars,
+            # which may read it.
+            Add-CaseHookContext -Ctx $ctx -Case $t
             $ctx.var = [ordered]@{}
             foreach ($source in @($library.vars, $suite.vars, $t.vars)) {
                 foreach ($name in @(if ($source) { $source.Keys } else { @() })) {
@@ -721,6 +864,9 @@ function Invoke-BddSuiteRun {
                     if ($null -ne $step -and -not (Get-SuiteAction -Name ([string]$step.action))) {
                         throw "Unknown action: $($step.action). No extension of this runtime registers it."
                     }
+                    # An extension's own check of the step, before anything
+                    # runs and under -DryRun too; what it throws fails the case.
+                    if ($null -ne $step) { Invoke-CaseHookList -Name 'CheckStep' -Values @{ Step = $step; Case = $t; CaseName = [string]$t.name } }
                 }
                 if ($DryRun) {
                     Write-RunHost "  [DRY ] $($t.name)" DarkGray
@@ -749,6 +895,7 @@ function Invoke-BddSuiteRun {
                         $ctx.caseStartedUtc = [DateTime]::UtcNow
                         $setupSec = $sw.Elapsed.TotalSeconds
                         $workWatch.Start()
+                        Invoke-CaseHookList -Name 'WorkStarted' -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name }
                         foreach ($step in @($t.steps)) {
                             # Between steps, so the throw lands where the case's
                             # own cleanup still runs and undoes what the steps so
@@ -756,6 +903,10 @@ function Invoke-BddSuiteRun {
                             if (Test-StopRequested) { throw 'The run was cancelled; the case stopped between steps and its cleanup will run.' }
                             $stepOut = Invoke-Step -Step $step -Ctx $ctx -Description (Format-StepLabel $step) -Phase 'step' -CaseName ([string]$t.name)
                             if ($null -ne $stepOut) { $stdout += ((ConvertTo-Json -InputObject $stepOut -Depth 30 -Compress) + [Environment]::NewLine) }
+                            # An extension may fail the case after a step that
+                            # passed; the case's cleanup still runs.
+                            $stepFailure = Get-CaseHookMessage -Name 'AfterStep' -Values @{ Step = $step; Ctx = $ctx; Case = $t; CaseName = [string]$t.name }
+                            if ($stepFailure) { throw $stepFailure }
                         }
                         foreach ($a in @($t.asserts)) {
                             Test-Assertion -Assert $a -Ctx $ctx
@@ -774,6 +925,7 @@ function Invoke-BddSuiteRun {
             } finally {
                 if (-not $workWatch.IsRunning -and $workWatch.ElapsedTicks -eq 0) { $setupSec = $sw.Elapsed.TotalSeconds }
                 $workWatch.Stop()
+                Invoke-CaseHookList -Name 'WorkFinished' -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name; Status = $status; WorkSec = $workWatch.Elapsed.TotalSeconds }
                 $cleanupWatch.Start()
                 # Cleanup may decide what to keep from the complete work verdict.
                 $ctx.caseWorkStatus = $status
@@ -802,12 +954,30 @@ function Invoke-BddSuiteRun {
                         Write-RunHost "  [FAIL] $($t.name) afterEach: $hookError" Red
                     }
                 }
+                # After cleanup and afterEach, whatever the case did: what an
+                # extension holds open for the case is released with it.
+                Invoke-CaseHookList -Name 'CaseFinally' -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name; Status = $status }
                 $stdout = Protect-SuiteText -Text $stdout -Started $run.started
             }
             if ($stopped) { break }
 
             $sw.Stop()
             $cleanupWatch.Stop()
+            # The extensions' last word on the case, after its cleanup and
+            # afterEach and before its verdict is recorded. Each failure fails
+            # the case and is appended to what it reported; each hook sees the
+            # status the ones before it left.
+            foreach ($entry in Get-CaseHook -Name 'AfterCase') {
+                $answers = Invoke-CaseHook -Entry $entry -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name; Status = $status; SuiteCtx = $suiteHookCtx }
+                foreach ($failure in @($answers)) {
+                    $failMessage = if ($failure -is [System.Collections.IDictionary]) { [string]$failure.Message } else { [string]$failure }
+                    if (-not $failMessage) { continue }
+                    $status = 'failed'; $anyFailures = $true
+                    $caseReason = if ($failure -is [System.Collections.IDictionary] -and $failure.Reason) { [string]$failure.Reason } else { 'hook' }
+                    $msg += ' ' + (Protect-SuiteText -Text $failMessage -Started $run.started)
+                    if ($failure -is [System.Collections.IDictionary] -and $failure.Line) { Write-RunHost "  [FAIL] $($t.name): $($failure.Line)" Red }
+                }
+            }
             $run.suiteTimings.Add(@{ suite = $suite.suite; case = $t.name; status = $status; timeoutSec = $caseLimit; workSec = $workWatch.Elapsed.TotalSeconds; setupSec = $setupSec; cleanupSec = $cleanupWatch.Elapsed.TotalSeconds; cleanupTimeoutSec = $cleanupTimeout; totalSec = $sw.Elapsed.TotalSeconds })
             # The case's own result closes its part of the trace, after every
             # step, cleanup and afterEach that belongs to it.
@@ -829,13 +999,18 @@ function Invoke-BddSuiteRun {
         # released. It reads the suite bag, not any case's copy, and its failure
         # is its own entry rather than being charged to the last case that ran.
         if (-not $DryRun -and $selectedCount -gt 0 -and @($suite.teardown | Where-Object { $null -ne $_ }).Count) {
-            if (-not $suiteHookCtx) { $suiteHookCtx = New-SuiteRunContext -Defaults $suiteDefaults -Capture $suiteBag -TimeoutSec $defaultTimeout }
+            if (-not $suiteHookCtx) {
+                $suiteHookCtx = New-SuiteRunContext -Defaults $suiteDefaults -Capture $suiteBag -TimeoutSec $defaultTimeout
+                Add-CaseHookContext -Ctx $suiteHookCtx -Case $null
+            }
             Write-RunHost '  [HOOK] suite teardown' DarkCyan
             $teardownStart = Get-Date
             $teardownWatch = [Diagnostics.Stopwatch]::StartNew()
             try {
                 Invoke-HookList -Steps $suite.teardown -Ctx $suiteHookCtx -Label 'suite teardown' `
                     -TimeoutSec (Get-HookLimitSec -Suite $suite -Key 'teardownTimeoutSec' -Default 300) -Phase 'suite-teardown'
+                $hookFailure = Get-CaseHookMessage -Name 'AfterSuiteHook' -Values @{ Hook = 'teardown'; Ctx = $suiteHookCtx }
+                if ($hookFailure) { throw $hookFailure }
             } catch {
                 $teardownError = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
                 Write-RunHost "  [FAIL] suite teardown: $teardownError" Red
@@ -847,6 +1022,8 @@ function Invoke-BddSuiteRun {
                         message = $teardownError; details = ''; stdout = ''
                     })
             }
+            # After the teardown, passed or failed, with the suite hooks' context.
+            Invoke-CaseHookList -Name 'AfterTeardown' -Values @{ Ctx = $suiteHookCtx }
         }
 
         $results.Add($suiteResult)

@@ -66,14 +66,18 @@ yet; it is the checklist for that stage.
    `$Ctx.cluster`, `$Ctx.target`, `$Ctx.apiUrl` and `$Ctx.labId` stay (context
    keys). Per-case fields an action writes on `$Ctx` (streams, stage 7
    completion) still work, because `$Ctx` is the case's own hashtable.
-4. **Decide the per-case pieces the extension API has no part for.** The
-   five parts of DEC-S03 have no per-case hook, so these need either an
-   addition to the API in all five runtimes or a home in os-context: the
-   `requires` skip (`not-applicable`) for cases and steps; a case-level
-   `cluster:` or `target:` overriding the context key (the core reads only
-   `Start`, then `defaults`); operation evidence phase events and failing a
-   case on `operationEvidenceErrors`; closing lifecycle streams after each case
-   and the teardown; stage 7 completion; the fixture-name pre-check.
+4. **The per-case pieces go in the `Cases` part.** The five parts of DEC-S03
+   have no per-case hook; the decision is a sixth, optional part of this
+   PowerShell runtime alone (README.md, "Case hooks"), not an addition to all
+   five runtimes. The os-context extension's `Cases` holds: the `requires`
+   skip (`not-applicable`) for cases and steps (`SkipCase`, `SkipStep`, a meta
+   use site's `requires` read from `__useSites`); a case-level `cluster:` or
+   `target:` overriding the context key (`CaseContext`); operation evidence
+   phase events and failing a case or a suite hook on
+   `operationEvidenceErrors` (`WorkStarted`, `AfterStep`, `WorkFinished`,
+   `AfterCase`, `AfterSuiteHook`); closing lifecycle streams after each case
+   and the teardown (`CaseFinally`, `AfterTeardown`); stage 7 completion
+   (`AfterCase`); the fixture-name check (`CheckStep`).
 5. **Keep the wrapper's command line.** `Invoke-LabTestSuite.ps1` keeps its
    parameters, resolves `-Path` against the repository root (default
    `test/e2e/suites/*.yml`), calls `Invoke-BddSuite` with

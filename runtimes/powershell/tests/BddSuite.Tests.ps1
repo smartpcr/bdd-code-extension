@@ -329,6 +329,307 @@ tests:
     }
 }
 
+Describe 'The Cases part: case hooks (PowerShell only)' {
+    BeforeEach { $global:CaseHookLog = [Collections.Generic.List[string]]::new() }
+    AfterAll { Remove-Variable -Name CaseHookLog, CaseHookSites -Scope Global -ErrorAction SilentlyContinue }
+
+    It 'refuses a hook it does not know, or one that is no scriptblock' {
+        { Import-SuiteExtension -Path (New-TestExtension -Name 'badhook' -Description "@{ Name = 'badhook'; Cases = @{ BeforeAll = { 1 } } }") } |
+            Should -Throw 'Extension badhook declares the case hook BeforeAll; a case hook is SkipCase, CaseContext, CheckStep, SkipStep, WorkStarted, AfterStep, WorkFinished, CaseFinally, AfterCase, AfterSuiteHook, AfterTeardown.'
+        { Import-SuiteExtension -Path (New-TestExtension -Name 'texthook' -Description "@{ Name = 'texthook'; Cases = @{ AfterCase = 'no' } }") } |
+            Should -Throw 'Extension texthook declares the case hook AfterCase as something other than a scriptblock.'
+        { Import-SuiteExtension -Path (New-TestExtension -Name 'listhook' -Description "@{ Name = 'listhook'; Cases = 'no' }") } |
+            Should -Throw 'Extension listhook declares Cases as something other than a hashtable of hooks.'
+    }
+
+    It 'calls every hook at its point of a case, in order, with its own extension''s State' {
+        $ext = New-TestExtension -Name 'order' -Description @'
+@{
+    Name = 'order'; ContextKeys = @('zone')
+    Start = { param($Options) @{ State = 'order-state' } }
+    Cases = @{
+        SkipCase       = { param($In) $global:CaseHookLog.Add("SkipCase $($In.CaseName) $($In.State) $($In.SuiteName) $($In.DryRun)") }
+        CaseContext    = { param($In) $global:CaseHookLog.Add("CaseContext $(if ($In.Case) { $In.Case.name } else { '(suite)' })") }
+        CheckStep      = { param($In) $global:CaseHookLog.Add("CheckStep $($In.Step.value)") }
+        SkipStep       = { param($In) $global:CaseHookLog.Add("SkipStep $($In.Phase) $($In.CaseName)") }
+        WorkStarted    = { param($In) $global:CaseHookLog.Add("WorkStarted $($In.CaseName)") }
+        AfterStep      = { param($In) $global:CaseHookLog.Add("AfterStep $($In.Step.value)") }
+        WorkFinished   = { param($In) $global:CaseHookLog.Add("WorkFinished $($In.CaseName) $($In.Status) $($In.WorkSec -ge 0)") }
+        CaseFinally    = { param($In) $global:CaseHookLog.Add("CaseFinally $($In.CaseName) $($In.Status)") }
+        AfterCase      = { param($In) $global:CaseHookLog.Add("AfterCase $($In.CaseName) $($In.Status) $($null -ne $In.SuiteCtx)") }
+        AfterSuiteHook = { param($In) $global:CaseHookLog.Add("AfterSuiteHook $($In.Hook) $($In.Ctx.zone -eq '')") }
+        AfterTeardown  = { param($In) $global:CaseHookLog.Add("AfterTeardown $($null -ne $In.Ctx)") }
+    }
+}
+'@
+        $suite = New-TestSuite 'order' @'
+suite: order
+setup: [ { action: core.set, value: suite-setup } ]
+beforeEach: [ { action: core.set, value: before-each } ]
+afterEach: [ { action: core.set, value: after-each } ]
+teardown: [ { action: core.set, value: teardown } ]
+tests:
+  - name: c
+    setup: [ { action: core.set, value: case-setup } ]
+    steps: [ { action: core.set, value: step } ]
+    cleanup: [ { action: core.set, value: cleanup } ]
+'@
+        $outcome = Invoke-Probe $suite @{ Extension = @($ext) }
+        $outcome.ExitCode | Should -Be 0
+        @($global:CaseHookLog) | Should -Be @(
+            'CaseContext (suite)', 'SkipStep suite-setup ', 'AfterSuiteHook setup True',
+            'SkipCase c order-state order False', 'CaseContext c',
+            'CheckStep suite-setup', 'CheckStep before-each', 'CheckStep case-setup', 'CheckStep step', 'CheckStep cleanup', 'CheckStep after-each', 'CheckStep teardown',
+            'SkipStep before-each c', 'SkipStep case-setup c', 'WorkStarted c', 'SkipStep step c', 'AfterStep step', 'WorkFinished c passed True',
+            'SkipStep case-cleanup c', 'SkipStep after-each c', 'CaseFinally c passed', 'AfterCase c passed True',
+            'SkipStep suite-teardown ', 'AfterSuiteHook teardown True', 'AfterTeardown True')
+    }
+
+    It 'skips a case before any of its steps (SkipCase), with the sentence and the reason, the first extension deciding' {
+        $first = New-TestExtension -Name 'skipfirst' -Description @'
+@{ Name = 'skipfirst'; Cases = @{ SkipCase = { param($In)
+    if ($In.Case.name -eq 'plain') { 'Not for this run.' }
+    elseif ($In.Case.name -eq 'named') { @{ Message = 'Named skip.'; Reason = 'probe-reason' } } } } }
+'@
+        $second = New-TestExtension -Name 'skipsecond' -Description @'
+@{ Name = 'skipsecond'; Cases = @{ SkipCase = { param($In) $global:CaseHookLog.Add("asked $($In.CaseName)") } } }
+'@
+        $suite = New-TestSuite 'skipcase' @'
+suite: skipcase
+setup: [ { action: core.fail, message: the setup broke } ]
+tests:
+  - name: plain
+    steps: [ { action: core.fail, message: must not run } ]
+  - name: named
+    steps: [ { action: core.fail, message: must not run } ]
+  - name: runs
+    steps: [ { action: core.noop } ]
+'@
+        $timings = Join-Path $TestDrive 'skipcase-timings.json'
+        $outcome = Invoke-Probe $suite @{ Extension = @($first, $second); TimingFile = $timings }
+        $tests = @($outcome.Suites[0].tests)
+        $tests[0].status | Should -Be 'skipped'
+        $tests[0].message | Should -Be 'Not for this run.'
+        $tests[1].status | Should -Be 'skipped'
+        $tests[1].message | Should -Be 'Named skip.'
+        # A skipped case is not charged with the failed suite setup; the case
+        # that is not skipped is.
+        $tests[2].status | Should -Be 'error'
+        @($outcome.Trace | Where-Object { $_.phase -eq 'case' } | ForEach-Object { "$($_.case):$($_.status):$($_.reason)" }) |
+            Should -Be @('plain:skipped:not-applicable', 'named:skipped:probe-reason', 'runs:error:suite-setup')
+        @($global:CaseHookLog) | Should -Be @('asked runs')
+        (Get-Content -LiteralPath $outcome.Report -Raw) | Should -Match 'Not for this run\.'
+        @((Get-Content -LiteralPath $timings -Raw | ConvertFrom-Json).cases | ForEach-Object { $_.case }) | Should -Be @('runs')
+    }
+
+    It 'skips a step in any phase (SkipStep): the trace takes the reason, the timings and the step event the sentence' {
+        $ext = New-TestExtension -Name 'skipstep' -Description @'
+@{ Name = 'skipstep'; Cases = @{ SkipStep = { param($In)
+    $sites = @($In.Step.__useSites | Where-Object { $_ })
+    if ($sites.Count) { $global:CaseHookSites = @($sites | ForEach-Object { [string]$_.given }) }
+    if ($In.Step.message -eq 'skip me') { 'Skipped by the probe.' }
+    elseif (@($sites | Where-Object { $_.given -eq 'a group to skip' }).Count) { @{ Message = 'Skipped by its use site.'; Reason = 'probe-site' } } } } }
+'@
+        $suite = New-TestSuite 'skipstep' @'
+suite: skipstep
+metaSteps:
+  - name: inner
+    steps:
+      - { action: core.fail, message: the inner group ran }
+  - name: outer
+    steps:
+      - given: the inner group
+        meta: inner
+tests:
+  - name: c
+    setup: [ { action: core.fail, message: skip me } ]
+    steps:
+      - { action: core.fail, message: skip me }
+      - given: a group to skip
+        meta: outer
+      - { action: core.set, value: ran, captureAs: v }
+    cleanup: [ { action: core.fail, message: skip me } ]
+'@
+        $timings = Join-Path $TestDrive 'skipstep-timings.json'
+        $outcome = Invoke-Probe $suite @{ Extension = @($ext); TimingFile = $timings }
+        $outcome.ExitCode | Should -Be 0
+        $outcome.Suites[0].tests[0].stdout | Should -Match 'ran'
+        @($outcome.Trace | ForEach-Object { "$($_.phase):$($_.status):$($_.reason)" }) | Should -Be @(
+            'case-setup:skipped:not-applicable', 'step:skipped:not-applicable', 'step:skipped:probe-site', 'step:passed:', 'case-cleanup:skipped:not-applicable', 'case:passed:')
+        $rows = @((Get-Content -LiteralPath $timings -Raw | ConvertFrom-Json).steps)
+        @($rows | ForEach-Object { "$($_.phase):$($_.status):$($_.reason)" }) | Should -Be @(
+            'case-setup:skipped:Skipped by the probe.', 'step:skipped:Skipped by the probe.', 'step:skipped:Skipped by its use site.', 'step:passed:', 'case-cleanup:skipped:Skipped by the probe.')
+        # Each step a use site stands for carries the use sites it came
+        # through, innermost first, without the meta fields the core consumed.
+        $global:CaseHookSites | Should -Be @('the inner group', 'a group to skip')
+    }
+
+    It 'adds each extension''s own context keys to a case and a suite hook context (CaseContext), before the vars' {
+        $ext = New-TestExtension -Name 'ctxhook' -Description @'
+@{
+    Name = 'ctxhook'; ContextKeys = @('zone')
+    Cases = @{ CaseContext = { param($In)
+        $In.Ctx['probeField'] = 'added'
+        @{ zone = $(if ($In.Case) { "zone-of-$($In.Case.name)" } else { "suite-zone-$($In.Ctx.zone)" }); capture = 'not its key' } } }
+}
+'@
+        $other = New-TestExtension -Name 'ctxother' -Description "@{ Name = 'ctxother'; ContextKeys = @('other') }"
+        $suite = New-TestSuite 'ctxhook' @'
+suite: ctxhook
+defaults:
+  zone: from-defaults
+  other: other-default
+setup: [ { action: core.set, value: '${zone}', captureAs: suiteZone } ]
+vars:
+  seen: '${zone}|${other}'
+tests:
+  - name: c
+    steps:
+      - { action: core.set, value: '${var.seen}|${capture.suiteZone}', captureAs: v }
+    asserts:
+      - { var: v, equals: 'zone-of-c|other-default|suite-zone-from-defaults' }
+'@
+        $outcome = Invoke-Probe $suite @{ Extension = @($ext, $other) }
+        $outcome.Suites[0].tests[0].message | Should -BeNullOrEmpty
+        $outcome.ExitCode | Should -Be 0
+    }
+
+    It 'fails a case whose step an extension refuses (CheckStep), under -DryRun too, before anything runs' {
+        $ext = New-TestExtension -Name 'check' -Description @'
+@{ Name = 'check'; Cases = @{ CheckStep = { param($In) if ($In.Step.value -eq 'refused') { throw "The probe refuses $($In.Step.value) in $($In.CaseName)." } } } }
+'@
+        $suite = New-TestSuite 'check' @'
+suite: check
+tests:
+  - name: c
+    steps:
+      - { action: core.record, marker: must-not-run }
+      - { action: core.set, value: refused }
+'@
+        $record = Join-Path $TestDrive 'check-record.txt'
+        try {
+            $env:BDD_SUITE_RECORD_PATH = $record
+            $outcome = Invoke-Probe $suite @{ Extension = @($ext) }
+            $dry = Invoke-Probe $suite @{ Extension = @($ext); DryRun = $true }
+        } finally { Remove-Item env:BDD_SUITE_RECORD_PATH -ErrorAction SilentlyContinue }
+        foreach ($run in @($outcome, $dry)) {
+            $run.ExitCode | Should -Be 1
+            $run.Suites[0].tests[0].message | Should -Be 'The probe refuses refused in c.'
+        }
+        Test-Path -LiteralPath $record | Should -BeFalse
+        @($outcome.Trace | ForEach-Object { "$($_.phase):$($_.status)" }) | Should -Be @('case:failed')
+    }
+
+    It 'fails a case after a step that passed (AfterStep), and its cleanup still runs' {
+        $ext = New-TestExtension -Name 'afterstep' -Description @'
+@{ Name = 'afterstep'; Cases = @{ AfterStep = { param($In) if ($In.Step.value -eq 'first') { 'The probe saw something wrong; cleanup will still run.' } } } }
+'@
+        $suite = New-TestSuite 'afterstep' @'
+suite: afterstep
+tests:
+  - name: c
+    steps:
+      - { action: core.set, value: first }
+      - { action: core.set, value: second }
+    cleanup:
+      - { action: core.noop }
+'@
+        $outcome = Invoke-Probe $suite @{ Extension = @($ext) }
+        $outcome.ExitCode | Should -Be 1
+        $outcome.Suites[0].tests[0].message | Should -Be 'The probe saw something wrong; cleanup will still run.'
+        @($outcome.Trace | ForEach-Object { "$($_.phase):$($_.status)" }) | Should -Be @('step:passed', 'case-cleanup:passed', 'case:failed')
+    }
+
+    It 'runs WorkFinished and CaseFinally for a case that failed, and WorkStarted only once its hooks passed' {
+        $ext = New-TestExtension -Name 'work' -Description @'
+@{ Name = 'work'; Cases = @{
+    WorkStarted  = { param($In) $global:CaseHookLog.Add("started $($In.CaseName)") }
+    WorkFinished = { param($In) $global:CaseHookLog.Add("finished $($In.CaseName) $($In.Status)") }
+    CaseFinally  = { param($In) $global:CaseHookLog.Add("finally $($In.CaseName) $($In.Status) $($In.Ctx.capture.cleaned)") } } }
+'@
+        $suite = New-TestSuite 'work' @'
+suite: work
+tests:
+  - name: setup-fails
+    setup: [ { action: core.fail, message: no } ]
+    steps: [ { action: core.noop } ]
+    cleanup: [ { action: core.set, value: yes, captureAs: cleaned } ]
+  - name: step-fails
+    steps: [ { action: core.fail, message: no } ]
+    cleanup: [ { action: core.set, value: yes, captureAs: cleaned } ]
+'@
+        $outcome = Invoke-Probe $suite @{ Extension = @($ext) }
+        $outcome.ExitCode | Should -Be 1
+        @($global:CaseHookLog) | Should -Be @(
+            'finished setup-fails failed', 'finally setup-fails failed yes',
+            'started step-fails', 'finished step-fails failed', 'finally step-fails failed yes')
+    }
+
+    It 'fails a case with every AfterCase failure, appended in order, each hook seeing the status before it' {
+        $first = New-TestExtension -Name 'aftercase1' -Description @'
+@{ Name = 'aftercase1'; Cases = @{ AfterCase = { param($In)
+    if ($In.Case.name -eq 'fails') { @{ Message = 'First failure.'; Reason = 'probe-evidence'; Line = 'first failure, briefly.' }; 'Second failure.' } } } }
+'@
+        $second = New-TestExtension -Name 'aftercase2' -Description @'
+@{ Name = 'aftercase2'; Cases = @{ AfterCase = { param($In) $global:CaseHookLog.Add("$($In.CaseName) $($In.Status)") } } }
+'@
+        $suite = New-TestSuite 'aftercase' @'
+suite: aftercase
+tests:
+  - name: fails
+    steps: [ { action: core.noop } ]
+  - name: passes
+    steps: [ { action: core.noop } ]
+'@
+        $timings = Join-Path $TestDrive 'aftercase-timings.json'
+        $outcome = Invoke-Probe $suite @{ Extension = @($first, $second); TimingFile = $timings }
+        $outcome.ExitCode | Should -Be 1
+        $outcome.Suites[0].tests[0].status | Should -Be 'failed'
+        $outcome.Suites[0].tests[0].message | Should -Be ' First failure. Second failure.'
+        $outcome.Suites[0].tests[1].status | Should -Be 'passed'
+        @($outcome.Trace | Where-Object { $_.phase -eq 'case' } | ForEach-Object { "$($_.case):$($_.status):$($_.reason)" }) | Should -Be @('fails:failed:hook', 'passes:passed:')
+        @($global:CaseHookLog) | Should -Be @('fails failed', 'passes passed')
+        @((Get-Content -LiteralPath $timings -Raw | ConvertFrom-Json).cases | ForEach-Object { $_.status }) | Should -Be @('failed', 'passed')
+        $named = New-TestExtension -Name 'aftercase3' -Description "@{ Name = 'aftercase3'; Cases = @{ AfterCase = { param(`$In) @{ Message = 'Named.'; Reason = 'probe-evidence' } } } }"
+        $once = Invoke-Probe $suite @{ Extension = @($named); TestName = 'passes' }
+        @($once.Trace | Where-Object { $_.phase -eq 'case' } | ForEach-Object { "$($_.status):$($_.reason)" }) | Should -Be @('failed:probe-evidence')
+        $once.Suites[0].tests[0].message | Should -Be ' Named.'
+    }
+
+    It 'refuses a suite setup or teardown whose steps passed (AfterSuiteHook), and calls AfterTeardown after every teardown' {
+        $ext = New-TestExtension -Name 'suitehook' -Description @'
+@{ Name = 'suitehook'; Cases = @{
+    AfterSuiteHook = { param($In) if ($In.Ctx.capture.refuse -eq $In.Hook) { "The probe refuses the suite $($In.Hook)." } }
+    AfterTeardown  = { param($In) $global:CaseHookLog.Add("after teardown $($In.Ctx.capture.refuse)") } } }
+'@
+        $setup = New-TestSuite 'suitehook-setup' @'
+suite: suitehook-setup
+setup: [ { action: core.set, value: setup, captureAs: refuse } ]
+tests:
+  - name: c
+    steps: [ { action: core.noop } ]
+'@
+        $refused = Invoke-Probe $setup @{ Extension = @($ext) }
+        $refused.ExitCode | Should -Be 1
+        $refused.Suites[0].tests[0].status | Should -Be 'error'
+        $refused.Suites[0].tests[0].message | Should -Be 'Suite setup failed: The probe refuses the suite setup.'
+        @($global:CaseHookLog).Count | Should -Be 0 -Because 'a suite with no teardown has no AfterTeardown'
+        $teardown = New-TestSuite 'suitehook-teardown' @'
+suite: suitehook-teardown
+setup: [ { action: core.set, value: teardown, captureAs: refuse } ]
+teardown: [ { action: core.noop } ]
+tests:
+  - name: c
+    steps: [ { action: core.noop } ]
+'@
+        $failed = Invoke-Probe $teardown @{ Extension = @($ext) }
+        $failed.ExitCode | Should -Be 1
+        @($failed.Suites[0].tests | ForEach-Object { "$($_.name):$($_.status)" }) | Should -Be @('c:passed', 'teardown:failed')
+        $failed.Suites[0].tests[1].message | Should -Be 'The probe refuses the suite teardown.'
+        @($global:CaseHookLog) | Should -Be @('after teardown teardown')
+    }
+}
+
 Describe 'D7 lint: no product rules in the core, extension rules after it' {
     It 'reports nothing for a suite tagged lifecycle that the old core rule refused' {
         $suite = New-TestSuite 'tagged' "suite: s`ntags: [lifecycle]`ndefaults:`n  timeoutSec: 1200`ntests:`n  - name: c`n    steps:`n      - action: core.noop`n"
