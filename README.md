@@ -94,14 +94,7 @@ override any of them for a different layout.
 
 ## Install
 
-From the Visual Studio Marketplace: search for **Suite Authoring** in the
-Extensions view, or
-
-```powershell
-code --install-extension asz.bdd-suite
-```
-
-Or from a GitHub release
+From a GitHub release
 (https://github.com/smartpcr/bdd-code-extension/releases): download
 `bdd-suite-<version>.vsix`, check it against the SHA-256 in
 `bdd-suite-<version>.vsix.sha256` beside it, and install it with
@@ -330,63 +323,14 @@ git push origin main
 ```
 
 When that push's build passes and no tag `v<version>` exists yet, the same CI
-run releases the very `.vsix` it built and tested: it publishes it to the
-Visual Studio Marketplace, then creates the GitHub release `v<version>` (and
-with it the tag) with the `.vsix`, its `.sha256` and generated release notes.
-A push that keeps the version only builds and tests, and a pull request never
-releases.
-
-**Publishing without a token.** Azure DevOps personal access tokens (the old
-`VSCE_PAT`) are retired on 2026-12-01, so the release job holds no token at
-all. It signs in to Microsoft Entra ID as a **managed identity** (an Azure
-identity for software, not a person) using the short-lived token GitHub gives
-each workflow run, and `vsce publish --azure-credential` publishes as that
-identity. The Marketplace publisher lists the identity as a member, which is
-what lets it publish. Set this up once (Azure CLI, signed in to a subscription
-you own):
-
-1. **The publisher.** Create a Marketplace publisher whose ID is `publisher` in
-   `package.json` (`asz`) at https://marketplace.visualstudio.com/manage.
-2. **The identity.**
-   ```powershell
-   az group create -n rg-vsce-publish -l westus2
-   az identity create -g rg-vsce-publish -n bdd-suite-publisher
-   $sub = az account show --query id -o tsv
-   az role assignment create --assignee (az identity show -g rg-vsce-publish -n bdd-suite-publisher --query principalId -o tsv) --role Reader --scope "/subscriptions/$sub/resourceGroups/rg-vsce-publish"
-   ```
-3. **Trust this repository's release job.** The subject names the repository
-   and the `marketplace` environment. This repository uses GitHub's ID-based
-   subjects (owner id 9336638, repository id 1418179467); `gh api
-   repos/<owner>/<repo>/actions/oidc/customization/sub` prints the prefix for
-   another repository.
-   ```powershell
-   az identity federated-credential create -g rg-vsce-publish --identity-name bdd-suite-publisher -n github-marketplace `
-     --issuer https://token.actions.githubusercontent.com `
-     --subject "repo:smartpcr@9336638/bdd-code-extension@1418179467:environment:marketplace" `
-     --audiences api://AzureADTokenExchange
-   ```
-4. **Tell the workflow which identity.** Repository *Settings → Secrets and
-   variables → Actions → Variables*, or:
-   ```powershell
-   gh variable set AZURE_CLIENT_ID --body (az identity show -g rg-vsce-publish -n bdd-suite-publisher --query clientId -o tsv)
-   gh variable set AZURE_TENANT_ID --body (az account show --query tenantId -o tsv)
-   gh variable set AZURE_SUBSCRIPTION_ID --body $sub
-   ```
-5. **Make the identity a publisher member.** Run the **Marketplace identity**
-   workflow (*Actions → Marketplace identity → Run workflow*). It signs in as
-   the identity and prints its Marketplace id. On the publisher's page at
-   https://marketplace.visualstudio.com/manage, *Members → Add*: paste the id,
-   role **Contributor**.
-6. **Optional approval.** Repository *Settings → Environments → marketplace*:
-   add yourself as a required reviewer, and each release waits for you.
-
-Until the variables are set the release job fails with "The repository
-variable AZURE_CLIENT_ID is not set" and publishes nothing; the build and its
-`vsix` artifact are unaffected. A sign-in error AADSTS70021 means the subject
-in step 3 does not match the job's token exactly.
-
-Re-running a failed release is safe: a version already on the Marketplace is
-skipped, and an existing GitHub release gets its files replaced.
+run releases the very `.vsix` it built and tested: it creates the GitHub
+release `v<version>` (and with it the tag) with the `.vsix`, its `.sha256`,
+the runtime versions and generated release notes, and tags the Go module
+`runtimes/go/v<version>` at the same commit. Nothing is published to a
+marketplace, so the release needs no credentials or repository variables. A
+push that keeps the version only builds and tests, and a pull request never
+releases. Re-running a failed release is safe: an existing GitHub release gets
+its files replaced.
 
 ## Design and plan
 

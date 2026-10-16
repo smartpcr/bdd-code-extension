@@ -53,10 +53,10 @@ run, because no release has been made (the open part of S6.1 and E7):
    release tag names. It fails if an existing tag names a different commit (E7's
    "both tags point at the same commit").
 
-**Blocked:** a release needs `main` pushed and the repository variables
-`AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` set (README,
-Releasing). The tag is created after the publish, so without them there is no
-tag to pin.
+**Blocked:** no release has been made. Later on 2026-10-16 the user removed
+Marketplace publishing from CI: the release job now creates only the GitHub
+release and the two tags, and needs no Azure variables. A version bump pushed
+to `main` with a green run releases.
 
 ## S6.4: the baseline
 
@@ -270,7 +270,7 @@ None of these shows in the captures or the corpus entries.
 
 | Step | Why it is open |
 | --- | --- |
-| S6.1, E7 | No release yet: needs `main` pushed and the `AZURE_*` variables. Then the tags are checked and the submodule moves from `e5a3214` to the tag. |
+| S6.1, E7 | No release yet: needs a green run on `main` with a new version. Then the tags are checked and the submodule moves from `e5a3214` to the tag. |
 | S6.3 | The submodule pins a local commit, not a release tag (same blocker). |
 | S6.17 | os-context's branch `bdd-suite-pin` is not committed or pushed, so its workflows have not run. Needs the user to commit and push it. |
 | S6.16 | Passes locally, with one fragile item. `SuiteLint.Tests.ps1`'s 2-second full-tree lint budget measured 1.87 s to 1.91 s on a loaded machine, and failed once in a full run. The agent's suspected cause, unconfirmed: load from other jobs. |

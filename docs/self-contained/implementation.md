@@ -413,7 +413,7 @@ Result: D8, D9. Entry: S1–S4 and S5a. Exit evidence: E1, E4 and E8 in CI.
 Result: D12, D10. Entry: S5. Exit evidence: E7; E5 on a pushed os-context
 branch.
 
-- [ ] S6.1 Release job tags `runtimes/go/v<version>`; a release made; E7 tags checked. (Built: notes list the runtime versions, the Go tag is made at the release commit and checked; open until a release is made, which needs `main` pushed and the `AZURE_*` variables.)
+- [ ] S6.1 Release job tags `runtimes/go/v<version>`; a release made; E7 tags checked. (Built: notes list the runtime versions, the Go tag is made at the release commit and checked; open until a release is made, which needs only a version bump pushed to `main` and a green run: since 2026-10-16 the release publishes nothing to the Marketplace and needs no Azure variables.)
 - [x] S6.2 New os-context worktree and branch; record both commits. (`E:\work\os\os-context-pin`, branch `bdd-suite-pin`, from `7633e176` plus the B7 changes ([evidence](../evidence/self-contained-s6.md)))
 - [ ] S6.3 Add submodule `test/e2e/bdd` at the tag. (Added, pinned to the local commit `e5a3214`; open until it pins a release tag.)
 - [x] S6.4 Record the "before" baseline: action lists, lint output, generated schema. (Plus the Pester run: 34 failing before any change.)
