@@ -2,7 +2,7 @@
 import * as assert from 'assert';
 import { test } from 'node:test';
 import {
-  commonSource, compareProgramSet, computeCoverage, CoverageRow, driftCount, globDirectory, missingImplementations, programAgrees, toMarkdownTable,
+  commonSource, compareProgramSet, computeCoverage, CoverageRow, driftCount, globDirectory, expectedBindings, missingImplementations, programAgrees, toMarkdownTable, workspaceBindings,
 } from '../../src/core/coverage';
 
 const catalog = {
@@ -53,6 +53,13 @@ test('DEC-S10 an imported (core) action is no row\'s Declared, Found or drift: t
   const rows = computeCoverage(withCore, [...clean, site('go', 'core.noop')], bindings);
   assert.deepStrictEqual(rows.map(r => [r.declared.includes('core.noop'), driftCount(r)]), [[false, 0], [false, 1]]);
   assert.deepStrictEqual(rows[1].foundNotDeclared, ['core.noop'], 'a workspace that registers a core name itself is drift');
+});
+
+test('rows: the catalog own bindings only, not the ones an import adds; none listed falls back to all', () => {
+  const rows = computeCoverage({ ...catalog, bindings: ['go', 'powershell'], ownBindings: ['go'] }, clean, bindings);
+  assert.deepStrictEqual(rows.map(r => r.binding), ['go']);
+  assert.deepStrictEqual(expectedBindings({ bindings: ['powershell', 'go'], ownBindings: [] }), ['powershell', 'go']);
+  assert.deepStrictEqual(expectedBindings({ bindings: ['powershell', 'go'] }), ['powershell', 'go']);
 });
 
 test('a catalog binding with no settings uses its name and no source', () => {
@@ -109,4 +116,12 @@ test('missingImplementations: the bindings with no registration, and of those th
   assert.deepStrictEqual(r.missing.map(b => b.name), ['csharp', 'typescript']);
   assert.deepStrictEqual(r.generate.map(b => b.name), ['csharp']);
   assert.deepStrictEqual(missingImplementations(bindings.map(b => b.name), bindings, () => true), { missing: [], generate: [] });
+});
+
+test("workspaceBindings: the catalog's own bindings in its order, or every configured one when it lists none", () => {
+  const configured = [{ name: 'powershell' }, { name: 'csharp' }, { name: 'go' }, { name: 'rust' }, { name: 'typescript' }];
+  assert.deepStrictEqual(workspaceBindings(['csharp'], configured).map(b => b.name), ['csharp']);
+  assert.deepStrictEqual(workspaceBindings(['go', 'powershell', 'kotlin'], configured).map(b => b.name), ['go', 'powershell']);
+  assert.deepStrictEqual(workspaceBindings([], configured).map(b => b.name), configured.map(b => b.name));
+  assert.deepStrictEqual(workspaceBindings(undefined, configured).map(b => b.name), configured.map(b => b.name));
 });

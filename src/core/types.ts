@@ -46,7 +46,10 @@ export interface CatalogAction {
 
 export interface Catalog {
   file: string;
+  /** The catalog's bindings, then those of the catalogs it imports (DEC-S10). */
   bindings: BindingName[];
+  /** The bindings this catalog itself lists, without the imported ones: the languages the workspace implements actions in. */
+  ownBindings?: BindingName[];
   actions: Map<string, CatalogAction>;
   errors: CoreError[];
   /** Every catalog file it imports, directly or not, in reading order (DEC-S10). */

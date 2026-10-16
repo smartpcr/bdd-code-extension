@@ -34,6 +34,24 @@ export function missingImplementations(registeredIn: string[], bindings: BadgeBi
   return { missing, generate: missing.filter(b => canGenerate(b.name)) };
 }
 
+/**
+ * The binding names the workspace implements actions in: its catalog's own
+ * top-level `bindings`, or, when it lists none, those with the imported ones.
+ */
+export function expectedBindings(catalog: { bindings: string[]; ownBindings?: string[] }): string[] {
+  return catalog.ownBindings?.length ? catalog.ownBindings : catalog.bindings;
+}
+
+/**
+ * The bindings an action of the workspace's catalog is expected in: the ones
+ * its own top-level `bindings` lists, in that order, or every configured
+ * binding when it lists none. An imported catalog's bindings do not widen it.
+ */
+export function workspaceBindings<B extends { name: string }>(own: string[] | undefined, configured: B[]): B[] {
+  if (!own?.length) return [...configured];
+  return own.flatMap(name => configured.filter(b => b.name === name));
+}
+
 /** Completion sort key: actions the target binding implements first, then by name (B3.1-2). */
 export function actionSortKey(name: string, actionBindings: string[], target: string): string {
   return `${actionBindings.includes(target) ? '0' : '1'}${name}`;
@@ -96,14 +114,15 @@ export function commonSource(sources: string[]): string {
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
 /**
- * One row per binding the catalog lists, in its order (B4.1). Sites of other
- * bindings are ignored. An action from an imported catalog (`file` set: the
+ * One row per binding the catalog lists, in its order (B4.1): its own list
+ * when it has one, not the bindings an import adds. Sites of other bindings
+ * are ignored. An action from an imported catalog (`file` set: the
  * core, DEC-S10) is registered by the runtime, outside the workspace's
  * sources, so it is not part of any row.
  */
-export function computeCoverage(catalog: { bindings: string[]; actions: Map<string, { bindings: string[]; file?: string }> },
+export function computeCoverage(catalog: { bindings: string[]; ownBindings?: string[]; actions: Map<string, { bindings: string[]; file?: string }> },
   sites: { binding: string; action: string; recognizer: number }[], bindings: CoverageBinding[]): CoverageRow[] {
-  return catalog.bindings.map(name => {
+  return expectedBindings(catalog).map(name => {
     const declared = new Set([...catalog.actions].filter(([, a]) => !a.file && a.bindings.includes(name)).map(([n]) => n));
     const mine = sites.filter(s => s.binding === name);
     const found = new Set(mine.map(s => s.action));

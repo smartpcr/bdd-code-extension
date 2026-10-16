@@ -3,7 +3,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { SUITE_DOCUMENTS } from './suiteLanguage';
-import { actionSortKey, renderBindingBadge } from '../core/coverage';
+import { actionSortKey, expectedBindings, renderBindingBadge } from '../core/coverage';
 import { actionPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../core/completionContext';
 import { CONTEXT_KEYS, cursorContext, ExprContext, FUNCTIONS } from '../core/exprCursor';
 import { actionHoverMarkdown } from '../core/hoverText';
@@ -32,11 +32,13 @@ function actionItems(ix: FolderIndexer, range: vscode.Range, step: { keyColumn: 
   const catalog = ix.index.catalog;
   if (!catalog) return [];
   const known = ix.layout.bindings.map(b => ({ name: b.name, abbreviation: b.abbreviation, label: b.label }));
-  const labels = catalog.bindings.map(name => ({ name, label: known.find(k => k.name === name)?.label ?? name }));
+  const expected = expectedBindings(catalog);
+  const labels = expected.map(name => ({ name, label: known.find(k => k.name === name)?.label ?? name }));
   const target = ix.layout.settings.targetBinding;
   return [...catalog.actions.values()].map(a => {
-    const lacking = catalog.bindings.filter(b => !a.bindings.includes(b));
-    const badge = renderBindingBadge(catalog.bindings, a.bindings, known) + (lacking.length ? ` · not in ${renderBindingBadge(catalog.bindings, lacking, known)}` : '');
+    const lacking = expected.filter(b => !a.bindings.includes(b));
+    const badge = renderBindingBadge(expected, a.bindings.filter(b => expected.includes(b)), known)
+      + (lacking.length ? ` · not in ${renderBindingBadge(expected, lacking, known)}` : '');
     const i = item(a.name, K.Function, range, badge,
       new vscode.MarkdownString(actionHoverMarkdown(a, labels, ix.index.sitesFor(a.name), s => siteLink(s.file, s.range.start.line))));
     i.sortText = actionSortKey(a.name, a.bindings, target);

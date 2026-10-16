@@ -206,6 +206,7 @@ test('resolveCatalog: imports first, depth first; each imported action keeps its
   assert.deepStrictEqual([c.actions.get('core.set')!.file, c.actions.get('team.list')!.file, c.actions.get('shop.order')!.file], [k('core.yaml'), k('team/base.yaml'), undefined]);
   assert.deepStrictEqual(c.imports, [k('core.yaml'), k('team/base.yaml')]);
   assert.deepStrictEqual(c.bindings, ['go', 'powershell', 'rust']);
+  assert.deepStrictEqual(c.ownBindings, ['go'], "an import does not widen the workspace's own bindings");
   assert.deepStrictEqual(c.errors, []);
 });
 

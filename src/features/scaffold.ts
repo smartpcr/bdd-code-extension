@@ -8,7 +8,7 @@ import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { TrustGate } from '../config/trust';
 import { parseCatalog } from '../core/catalog';
 import { addBindingEdit, commonStepKeys, FileEdit, planDeclare } from '../core/catalogEdit';
-import { missingImplementations } from '../core/coverage';
+import { missingImplementations, workspaceBindings } from '../core/coverage';
 import { planStub, powershellStubFile, renderTemplate, stubTarget } from '../core/stubs';
 import { parseSuite } from '../core/suites';
 import { Pos, StepInfo } from '../core/types';
@@ -81,7 +81,7 @@ export function registerScaffoldActions(owner: Owner): vscode.Disposable {
       // An imported action (the core's, say) is implemented where it is declared, not in this workspace.
       if (entry && !entry.file) {
         const sites = ix.index.sitesFor(entry.name);
-        for (const b of ix.layout.bindings) {
+        for (const b of workspaceBindings(catalog.ownBindings, ix.layout.bindings)) {
           if (!stubTarget(b.name) || sites.some(s => s.binding === b.name)) continue;
           const act = new vscode.CodeAction(`Implement ${entry.name} in ${b.label}`, vscode.CodeActionKind.Refactor.append('bddSuite'));
           act.command = { title: act.title, command: 'bddSuite.implementAction', arguments: [entry.name, b.name] };
@@ -107,7 +107,7 @@ export function registerImplementLens(owner: Owner, changed: vscode.Event<void>)
       const catalog = ix?.index.catalog;
       if (!ix || !catalog || !ix.layout.settings['codeLens.implement'] || !ix.index.isSuiteOrLibrary(doc.uri.fsPath)) return [];
       const rank = (b: string) => (catalog.bindings.includes(b) ? catalog.bindings.indexOf(b) : catalog.bindings.length);
-      const bindings = [...ix.layout.bindings].sort((a, b) => rank(a.name) - rank(b.name));
+      const bindings = workspaceBindings(catalog.ownBindings, [...ix.layout.bindings].sort((a, b) => rank(a.name) - rank(b.name)));
       const out: vscode.CodeLens[] = [];
       for (const step of liveSteps(doc)) {
         if (!step.action || !step.actionRange) continue;
@@ -243,7 +243,7 @@ export async function implementAction(host: ScaffoldHost, action?: string, bindi
   if (!action) return refused('Implement action: no action chosen.');
   const chosen = action;
   if (!binding) {
-    const open = ix.layout.bindings.filter(b => stubTarget(b.name) && !ix.index.sitesFor(chosen).some(s => s.binding === b.name));
+    const open = workspaceBindings(catalog.ownBindings, ix.layout.bindings).filter(b => stubTarget(b.name) && !ix.index.sitesFor(chosen).some(s => s.binding === b.name));
     binding = (await vscode.window.showQuickPick(open.map(b => ({ label: b.label, description: b.name })),
       { placeHolder: `Implement ${chosen} in which binding?` }))?.description;
     if (!binding) return refused('Implement action: no binding chosen.');

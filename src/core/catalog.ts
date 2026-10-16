@@ -59,6 +59,7 @@ export function parseCatalog(text: string, file: string): Catalog {
   }
   const root = y.doc.contents;
   catalog.bindings = stringItems(valueOf(root, 'bindings'));
+  catalog.ownBindings = [...catalog.bindings];
   for (const item of itemsOf(root, 'actions')) {
     const nameNode = valueOf(item, 'name');
     const name = stringOf(item, 'name');

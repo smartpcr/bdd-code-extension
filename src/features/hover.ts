@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { fileKey } from '../core/paths';
+import { expectedBindings } from '../core/coverage';
 import { actionHoverMarkdown, captureHoverMarkdown } from '../core/hoverText';
 import { capturePathAt, scopeAt, shapeAt } from '../core/scope';
 import { contains } from '../core/workspaceIndex';
@@ -36,7 +37,7 @@ export function registerHover(owner: (uri: vscode.Uri) => FolderIndexer | undefi
       const range = toRange(step.actionRange);
       if (!action) return new vscode.Hover(`\`${step.action}\` is not in the action catalog.`, range);
       const labels = indexer.layout.bindings;
-      const order = index.catalog!.bindings;
+      const order = expectedBindings(index.catalog!);
       const bindings = order.map(name => ({ name, label: labels.find(b => b.name === name)?.label ?? name }));
       const md = new vscode.MarkdownString(actionHoverMarkdown(action, bindings, index.sitesFor(action.name),
         s => siteLink(s.file, s.range.start.line)));
