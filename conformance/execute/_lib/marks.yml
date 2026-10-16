@@ -1,0 +1,17 @@
+# The library execute/meta-from-library.yml imports, found relative to that
+# suite. A library declares and never runs, so the meta step below runs only
+# where a suite uses it.
+metaSteps:
+  - name: library-mark
+    description: Two markers, so an expansion is visible as two steps; the second is exported.
+    params:
+      - { name: label, type: string, default: from-library }
+    exports: [libraryMark]
+    steps:
+      - given: the first library marker of ${param.label}
+        action: core.record
+        marker: ${param.label}-one
+      - given: the second library marker of ${param.label}
+        action: core.record
+        marker: ${param.label}-two
+        captureAs: libraryMark

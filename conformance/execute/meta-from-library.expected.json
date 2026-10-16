@@ -1,0 +1,60 @@
+{
+  "kind": "execute",
+  "suite": "execute/meta-from-library.yml",
+  "description": "A meta step from a library the suite imports expands at each use site, with the library's default or the use site's argument, and returns what it exports.",
+  "exitCode": 0,
+  "trace": [
+    {
+      "phase": "step",
+      "case": "the-library-default",
+      "step": "given the first library marker of from-library (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-library-default",
+      "step": "given the second library marker of from-library (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-library-default",
+      "step": "then the exported marker came back under the library's default label (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-library-default",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-argument-from-the-use-site",
+      "step": "given the first library marker of chosen (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-argument-from-the-use-site",
+      "step": "given the second library marker of chosen (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "an-argument-from-the-use-site",
+      "step": "then the exported marker came back under the chosen label (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "an-argument-from-the-use-site",
+      "status": "passed"
+    }
+  ]
+}

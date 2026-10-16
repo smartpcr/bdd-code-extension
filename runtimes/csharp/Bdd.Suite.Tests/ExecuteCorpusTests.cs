@@ -109,7 +109,7 @@ public sealed class ExecuteCorpusTests
             }
         }
 
-        Assert.Equal(11, checked_);
+        Assert.Equal(12, checked_);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");
     }

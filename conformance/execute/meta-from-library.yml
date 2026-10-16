@@ -1,0 +1,26 @@
+suite: meta-from-library
+description: A meta step from a library the suite imports runs like a local one, with the library's default or the use site's argument, and returns what it exports.
+tags: [conformance]
+imports:
+  - _lib/marks.yml
+
+tests:
+  - name: the-library-default
+    steps:
+      - meta: library-mark
+      - then: the exported marker came back under the library's default label
+        action: core.noop
+        asserts:
+          - var: libraryMark.marker
+            equals: from-library-two
+
+  - name: an-argument-from-the-use-site
+    steps:
+      - meta: library-mark
+        with:
+          label: chosen
+      - then: the exported marker came back under the chosen label
+        action: core.noop
+        asserts:
+          - var: libraryMark.marker
+            equals: chosen-two

@@ -26,7 +26,7 @@ function run(argv: string[]): Promise<{ code: number | null; seconds: number }> 
 
 test('B7.5-1 every execute entry: the trace, the exit code, inside maxSeconds', async () => {
   const entries = manifest.entries.filter(e => e.kind === 'execute');
-  assert.equal(entries.length, 11);
+  assert.equal(entries.length, 12);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-execute-'));
   const wrong: string[] = [];
   await Promise.all(entries.map(async entry => {

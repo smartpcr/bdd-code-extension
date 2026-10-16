@@ -50,13 +50,13 @@ func TestEveryEntryIsOfAKindThisBindingRuns(t *testing.T) {
 		t.Errorf("the manifest holds entries of kinds no test here runs: %s", strings.Join(unknown, ", "))
 	}
 	// The corpus as it stands here: 41 validate entries (os-context's
-	// lifecycle and E214 entries moved to os-context, DEC-S02) and 11 execute
+	// lifecycle and E214 entries moved to os-context, DEC-S02) and 12 execute
 	// entries.
 	if got := len(Entries(manifest, "validate")); got != 41 {
 		t.Errorf("%d validate entries, not 41", got)
 	}
-	if got := len(Entries(manifest, "execute")); got != 11 {
-		t.Errorf("%d execute entries, not 11", got)
+	if got := len(Entries(manifest, "execute")); got != 12 {
+		t.Errorf("%d execute entries, not 12", got)
 	}
 	if root := walk.Text(manifest, "schemaRoot"); root != "schema" {
 		t.Errorf("the manifest's schemaRoot is %q, not schema", root)

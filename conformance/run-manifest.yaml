@@ -262,6 +262,11 @@ entries:
     description: A meta step expands at each use site, with its parameters bound and its own steps named.
 
   - kind: execute
+    suite: execute/meta-from-library.yml
+    expectation: execute/meta-from-library.expected.json
+    description: "A meta step from a library the suite imports expands at each use site, with the library's default or the use site's argument, and returns what it exports."
+
+  - kind: execute
     suite: execute/params.yml
     expectation: execute/params.expected.json
     description: A parameter takes its value from the highest level that names it, the command line first.
@@ -299,6 +304,8 @@ support:
   - validate/_lib/bad.yml
   - validate/_catalog/deprecated.yaml
   - validate/_catalog/new-parameter.yaml
+  # The library execute/meta-from-library.yml imports.
+  - execute/_lib/marks.yml
 
 tables:
   # Two tables that are the specification rather than a description of one.

@@ -30,6 +30,7 @@ The same rule is stated for diagnostics in
 | `validate/` | Suites that must not lint clean, each beside the diagnostics it must produce. |
 | `validate/_lib/` | Libraries the validate suites import. Support files: they have no expectation of their own. |
 | `execute/` | Suites that run, each beside the trace the run must emit. |
+| `execute/_lib/` | Libraries the execute suites import. Support files, like `validate/_lib/`. |
 | `expressions/` | The expression language as a table: a fixed context and one row per expression. |
 | `asserts/` | The assertion operator table: one row per operator per interesting pair of operands. |
 | `report/` | How two reports are compared, and the canonical form of three of them. |

@@ -43,7 +43,7 @@ fn every_entry_is_of_a_kind_this_runtime_runs() {
     let execute = entries.iter().filter(|entry| entry["kind"] == "execute").count();
     println!("  {validate} validate and {execute} execute entries");
     assert_eq!(validate, 41, "validate entries");
-    assert_eq!(execute, 11, "execute entries");
+    assert_eq!(execute, 12, "execute entries");
 }
 
 /// Every file the manifest names, relative to the corpus.

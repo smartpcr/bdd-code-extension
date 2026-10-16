@@ -35,7 +35,7 @@ public sealed class ConformanceTests
         // The counts after the move (conformance/rename.json): the lifecycle and
         // E214 entries went back to the product that owns those rules.
         Assert.Equal(41, Corpus.Entries(manifest, "validate").Count);
-        Assert.Equal(11, Corpus.Entries(manifest, "execute").Count);
+        Assert.Equal(12, Corpus.Entries(manifest, "execute").Count);
     }
 
     [Fact]
