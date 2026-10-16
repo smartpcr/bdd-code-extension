@@ -345,10 +345,12 @@ describe('Suite Authoring, installed from its .vsix, in a self-contained workspa
         return named.some(n => n.includes('demo.count action.notInTarget'));
       });
       for (const want of [
-        '6:9 given property', '7:17 demo.greet action.implemented', '8:9 name parameter.required', '9:9 captureAs property',
+        '7:17 demo.greet action.implemented', '8:9 name parameter.required',
         '9:20 greeting variable.declaration', '11:17 demo.count action.notInTarget', '12:9 to parameter.required',
         '23:17 demo.farewell action.undeclared', '24:9 name parameter', '25:9 loud parameter',
       ]) assert.ok(named.includes(want), `${want} in\n${named.join('\n')}`);
+      // given/when/then and captureAs keep the grammar's colour: no property token paints over them.
+      for (const grammar of ['6:9 given property', '9:9 captureAs property']) assert.ok(!named.includes(grammar), `${grammar} in\n${named.join('\n')}`);
       const rules = vscode.workspace.getConfiguration('editor').inspect<{ rules?: Record<string, unknown> }>('semanticTokenColorCustomizations')?.defaultValue?.rules ?? {};
       show('semantic tokens in demo.yml (target C#):', named);
       show('default styles the extension contributes:', Object.keys(rules).filter(k => k.endsWith(':bdd-suite')));

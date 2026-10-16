@@ -75,6 +75,9 @@ export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
     exclude: ['**/{artifacts,bin,obj}/**'],
     recognizers: [
       { pattern: 'new ActionRegistration\\(\\s*"(?<name>[^"]+)"(?:\\s*,\\s*(?<handler>[\\w.]+)\\s*\\))?' },
+      // A dictionary registry, as the runtime's CoreActions keeps one: `["ns.name"] = Handler,` on a
+      // line of its own. A dotted name and a method-group value keep data dictionaries out.
+      { pattern: '^[ \\t]*\\["(?<name>[\\w-]+(?:\\.[\\w-]+)+)"\\][ \\t]*=[ \\t]*(?<handler>(?!(?:true|false|null)\\b)[A-Za-z_][\\w.]*)[ \\t]*,[ \\t]*\\r?$' },
     ],
     tool: ['test/e2e/bindings/dotnet/artifacts/bin/Suite.Cli/Debug/net10.0/suiterun.exe'],
     build: { command: 'dotnet build', cwd: 'test/e2e/bindings/dotnet' },

@@ -4,10 +4,10 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { test } from 'node:test';
 import { parseCatalog } from '../../src/core/catalog';
-import { actionPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../../src/core/completionContext';
+import { actionPrefix, assertSubjectPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../../src/core/completionContext';
 import { actionSortKey } from '../../src/core/coverage';
 import { captureHoverMarkdown } from '../../src/core/hoverText';
-import { capturePathAt, scopeAt, shapeAt } from '../../src/core/scope';
+import { capturePathAt, scopeAt, shapeAt, subjectStatus } from '../../src/core/scope';
 import { parseSuite } from '../../src/core/suites';
 import { Pos } from '../../src/core/text';
 import { WorkspaceIndex } from '../../src/core/workspaceIndex';
@@ -363,4 +363,43 @@ test('stepKeysAround: the key column of `action:` and the step\'s keys at that c
   assert.deepStrictEqual(stepKeysAround(['    plain text', '      action: x', '      a line'], 1), { keyColumn: 6, keys: new Set(['action']) },
     'a line that is not a key ends the step');
   assert.deepStrictEqual(stepKeysAround(['not an action line'], 0), { keyColumn: 0, keys: new Set() });
+});
+
+test('subjectStatus: the capture in scope, each field in the action\'s shape, open past an open shape or a capture with no catalog action', () => {
+  const at = pos('var: cs.State', 5);
+  const status = (p: Pos, ...path: string[]) => subjectStatus(ix, f('s.yml'), p, path);
+  assert.deepStrictEqual(status(at, 'cs', 'State'), ['known', 'known'], 'a step\'s own asserts see its capture');
+  assert.deepStrictEqual(status(at, 'cs', 'Nodes', '0', 'Name'), ['known', 'known', 'known', 'known']);
+  assert.deepStrictEqual(status(at, 'cs', 'Nope', 'deeper'), ['known', 'unknown', 'unknown']);
+  assert.deepStrictEqual(status(at, 'cs', 'Raw', 'anything'), ['known', 'open', 'open']);
+  assert.deepStrictEqual(status(at, 'ghost', 'x'), ['unknown', 'open']);
+  const caseAsserts = pos('var: x', 5);
+  assert.deepStrictEqual(status(caseAsserts, 'each', 'y'), ['known', 'open'], 'core.noop is not in this catalog, so nothing is declared');
+  assert.deepStrictEqual(status(caseAsserts, 'late'), ['known'], 'the case asserts see every case step');
+});
+
+test('assertSubjectPrefix: after var: in an asserts item, the segments, the partial name and where it starts', () => {
+  const lines = [
+    '    asserts:',
+    '      - var: location.sta',
+    '        equals: x',
+    '      - isTrue: true',
+    '        var: ',
+    '      - var: a.b.',
+    '    with:',
+    '      - var: no',
+    '      - isTrue: true',
+    '        var: no',
+  ];
+  assert.deepStrictEqual(assertSubjectPrefix(lines, 1, lines[1].length), { segments: ['location'], prefix: 'sta', start: 22 });
+  assert.deepStrictEqual(assertSubjectPrefix(lines, 4, lines[4].length), { segments: [], prefix: '', start: 13 }, 'var: below the dash');
+  assert.deepStrictEqual(assertSubjectPrefix(lines, 5, lines[5].length), { segments: ['a', 'b'], prefix: '', start: 17 });
+  assert.strictEqual(assertSubjectPrefix(lines, 7, lines[7].length), undefined, 'a list that is not asserts');
+  assert.strictEqual(assertSubjectPrefix(lines, 9, lines[9].length), undefined, 'below the dash, in a list that is not asserts');
+  assert.strictEqual(assertSubjectPrefix(lines, 2, lines[2].length), undefined, 'not after var:');
+  assert.strictEqual(assertSubjectPrefix(['    var: a'], 0, 10), undefined, 'no list item above');
+  assert.strictEqual(assertSubjectPrefix(['  plain', '    var: a'], 1, 10), undefined, 'a key above is not a list item');
+  assert.strictEqual(assertSubjectPrefix(['  - var: a'], 0, 10), undefined, 'nothing above the item');
+  const spaced = ['asserts:', '', '  - isTrue: true', '      nested: 1', '', '    var: ab'];
+  assert.deepStrictEqual(assertSubjectPrefix(spaced, 5, 11), { segments: [], prefix: 'ab', start: 9 }, 'blank and deeper lines are passed over');
 });

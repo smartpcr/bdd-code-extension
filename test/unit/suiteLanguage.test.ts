@@ -35,52 +35,104 @@ metaSteps:
     steps:
       - action: demo.greet
         name: x
+beforeEach:
+  - given: a hook
+    why: hooks are steps too
+    action: demo.count
+    timeoutSec: 5
+afterEach: not a list
+cases:
+  asserts:
+    - var: greeting.items.0
+      equals: hi
+    - isTrue: true
+      var: "nope.x"
+    - var: bad-path!
+      count: 2
+    - var: 3
+    - equals: \${capture.greeting}
+    - just a string
 `;
 
 const ctx: TokenContext = {
-  envelope: new Set(['given', 'when', 'then', 'and', 'captureAs', 'why']),
+  envelope: new Set(['given', 'when', 'then', 'and', 'captureAs', 'why', 'timeoutSec']),
   action(name) {
     const status: Record<string, ActionStatus> = { 'demo.greet': 'implemented', 'demo.count': 'notInTarget' };
     if (!status[name]) return { status: 'undeclared' };
     return { status: status[name], params: name === 'demo.greet' ? [{ name: 'name', required: true }] : [{ name: 'to', required: false }] };
   },
   meta: name => (name === 'place-order' ? [{ name: 'item', required: true }, { name: 'note', required: false }] : undefined),
+  subject: (_pos, path) => path.map((s, i) => (s === 'nope' ? 'unknown' : i === 2 ? 'open' : 'known')),
 };
 
-test('suiteTokens: actions by status, keys by who declares them, meta steps and their with: keys, in every steps: list', () => {
+test('suiteTokens: actions by status, keys by who declares them, meta steps and their with: keys, in every step list', () => {
   const tokens = suiteTokens(SUITE, ctx).map(t => `${t.line + 1}:${t.character + 1} ${SUITE.split('\n')[t.line].slice(t.character, t.character + t.length)} ${t.type}${t.modifiers.length ? `.${t.modifiers.join('.')}` : ''}`);
+  // given/when/then/and, why and captureAs are the grammar's to colour: no property token paints over them.
+  // Every other value is typed; prose (the Gherkin sentences, why) and ${...} expressions are left to the grammar.
   assert.deepStrictEqual(tokens, [
-    '6:9 given property',
+    '1:8 s string',
+    '2:11 lib.yml string',
+    '4:11 c string',
     '7:17 demo.greet action.implemented',
     '8:9 name parameter.required',
+    '8:15 world string',
     '9:9 nmae parameter.unknown',
-    '10:9 captureAs property',
+    '9:15 typo string',
     '10:20 greeting variable.declaration',
-    '11:9 when property',
     '12:17 demo.count action.notInTarget',
     '13:9 to parameter',
-    '14:9 then property',
+    '13:13 3 number',
     '15:15 place-order metaStep',
     '16:17 item parameter.required',
+    '16:23 book string',
     '16:29 note parameter',
+    '16:35 n string',
     '16:38 colour parameter.unknown',
-    '17:9 and property',
+    '16:46 red string',
     '18:15 nowhere metaStep.undeclared',
     '19:17 x parameter',
+    '19:20 1 number',
     '20:17 no.such action.undeclared',
     '21:9 anything parameter',
+    '21:19 1 number',
+    '22:24 a scalar string',
     '23:15 place-order metaStep',
+    '24:16 listed string',
+    '26:11 inner string',
     '28:17 demo.greet action.implemented',
     '29:9 name parameter.required',
+    '29:15 x string',
+    '33:13 demo.count action.notInTarget',
+    '34:5 timeoutSec property',
+    '34:17 5 number',
+    '35:12 not a list string',
+    '38:12 greeting variable',
+    '38:21 items field',
+    '38:27 0 field',
+    '39:15 hi string',
+    '40:15 true keyword',
+    '41:13 nope variable.unknown',
+    '41:18 x field',
+    '42:12 bad-path! string',
+    '43:14 2 number',
+    '44:12 3 number',
+    '46:7 just a string string',
   ]);
 });
 
-test('suiteTokens: nothing for a document that is not a mapping, and a multi-line value is skipped', () => {
-  assert.deepStrictEqual(suiteTokens('- just\n- a list\n', ctx), []);
+test('suiteTokens: an assertion subject is all known without a subject context; null is a keyword', () => {
+  const text = 'asserts:\n  - var: a.b\n    isNull: null\n';
+  const { subject: _, ...plain } = ctx;
+  const tokens = suiteTokens(text, plain).map(t => `${t.type}${t.modifiers.length ? `.${t.modifiers.join('.')}` : ''}`);
+  assert.deepStrictEqual(tokens, ['variable', 'field', 'keyword']);
+});
+
+test('suiteTokens: a document that is not a mapping has only values, and a multi-line value is skipped', () => {
+  assert.deepStrictEqual(suiteTokens('- just\n- a list\n', ctx).map(t => t.type), ['string', 'string']);
   const complexKey = 'tests:\n  - name: c\n    steps:\n      - action: demo.count\n        ? [a, b]\n        : value\n';
-  assert.deepStrictEqual(suiteTokens(complexKey, ctx).map(t => t.type), ['action'], 'a key that is not a scalar gets no token');
+  assert.deepStrictEqual(suiteTokens(complexKey, ctx).map(t => t.type), ['string', 'action', 'string'], 'a key that is not a scalar gets no token');
   const multi = 'tests:\n  - name: c\n    steps:\n      - action: "demo.\n          greet"\n';
-  assert.deepStrictEqual(suiteTokens(multi, ctx), []);
+  assert.deepStrictEqual(suiteTokens(multi, ctx).map(t => t.type), ['string'], 'only name: c; the action spans two lines');
 });
 
 const SCHEMA = {

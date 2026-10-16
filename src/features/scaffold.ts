@@ -9,7 +9,7 @@ import { TrustGate } from '../config/trust';
 import { parseCatalog } from '../core/catalog';
 import { addBindingEdit, commonStepKeys, FileEdit, planDeclare } from '../core/catalogEdit';
 import { missingImplementations, workspaceBindings } from '../core/coverage';
-import { planStub, powershellStubFile, renderTemplate, stubTarget } from '../core/stubs';
+import { csharpHandlerClass, planStub, powershellStubFile, registryFileOf, renderTemplate, stubTarget } from '../core/stubs';
 import { parseSuite } from '../core/suites';
 import { Pos, StepInfo } from '../core/types';
 import { contains } from '../core/workspaceIndex';
@@ -232,6 +232,17 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
   return applyAndGenerate(host, ix, plan.edits, `Declared ${action}`);
 }
 
+/**
+ * The C# file in `dir` that declares `class <name>`: `<name>.cs` first, then the
+ * others by name, so a partial class gets its stubs in its main file.
+ */
+function classFile(dir: string, name: string): string | undefined {
+  const declares = new RegExp(`\\bclass ${name}\\b`);
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.cs')).sort((a, b) => Number(b === `${name}.cs`) - Number(a === `${name}.cs`) || a.localeCompare(b));
+  const found = files.find(f => declares.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+  return found && path.join(dir, found);
+}
+
 /** *Implement in binding* (B5.2-B5.4): the registry entry, the stub, the binding in the catalog, the schema. */
 export async function implementAction(host: ScaffoldHost, action?: string, binding?: string): Promise<ScaffoldResult> {
   const editor = vscode.window.activeTextEditor;
@@ -257,11 +268,17 @@ export async function implementAction(host: ScaffoldHost, action?: string, bindi
   if (!entry) return report(host, refused(`Implement action: ${chosen} is not in the catalog; declare it first.`));
   const target = stubTarget(binding);
   if (!target) return report(host, refused(`Implement action: there is no stub template for the ${binding} binding.`));
-  const file = path.join(ix.layout.root, target.file);
-  if (!fs.existsSync(file)) return report(host, refused(`Implement action: ${target.file} does not exist in this checkout.`));
+  // The registry is where the binding's own actions already are; the layout's default file until it has any.
+  const own = (a: string) => catalog.actions.has(a) && !catalog.actions.get(a)!.file;
+  const file = registryFileOf(ix.index.allSites(), binding, own) ?? path.join(ix.layout.root, target.file);
+  const shown = path.relative(ix.layout.root, file).split(path.sep).join('/');
+  if (!fs.existsSync(file)) return report(host, refused(`Implement action: ${shown} does not exist in this checkout.`));
   const registry = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+  const owner = binding === 'csharp' ? csharpHandlerClass(registry.getText()) : undefined;
+  const handlerPath = owner ? classFile(path.dirname(file), owner) : undefined;
+  const handlerFile = handlerPath ? { file: handlerPath, text: (await vscode.workspace.openTextDocument(vscode.Uri.file(handlerPath))).getText() } : undefined;
   const stub = planStub({
-    binding, action: chosen, file, text: registry.getText(), template: template(host, ix, target.template),
+    binding, action: chosen, file, shown, handlerFile, text: registry.getText(), template: template(host, ix, target.template),
     hasSite: ix.index.sitesFor(chosen).some(s => s.binding === binding),
   });
   if ('refused' in stub) return report(host, refused(`Implement action: ${stub.refused}`));

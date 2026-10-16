@@ -53,6 +53,15 @@ export function templateSections(template: string): Map<string, string> {
 interface Insertion {
   offset: number;
   text: string;
+  /** The insertion goes into the handler class's file (a C# dictionary registry's `UrpActions.`), not the registry. */
+  inHandlerFile?: boolean;
+}
+
+/** What a registry plan knows besides the registry's text: the action, its stub's identifier, and the handler class's file. */
+interface PlanContext {
+  action: string;
+  identifier: string;
+  handlerText?: string;
 }
 
 export interface StubTarget {
@@ -66,7 +75,7 @@ export interface StubTarget {
   identifier: (action: string) => string;
   declares: (identifier: string) => RegExp;
   /** Insertions into the registry, or why an anchor was not found. */
-  plan(text: string, sections: Map<string, string>): Insertion[] | string;
+  plan(text: string, sections: Map<string, string>, context: PlanContext): Insertion[] | string;
 }
 
 /** A file's lines (without line breaks) and each line's start offset. */
@@ -169,14 +178,50 @@ function rustPlan(text: string, s: Map<string, string>): Insertion[] | string {
   return entryAndHandler(f, list, ']', s, tests < 0 ? undefined : tests);
 }
 
-/** C#: `new ActionRegistration("x", X),` in `All { get; } = [ ... ];`; the method before the class's closing brace. */
-function csharpPlan(text: string, s: Map<string, string>): Insertion[] | string {
+/** One entry of a C# dictionary registry, `["a.b"] = Handler,` or `["a.b"] = Class.Handler,`, as a line of its own. */
+const CSHARP_ENTRY = /^\s*\["[^"]+"\]\s*=\s*(?:([A-Za-z_]\w*)\.)?[A-Za-z_]\w*\s*,\s*$/;
+
+/**
+ * The class a C# dictionary registry's handlers are qualified with: `UrpActions`
+ * for `["a.b"] = UrpActions.AB,`, read from its last entry. Undefined when the
+ * entries are unqualified or the file has none.
+ */
+export function csharpHandlerClass(text: string): string | undefined {
+  const entries = new Lines(text).lines.filter(l => CSHARP_ENTRY.test(l));
+  return entries.length ? CSHARP_ENTRY.exec(entries[entries.length - 1])![1] : undefined;
+}
+
+/**
+ * C#: `new ActionRegistration("x", X),` in `All { get; } = [ ... ];`, or a
+ * dictionary entry `["x"] = X,` after the registry's last one, qualified as that
+ * entry is. The method goes before the closing brace of the class that holds the
+ * handlers: the registry's own, or the qualifying class in its own file.
+ */
+function csharpPlan(text: string, s: Map<string, string>, context: PlanContext): Insertion[] | string {
   const f = new Lines(text);
   const open = f.find(/\bAll \{ get; \} =/);
-  if (open < 0) return '`All { get; } =` was not found';
-  const classEnd = f.find(/^}\s*$/, open + 1);
-  if (classEnd < 0) return 'the class\'s closing brace was not found';
-  return entryAndHandler(f, open, '];', s, classEnd, f.indent(open));
+  if (open >= 0) {
+    const classEnd = f.find(/^}\s*$/, open + 1);
+    if (classEnd < 0) return 'the class\'s closing brace was not found';
+    return entryAndHandler(f, open, '];', s, classEnd, f.indent(open));
+  }
+  const last = f.lines.map(l => CSHARP_ENTRY.test(l)).lastIndexOf(true);
+  if (last < 0) return '`All { get; } =` or a dictionary entry `["name"] = Handler,` was not found';
+  const owner = CSHARP_ENTRY.exec(f.lines[last])![1];
+  const entry = entryBefore(f, last, '};', `["${context.action}"] = ${owner ? `${owner}.` : ''}${context.identifier},`);
+  if (!owner) {
+    const classEnd = f.find(/^}\s*$/, last + 1);
+    if (classEnd < 0) return 'the class\'s closing brace was not found';
+    return both(entry, handlerBefore(f, classEnd, s.get('handler')!, f.unit()));
+  }
+  if (context.handlerText === undefined) return `the file of class ${owner}, which holds the handlers, was not found`;
+  const g = new Lines(context.handlerText);
+  const classLine = g.find(new RegExp(`\\bclass ${owner}\\b`));
+  const classEnd = classLine < 0 ? -1 : g.find(/^}\s*$/, classLine + 1);
+  if (classEnd < 0) return `the closing brace of class ${owner} was not found`;
+  // The registry calls it from another class, so a private stub would not compile.
+  const handler = s.get('handler')!.replace(/^private\b/m, 'internal');
+  return both(entry, { ...handlerBefore(g, classEnd, handler, g.unit()), inHandlerFile: true });
 }
 
 /** TypeScript: `action('x', x),` in `export const registrations = [ ... ];`; the handler at the end of the file. */
@@ -225,9 +270,24 @@ export interface ImplementInput {
   /** The registry file's absolute path and current text. */
   file: string;
   text: string;
+  /** The registry file as messages name it; the target's default file when absent. */
+  shown?: string;
+  /** The file of the class a C# dictionary registry qualifies its handlers with (csharpHandlerClass), and its text. */
+  handlerFile?: { file: string; text: string };
   template: string;
   /** True when the index already holds a site of this action for this binding (B5.2 item 3). */
   hasSite: boolean;
+}
+
+/**
+ * The file that holds most of a binding's own registrations: sites of actions the
+ * workspace's catalog declares, not imported ones such as the core's. Ties go to
+ * the first file by name. Undefined when the binding registers none of them yet.
+ */
+export function registryFileOf(sites: { binding: string; action: string; file: string }[], binding: string, own: (action: string) => boolean): string | undefined {
+  const counts = new Map<string, number>();
+  for (const s of sites) if (s.binding === binding && own(s.action)) counts.set(s.file, (counts.get(s.file) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
 }
 
 /** The registry edits of *Implement in binding* (B5.2-B5.4); the catalog edit is addBindingEdit(). */
@@ -236,12 +296,15 @@ export function planStub(input: ImplementInput): EditPlan {
   if (!target) return { refused: `There is no stub template for the ${input.binding} binding.` };
   if (input.hasSite) return { refused: `${input.action} is already registered in the ${input.binding} binding.` };
   const id = target.identifier(input.action);
-  if (target.declares(id).test(input.text)) return { refused: `${target.file} already declares \`${id}\`.` };
+  const shown = input.shown ?? target.file;
+  if (target.declares(id).test(input.text)) return { refused: `${shown} already declares \`${id}\`.` };
+  const other = input.handlerFile;
+  if (other && target.declares(id).test(other.text)) return { refused: `${other.file} already declares \`${id}\`.` };
   const sections = templateSections(renderTemplate(input.template, input.action));
   const missing = target.sections.filter(k => !sections.has(k));
   if (missing.length) return { refused: `The template ${target.template} has no \`@@ ${missing.join('`, `@@ ')}\` section.` };
-  const planned = target.plan(input.text, sections);
-  if (typeof planned === 'string') return { refused: `In ${target.file}, ${planned}; the template needs updating for this layout.` };
-  const edits: FileEdit[] = planned.map(i => ({ file: input.file, start: i.offset, end: i.offset, text: i.text }));
+  const planned = target.plan(input.text, sections, { action: input.action, identifier: id, handlerText: other?.text });
+  if (typeof planned === 'string') return { refused: `In ${shown}, ${planned}; the template needs updating for this layout.` };
+  const edits: FileEdit[] = planned.map(i => ({ file: i.inHandlerFile ? other!.file : input.file, start: i.offset, end: i.offset, text: i.text }));
   return { edits };
 }

@@ -4,6 +4,8 @@
   "injectionSelector": "L:source.bdd-suite -comment",
   "patterns": [
     { "include": "#gherkin-key" },
+    { "include": "#why-key" },
+    { "include": "#capture-key" },
     { "include": "#suite-key" },
     { "include": "#reference-key" },
     { "include": "#expression" }
@@ -15,6 +17,23 @@
       "captures": {
         "2": { "name": "keyword.control.gherkin.bdd-suite" },
         "3": { "name": "punctuation.separator.key-value.mapping.yaml" }
+      }
+    },
+    "why-key": {
+      "comment": "why: the reason for the step, read with its Gherkin sentence, so it is coloured as one.",
+      "match": "^(\\s*(?:-\\s+)?)(why)(:)(?=\\s|$)",
+      "captures": {
+        "2": { "name": "keyword.control.rationale.bdd-suite" },
+        "3": { "name": "punctuation.separator.key-value.mapping.yaml" }
+      }
+    },
+    "capture-key": {
+      "comment": "captureAs: publishes the step's result under a name, read later as ${capture.<name>}; ifCapture: runs the step only when that capture is present.",
+      "match": "^(\\s*(?:-\\s+)?)(captureAs|ifCapture)(:)(?:\\s+([A-Za-z_][\\w.]*)(?=\\s*(?:#|$)))?",
+      "captures": {
+        "2": { "name": "keyword.other.capture.bdd-suite" },
+        "3": { "name": "punctuation.separator.key-value.mapping.yaml" },
+        "4": { "name": "variable.other.definition.bdd-suite" }
       }
     },
     "suite-key": {

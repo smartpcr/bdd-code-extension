@@ -3,6 +3,7 @@
 import { META_DEPTH_LIMIT } from '../limits';
 import { fileKey } from './paths';
 import { Pos } from './text';
+import type { SubjectStatus } from './suiteTokens';
 import { CaptureShape, CatalogAction, StepInfo, SuiteFile } from './types';
 import { contains, MetaTarget, WorkspaceIndex } from './workspaceIndex';
 
@@ -143,6 +144,24 @@ export function shapeAt(action: CatalogAction, segments: string[], fromTable: bo
     shape = next;
   }
   return shape.open && shape.properties.size === 0 && !shape.items ? 'open' : shape;
+}
+
+/**
+ * Each segment of an assertion's subject at `pos` (`var: cs.Nodes.0.Name`): the
+ * capture is known when it is in scope there, and each field when the capturing
+ * action's declared shape has it. Past an open shape, or a capture whose step is
+ * not an action, nothing is declared, so the segments are open; after an unknown
+ * capture, so are the fields.
+ */
+export function subjectStatus(index: WorkspaceIndex, file: string, pos: Pos, path: string[]): SubjectStatus[] {
+  const source = scopeAt(index, file, pos).captures.get(path[0]);
+  const action = source?.step.action ? index.catalog?.actions.get(source.step.action) : undefined;
+  return path.map((_, i): SubjectStatus => {
+    if (i === 0) return source ? 'known' : 'unknown';
+    if (!action) return 'open';
+    const shape = shapeAt(action, path.slice(1, i + 1), source!.fromTable);
+    return shape === undefined ? 'unknown' : shape === 'open' ? 'open' : 'known';
+  });
 }
 
 /** The `capture.a.b` path covering `offset` in an expression's text, as [name, ...rest]. */

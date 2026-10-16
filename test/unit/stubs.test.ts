@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { test } from 'node:test';
 import * as path from 'path';
 import {
-  alignEntry, camelName, pascalName, planStub, powershellStubFile, renderTemplate, snakeName, stubTarget, templateSections,
+  alignEntry, camelName, csharpHandlerClass, pascalName, planStub, powershellStubFile, registryFileOf, renderTemplate, snakeName, stubTarget, templateSections,
 } from '../../src/core/stubs';
 
 const templates = path.resolve(__dirname, '../../../templates');
@@ -160,6 +160,91 @@ test('B5.4 C#: an ActionRegistration in All, a method before the class\'s closin
   assert.ok(!r.out.replace(/\r\n/g, '').includes('\n'), 'every line break is CRLF');
 });
 
+const CSHARP_DICTIONARY = [
+  'namespace Shop;',
+  '',
+  'public static class CoreActions',
+  '{',
+  '    public static IReadOnlyDictionary<string, Func<ActionRequest, object?>> Registry { get; } =',
+  '        new Dictionary<string, Func<ActionRequest, object?>>(StringComparer.Ordinal)',
+  '        {',
+  '            ["core.noop"] = Noop,',
+  '        };',
+  '',
+  '    private static object? Noop(ActionRequest request) => null;',
+  '}',
+  '',
+].join('\n');
+
+const QUALIFIED_REGISTRY = [
+  'namespace Shop;',
+  '',
+  'public sealed class ShopExtension',
+  '{',
+  '    private static readonly Dictionary<string, Func<ActionRequest, object?>> Handlers = new(StringComparer.Ordinal)',
+  '    {',
+  '        ["shop.order"] = ShopActions.Order,',
+  '',
+  '        ["shop.ship"] = ShopActions.Ship,',
+  '    };',
+  '}',
+  '',
+].join('\n');
+
+const HANDLERS = [
+  'namespace Shop;',
+  '',
+  'public static partial class ShopActions',
+  '{',
+  '    public static object? Order(ActionRequest request) => null;',
+  '}',
+  '',
+].join('\n');
+
+test('C# dictionary registry: an entry after the last one, the method in the registry\'s class when the entries are unqualified', () => {
+  const r = implement('csharp', 'shop.echo', CSHARP_DICTIONARY);
+  assert.ok('out' in r);
+  assert.match(r.out, / {12}\["core\.noop"\] = Noop,\n {12}\["shop\.echo"\] = ShopEcho,\n {8}\};/);
+  assert.ok(r.out.endsWith('    private static object? Noop(ActionRequest request) => null;\n\n'
+    + '    private static object? ShopEcho(ActionRequest request) =>\n'
+    + '        throw ActionException.Failed("shop.echo: not implemented in the C# binding yet");\n}\n'));
+});
+
+test('C# dictionary registry: a qualified entry, and an internal method in the qualifying class\'s own file', () => {
+  const handlerFile = { file: 'C:/r/ShopActions.cs', text: HANDLERS };
+  const target = stubTarget('csharp')!;
+  const plan = planStub({ binding: 'csharp', action: 'shop.echo', file: 'C:/r/ShopExtension.cs', text: QUALIFIED_REGISTRY, handlerFile, template: template(target.template), hasSite: false });
+  assert.ok('edits' in plan);
+  const registry = apply(QUALIFIED_REGISTRY, plan.edits.filter(e => e.file === 'C:/r/ShopExtension.cs'));
+  const handlers = apply(HANDLERS, plan.edits.filter(e => e.file === handlerFile.file));
+  assert.strictEqual(plan.edits.length, 2);
+  assert.match(registry, / {8}\["shop\.ship"\] = ShopActions\.Ship,\n {8}\["shop\.echo"\] = ShopActions\.ShopEcho,\n {4}\};/);
+  assert.ok(handlers.endsWith('    public static object? Order(ActionRequest request) => null;\n\n'
+    + '    internal static object? ShopEcho(ActionRequest request) =>\n'
+    + '        throw ActionException.Failed("shop.echo: not implemented in the C# binding yet");\n}\n'));
+});
+
+test('csharpHandlerClass: the qualifier of the last dictionary entry', () => {
+  assert.strictEqual(csharpHandlerClass(QUALIFIED_REGISTRY), 'ShopActions');
+  assert.strictEqual(csharpHandlerClass(CSHARP_DICTIONARY), undefined, 'unqualified entries');
+  assert.strictEqual(csharpHandlerClass(CSHARP), undefined, 'not a dictionary registry');
+});
+
+test('registryFileOf: the file with most of the binding\'s own registrations, imported actions and other bindings left out', () => {
+  const sites = [
+    { binding: 'csharp', action: 'core.noop', file: 'c:/r/Core.cs' },
+    { binding: 'csharp', action: 'core.set', file: 'c:/r/Core.cs' },
+    { binding: 'csharp', action: 'shop.order', file: 'c:/r/b/Shop.cs' },
+    { binding: 'csharp', action: 'shop.ship', file: 'c:/r/a/Shop.cs' },
+    { binding: 'go', action: 'shop.pay', file: 'c:/r/go.go' },
+    { binding: 'go', action: 'shop.refund', file: 'c:/r/go.go' },
+  ];
+  const own = (a: string) => a.startsWith('shop.');
+  assert.strictEqual(registryFileOf(sites, 'csharp', own), 'c:/r/a/Shop.cs', 'a tie goes to the first file by name');
+  assert.strictEqual(registryFileOf([...sites, { binding: 'csharp', action: 'shop.pay', file: 'c:/r/b/Shop.cs' }], 'csharp', own), 'c:/r/b/Shop.cs');
+  assert.strictEqual(registryFileOf(sites, 'rust', own), undefined);
+});
+
 test('S5a.4 TypeScript: an action() in registrations, an async stub that throws failed() at the end of the file', () => {
   const r = implement('typescript', 'demo.echo', TYPESCRIPT);
   assert.ok('out' in r);
@@ -197,7 +282,17 @@ test('refusals: no template, a site already there, a name already declared, a mi
   assert.match(r('rust', 'demo.echo', 'pub fn actions() -> Vec<Action> {\n    Vec::new()\n}\n\nfn x() {\n    vec![\n    ]\n}\n'), /`vec!\[` list/,
     'a vec! after actions() is not its list');
   assert.match(r('rust', 'demo.echo', 'pub fn actions() -> Vec<Action> {\n    vec![\n'), /`vec!\[` list/, 'no end to actions()');
-  assert.match(r('csharp', 'demo.echo', 'class X {}\n'), /`All \{ get; \} =` was not found/);
+  assert.match(r('csharp', 'demo.echo', 'class X {}\n'), /`All \{ get; \} =` or a dictionary entry `\["name"\] = Handler,` was not found/);
+  assert.match(r('csharp', 'demo.echo', CSHARP_DICTIONARY.replace('        };', '        }')), /the closing `};` was not found/);
+  assert.match(r('csharp', 'demo.echo', CSHARP_DICTIONARY.replace(/\n}\n$/, '\n')), /class's closing brace/);
+  assert.match(r('csharp', 'demo.echo', QUALIFIED_REGISTRY), /the file of class ShopActions, which holds the handlers, was not found/);
+  assert.match(r('csharp', 'demo.echo', QUALIFIED_REGISTRY, { handlerFile: { file: 'h.cs', text: 'class Other\n{\n}\n' } }),
+    /the closing brace of class ShopActions was not found/);
+  assert.match(r('csharp', 'demo.echo', QUALIFIED_REGISTRY, { handlerFile: { file: 'h.cs', text: 'class ShopActions\n{\n' } }),
+    /the closing brace of class ShopActions was not found/);
+  assert.match(r('csharp', 'demo.echo', QUALIFIED_REGISTRY, { handlerFile: { file: 'h.cs', text: HANDLERS + 'object? DemoEcho(ActionRequest r) => null;' } }),
+    /h\.cs already declares `DemoEcho`/);
+  assert.match(r('csharp', 'demo.echo', 'class X {}\n', { shown: 'src/X.cs' }), /^In src\/X\.cs, /, 'messages name the registry actually used');
   assert.match(r('csharp', 'demo.echo', CSHARP.replace(/\r\n}\r\n$/, '\r\n')), /class's closing brace/);
   assert.match(r('csharp', 'demo.echo', CSHARP.replace('    ];', '    ]')), /the closing `];` was not found/);
   assert.match(r('typescript', 'demo.echo', 'export const other = [\n];\n'), /`export const registrations = \[` was not found/);

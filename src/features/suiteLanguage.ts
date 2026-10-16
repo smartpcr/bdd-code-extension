@@ -4,7 +4,8 @@
 // mode the extension:
 //   * colours what a grammar cannot know (semantic tokens): an action by where
 //     it is implemented, a step's keys by whether the schema or the action
-//     declares them, a meta step's `with:` keys by its definition;
+//     declares them, a meta step's `with:` keys by its definition, an
+//     assertion's subject by what is captured, other values by their type;
 //   * enforces the workspace's generated suite.schema.json while typing;
 //   * completes a step's keys from that schema, the action's parameters first.
 // The schema check and key completion also serve a suite in plain YAML mode,
@@ -20,6 +21,7 @@ import { keyPrefix, stepAtColumn } from '../core/completionContext';
 import { checkAgainstSchema, compileSuiteSchema } from '../core/schemaCheck';
 import { ActionStatus, suiteTokens, TOKEN_MODIFIERS, TOKEN_TYPES, TokenContext } from '../core/suiteTokens';
 import { Debouncer } from '../core/debounce';
+import { subjectStatus } from '../core/scope';
 import { fileKey } from '../core/paths';
 import { FolderIndexer, toRange } from './indexer';
 import { stepEnvelopeKeys } from './scaffold';
@@ -100,6 +102,7 @@ export function tokenContext(ix: FolderIndexer, file: string): TokenContext {
       const def = metas.get(name)?.def;
       return def?.params.map(p => ({ name: p, required: def.required.includes(p) }));
     },
+    subject: (pos, segments) => subjectStatus(ix.index, file, pos, segments),
   };
 }
 

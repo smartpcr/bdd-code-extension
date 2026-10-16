@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { actionSortKey, expectedBindings, renderBindingBadge } from '../core/coverage';
-import { actionPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../core/completionContext';
+import { actionPrefix, assertSubjectPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../core/completionContext';
 import { CONTEXT_KEYS, cursorContext, ExprContext, FUNCTIONS } from '../core/exprCursor';
 import { actionHoverMarkdown } from '../core/hoverText';
 import { scopeAt, shapeAt } from '../core/scope';
@@ -93,6 +93,12 @@ export function registerCompletion(owner: Owner): vscode.Disposable {
 
       const expr = cursorContext(line, pos.character);
       if (expr) return expressionItems(ix, doc.uri.fsPath, pos, expr, rangeFrom(expr.start));
+
+      // An assertion's subject is a capture path without the `${capture.` around it.
+      const subject = assertSubjectPrefix(doc.getText().split(/\r?\n/), pos.line, pos.character);
+      if (subject) {
+        return expressionItems(ix, doc.uri.fsPath, pos, { kind: 'path', root: 'capture', ...subject }, rangeFrom(subject.start));
+      }
 
       const actionTyped = actionPrefix(before);
       if (actionTyped !== undefined) {

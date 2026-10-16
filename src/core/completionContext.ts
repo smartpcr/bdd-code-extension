@@ -79,6 +79,33 @@ export function metaPrefix(lineBefore: string): string | undefined {
 }
 
 /**
+ * After `var:` in an item of an `asserts:` list: the subject typed so far, a
+ * dotted path into the capture bag, as the segments before the last dot, the
+ * partial last one, and the column it starts at. Undefined anywhere else.
+ */
+export function assertSubjectPrefix(lines: string[], line: number, character: number):
+  { segments: string[]; prefix: string; start: number } | undefined {
+  const m = /^(\s*)(-\s+)?var:\s+((?:\w+\.)*)(\w*)$/.exec(lines[line].slice(0, character));
+  if (!m) return undefined;
+  const column = m[1].length + (m[2]?.length ?? 0);
+  let dash = m[2] ? m[1].length : -1;
+  for (let i = line - 1; i >= 0; i--) {
+    const text = lines[i];
+    if (!text.trim()) continue;
+    const own = /^\s*/.exec(text)![0].length;
+    if (dash < 0) {
+      if (own >= column) continue;
+      if (!/^\s*-\s/.test(text)) return undefined;
+      dash = own;
+    } else if (own < dash) {
+      if (!/^\s*(?:-\s+)?asserts:\s*$/.test(text)) return undefined;
+      return { segments: m[3].split('.').filter(Boolean), prefix: m[4], start: character - m[4].length };
+    }
+  }
+  return undefined;
+}
+
+/**
  * A key position inside a `with:` map: flow style (`with: { a: 1, |`) or a
  * block line under `with:`. Returns the partial key, or undefined.
  */

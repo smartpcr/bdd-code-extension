@@ -13,8 +13,9 @@ while you write both:
   meta step opens its definition.
 * **Validation and IntelliSense while you type.** Missing required parameters,
   parameters an action does not take, wrong types and unknown actions are
-  underlined; actions, parameters, `meta:` names and `${...}` references
-  complete, limited to what is in scope. Choosing an action inserts its
+  underlined; actions, parameters, `meta:` names, `${...}` references and an
+  assertion's `var:` subject (a capture, then its fields) complete, limited to
+  what is in scope. Choosing an action inserts its
   required parameters and shows which bindings implement it.
 * **Lint.** A binding's own lint (`E1xx` to `E3xx`, `W3xx`) in the editor, at
   the right line and column, so what you see is what CI sees.
@@ -84,13 +85,19 @@ registrations, and *Implement in ...* adds new ones, in this layout:
 | PowerShell | `scripts/e2e/actions/*.ps1` | `Register-SuiteAction -Name 'shop.order' -Handler { ... }` | `pwsh -File scripts/e2e/suiterun.ps1` |
 | Go | `test/e2e/bindings/go/actions/actions.go` | `{Name: "shop.order", Handler: shopOrder},` in `var Registrations = []actions.Registration{` | built by `go build ./cmd/suiterun` into the extension's storage |
 | Rust | `test/e2e/bindings/rust/src/actions.rs` | `Action::new("shop.order", shop_order),` in `pub fn actions() -> Vec<Action>` | `test/e2e/bindings/rust/target/debug/suiterun` |
-| C# | `test/e2e/bindings/dotnet/Suite.Cli/Actions.cs` | `new ActionRegistration("shop.order", ShopOrder),` in `All { get; } = [ ... ];` | `test/e2e/bindings/dotnet/artifacts/bin/Suite.Cli/Debug/net10.0/suiterun` |
+| C# | `test/e2e/bindings/dotnet/Suite.Cli/Actions.cs` | `new ActionRegistration("shop.order", ShopOrder),` in `All { get; } = [ ... ];`, or a dictionary entry `["shop.order"] = ShopOrder,` (also `ShopActions.Order`) | `test/e2e/bindings/dotnet/artifacts/bin/Suite.Cli/Debug/net10.0/suiterun` |
 | TypeScript | `test/e2e/bindings/typescript/src/actions.ts` | `action('shop.order', shopOrder),` | `test/e2e/bindings/typescript/dist/cli.js`; the in-editor lint uses `dist/index.js` |
 
 `samples/workspace` in this repository is a complete workspace in exactly this
 layout. Each binding's source globs, the patterns that find its
 registrations, its program and its build command are in `bddSuite.bindings`;
-override any of them for a different layout.
+override any of them for a different layout. Once a binding registers any of
+the catalog's own actions, *Implement in ...* adds to the file that holds most
+of them instead of the one in the table. In a C# dictionary registry whose
+entries are qualified, `["shop.order"] = ShopActions.Order,`, the new entry is
+qualified the same way and its method goes into the file that declares
+`class ShopActions` (`ShopActions.cs` first), as `internal` so the registry
+can call it.
 
 ## Install
 
@@ -135,14 +142,21 @@ Suite** (Change Language Mode, or the language name in the status bar).
   wrong type, an unknown action. Findings are marked `bdd-suite schema`
   (`BDD060`). It also completes a step's keys from the schema, the action's
   required parameters first.
-* **Highlighting** adds what a YAML grammar cannot know: Gherkin keys and
-  `${...}` expressions are coloured by the grammar, and the extension colours
-  each action by where it is implemented (italic when the target binding lacks
-  it, underlined when no binding has it, red when the catalog does not declare
-  it), each parameter by its action (bold when required, red and struck out
-  when the action does not take it), schema keys apart from parameters, and
-  meta steps. The styles are defaults under
-  `editor.semanticTokenColorCustomizations`, which you can override.
+* **Highlighting** adds what a YAML grammar cannot know: Gherkin keys, `why`,
+  `captureAs`/`ifCapture` and `${...}` expressions are coloured by the grammar,
+  and the extension colours each action by where it is implemented (green when
+  the target binding implements it, red and italic when only another binding
+  does, red, italic and underlined when no binding does, red and underlined
+  when the catalog does not declare it), each parameter by its action (purple,
+  bold when required, red and struck out when the action does not take it),
+  an assertion's `var:` subject (the capture teal, each field amber, red and
+  underlined when not in scope or not in the action's declared captures),
+  other schema keys apart from parameters, meta steps, and every other value
+  by its type (string, number, boolean) in the theme's own colours; prose such
+  as `given:` sentences stays plain. This covers cases, meta step definitions
+  and the `setup`, `beforeEach`, `afterEach`, `teardown` and `cleanup` hooks.
+  The styles are defaults under `editor.semanticTokenColorCustomizations`,
+  which you can override.
 * In plain YAML mode a suite (a file with a top-level `suite:` key, or one a
   suite imports) gets the same schema check and key completion, without the
   highlighting. Every other feature (navigation, hover, lint, completion, the

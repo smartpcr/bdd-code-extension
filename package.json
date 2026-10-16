@@ -2,7 +2,7 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "publisher": "asz",
   "license": "MIT",
   "repository": {
@@ -100,6 +100,11 @@
         "id": "metaStep",
         "superType": "function",
         "description": "A meta step used by a suite step."
+      },
+      {
+        "id": "field",
+        "superType": "property",
+        "description": "A field of a capture, in an assertion's subject (`var: location.state`)."
       }
     ],
     "semanticTokenModifiers": [
@@ -125,7 +130,11 @@
       },
       {
         "id": "unknown",
-        "description": "A parameter the action or meta step does not take."
+        "description": "A parameter the action or meta step does not take, or a capture or field not in scope."
+      },
+      {
+        "id": "declaration",
+        "description": "The name a step's captureAs publishes."
       }
     ],
     "semanticTokenScopes": [
@@ -153,8 +162,14 @@
           "property": [
             "support.type.property-name.bdd-suite"
           ],
+          "variable": [
+            "variable.other.capture.bdd-suite"
+          ],
           "variable.declaration": [
             "variable.other.definition.bdd-suite"
+          ],
+          "field": [
+            "variable.other.property.bdd-suite"
           ]
         }
       }
@@ -173,10 +188,15 @@
       },
       "editor.semanticTokenColorCustomizations": {
         "rules": {
+          "action.implemented:bdd-suite": {
+            "foreground": "#3fa95b"
+          },
           "action.notInTarget:bdd-suite": {
+            "foreground": "#e5534b",
             "italic": true
           },
           "action.unimplemented:bdd-suite": {
+            "foreground": "#e5534b",
             "italic": true,
             "underline": true
           },
@@ -188,12 +208,34 @@
             "foreground": "#e5534b",
             "underline": true
           },
+          "parameter:bdd-suite": {
+            "foreground": "#9a6fe0"
+          },
           "parameter.required:bdd-suite": {
+            "foreground": "#9a6fe0",
             "bold": true
           },
           "parameter.unknown:bdd-suite": {
             "foreground": "#e5534b",
             "strikethrough": true
+          },
+          "variable:bdd-suite": {
+            "foreground": "#1f9bb0"
+          },
+          "variable.declaration:bdd-suite": {
+            "foreground": "#1f9bb0",
+            "bold": true
+          },
+          "variable.unknown:bdd-suite": {
+            "foreground": "#e5534b",
+            "underline": true
+          },
+          "field:bdd-suite": {
+            "foreground": "#c08a1e"
+          },
+          "field.unknown:bdd-suite": {
+            "foreground": "#e5534b",
+            "underline": true
           }
         }
       }
@@ -272,6 +314,9 @@
               "recognizers": [
                 {
                   "pattern": "new ActionRegistration\\(\\s*\"(?<name>[^\"]+)\"(?:\\s*,\\s*(?<handler>[\\w.]+)\\s*\\))?"
+                },
+                {
+                  "pattern": "^[ \\t]*\\[\"(?<name>[\\w-]+(?:\\.[\\w-]+)+)\"\\][ \\t]*=[ \\t]*(?<handler>(?!(?:true|false|null)\\b)[A-Za-z_][\\w.]*)[ \\t]*,[ \\t]*\\r?$"
                 }
               ],
               "tool": [

@@ -69,6 +69,26 @@ test('csharp: new ActionRegistration, with the handler when it is a name; a lamb
     [['demo.greet', 'DemoGreet'], ['demo.count', 'Handlers.Count'], ['demo.inline', null]]);
 });
 
+test('csharp: a dictionary registry\'s ["ns.name"] = Handler, lines; data dictionaries are not sites', () => {
+  const text = [
+    '    private static readonly Dictionary<string, Func<ActionRequest, object?>> Handlers = new(StringComparer.Ordinal)',
+    '    {',
+    '        ["core.noop"] = Noop,',
+    '        ["urp.getLocation"] = UrpActions.GetLocation,\r',
+    '        // ["commented.out"] = X,',
+    '        ["Informational"] = 0,',
+    '        ["UpdateId"] = id,',
+    '        ["stamp.setSbeVersion"] = "bvt.cleanup",',
+    '        ["flag.on"] = true,',
+    '        ["lower"] = new(1, 1, true),',
+    '        ["a.b"] = Make(x),',
+    '    };',
+    '    var p = new Dictionary<string, object?> { ["x.y"] = id };',
+    '    parameters["a.b"] = value;',
+  ].join('\n');
+  assert.deepStrictEqual(names('csharp', text), [['core.noop', 'Noop'], ['urp.getLocation', 'UrpActions.GetLocation']]);
+});
+
 test('typescript: action() registrations, with the handler when it is a name', () => {
   const text = [
     'export const registrations: readonly Registration[] = [',
