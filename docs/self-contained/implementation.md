@@ -413,23 +413,23 @@ Result: D8, D9. Entry: S1–S4 and S5a. Exit evidence: E1, E4 and E8 in CI.
 Result: D12, D10. Entry: S5. Exit evidence: E7; E5 on a pushed os-context
 branch.
 
-- [ ] S6.1 Release job tags `runtimes/go/v<version>`; a release made; E7 tags checked.
-- [ ] S6.2 New os-context worktree and branch; record both commits.
-- [ ] S6.3 Add submodule `test/e2e/bdd` at the tag.
-- [ ] S6.4 Record the "before" baseline: action lists, lint output, generated schema.
-- [ ] S6.5 Go extension and `suiterun` from runtime plus extension.
-- [ ] S6.6 Rust extension and binary.
-- [ ] S6.7 C# extension and CLI project.
-- [ ] S6.8 TypeScript extension and CLI.
-- [ ] S6.9 PowerShell: `Invoke-LabTestSuite.ps1` wrapper over `BddSuite`; actions registered as an extension.
-- [ ] S6.10 Catalog imports the pinned core; suite-schema extension; `Build-Schema.ps1` from the submodule; schema identical.
-- [ ] S6.11 Moved corpus files into os-context's tests.
-- [ ] S6.12 Update scripts naming binding source files.
-- [ ] S6.13 Workflows: submodule checkout and new paths.
-- [ ] S6.14 Delete os-context's copies of spec, corpus and runtimes.
-- [ ] S6.15 E5: action lists, lint output and schema identical to the baseline.
-- [ ] S6.16 E5: os-context unit and Pester tests pass.
-- [ ] S6.17 E5: workflows pass on the pushed branch.
+- [ ] S6.1 Release job tags `runtimes/go/v<version>`; a release made; E7 tags checked. (Built: notes list the runtime versions, the Go tag is made at the release commit and checked; open until a release is made, which needs `main` pushed and the `AZURE_*` variables.)
+- [x] S6.2 New os-context worktree and branch; record both commits. (`E:\work\os\os-context-pin`, branch `bdd-suite-pin`, from `7633e176` plus the B7 changes ([evidence](../evidence/self-contained-s6.md)))
+- [ ] S6.3 Add submodule `test/e2e/bdd` at the tag. (Added, pinned to the local commit `e5a3214`; open until it pins a release tag.)
+- [x] S6.4 Record the "before" baseline: action lists, lint output, generated schema. (Plus the Pester run: 34 failing before any change.)
+- [x] S6.5 Go extension and `suiterun` from runtime plus extension.
+- [x] S6.6 Rust extension and binary.
+- [x] S6.7 C# extension and CLI project.
+- [x] S6.8 TypeScript extension and CLI.
+- [x] S6.9 PowerShell: `Invoke-LabTestSuite.ps1` wrapper over `BddSuite`; actions registered as an extension. (Needed two runtime changes: kebab option flags, and the PowerShell-only `Cases` part, user decision 2026-10-15.)
+- [x] S6.10 Catalog imports the pinned core; suite-schema extension; `Build-Schema.ps1` from the submodule; schema the same check (E5 as amended: wording differs by design).
+- [x] S6.11 Moved corpus files into os-context's tests. (Seven entries, a manifest and `Invoke-ExtensionCorpus.ps1`.)
+- [x] S6.12 Update scripts naming binding source files. (And the documents `Docs.Tests.ps1` checks.)
+- [ ] S6.13 Workflows: submodule checkout and new paths. (Built; their non-Pester steps ran locally; open until they run on GitHub, S6.17.)
+- [x] S6.14 Delete os-context's copies of spec, corpus and runtimes.
+- [x] S6.15 E5: action lists, lint output and schema identical to the baseline. (Locally: 19 of 19 files per binding; the schema the same check.)
+- [x] S6.16 E5: os-context unit and Pester tests pass. (Locally: no newly failing test against the baseline; 30 failures pre-exist with the same messages ([evidence](../evidence/self-contained-s6.md)).)
+- [ ] S6.17 E5: workflows pass on the pushed branch. (Needs os-context's branch committed and pushed.)
 
 ### Stage S7: lab acceptance (P1, remote)
 
@@ -447,7 +447,7 @@ Result: D11. Entry: S6 and a lab. Exit evidence: E6 with cleanup.
 | [E2](design.md#e2) | D2–D7 | S1–S4 | no | all five runtimes and the divergence check (Go, TypeScript) passed locally (2026-10-15); not yet in CI |
 | [E3](design.md#e3) | D3–D7 | S1–S4 | no | all five runtimes passed locally (2026-10-15); PowerShell lints before it runs, so its passing run uses a copy within the ceiling (see S4 evidence); not yet in CI |
 | [E4](design.md#e4) | D8, D9, D14 | S5a, S5 | no | locally all but one test (the clipboard, environmental); not yet in CI |
-| [E5](design.md#e5) | D10 | S6 | no | not run |
+| [E5](design.md#e5) | D10 | S6 | no | the local half passed (2026-10-16): action lists, lint, schema, entries, Pester; the workflows on a pushed branch not run |
 | [E6](design.md#e6) | D11 | S7 | yes | not run |
-| [E7](design.md#e7) | D12 | S6 | no | not run |
+| [E7](design.md#e7) | D12 | S6 | no | built, not run: no release yet |
 | [E8](design.md#e8) | D1, D3–D7, D13 | S1, S5 | no | passed locally (2026-10-15); not yet in CI |

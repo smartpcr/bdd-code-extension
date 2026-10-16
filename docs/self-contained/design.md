@@ -1,6 +1,6 @@
 # A self-contained BDD suite repository: design
 
-Status: **stages S1 to S5 built (2026-10-15): all five runtimes, the extension following them, and the sample workspace, locally accepted; S6 and S7 not started.** Revised the
+Status: **stages S1 to S5 built (2026-10-15): all five runtimes, the extension following them, and the sample workspace, locally accepted. S6 built (2026-10-16): os-context consumes the pin in an os-context worktree, E5 passed locally; the release (E7), the tag pin and the pushed-branch workflows are open. S7 not started.** Revised the
 same day: the core is extended by import (DEC-S10). The plan that builds it is [implementation.md](implementation.md); every outcome
 here links to the deliverables that produce it and the scenarios that prove it.
 
