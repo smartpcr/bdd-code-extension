@@ -214,6 +214,11 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
   if (!action) return report(host, refused('Declare action: put the cursor on a step whose action is not declared.'));
   const catalogFile = ix.layout.catalogPath;
   const catalogDoc = await vscode.workspace.openTextDocument(vscode.Uri.file(catalogFile));
+  // Declared in this catalog's current text, or in a catalog it imports (DEC-S10): either way it needs no
+  // declaring. Only imported entries come from the index, which lags an edit or an undo of this file.
+  const declared = (n: string) => parseCatalog(catalogDoc.getText(), catalogFile).actions.has(n) || !!ix.index.catalog?.actions.get(n)?.file;
+  // Before the stub: an action already declared is refused for that, whatever its stub's state.
+  if (declared(action)) return report(host, refused(`Declare action: ${action} is already in the catalog.`));
   // The stub goes into the binding suites are meant to run with: a PowerShell file of
   // its own, or a registry entry and handler; none for a binding with no template.
   const binding = ix.layout.settings.targetBinding;
@@ -233,9 +238,7 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
   const plan = planDeclare({
     catalogFile,
     catalogText: catalogDoc.getText(),
-    // Declared in this catalog's current text, or in a catalog it imports (DEC-S10): either way it needs no
-    // declaring. Only imported entries come from the index, which lags an edit or an undo of this file.
-    declared: n => parseCatalog(catalogDoc.getText(), catalogFile).actions.has(n) || !!ix.index.catalog?.actions.get(n)?.file,
+    declared,
     name: action,
     stepParams: step?.params.map(p => ({ name: p.name, value: p.value })) ?? [],
     commonKeys: stepEnvelopeKeys(catalogFile),
