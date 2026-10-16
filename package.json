@@ -2,7 +2,7 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
-  "version": "0.6.2",
+  "version": "0.6.10",
   "publisher": "asz",
   "license": "MIT",
   "repository": {
@@ -231,7 +231,7 @@
             "underline": true
           },
           "field:bdd-suite": {
-            "foreground": "#c08a1e"
+            "foreground": "#9a6fe0"
           },
           "field.unknown:bdd-suite": {
             "foreground": "#e5534b",
@@ -395,7 +395,7 @@
               "library": "test/e2e/bindings/typescript/dist/index.js"
             }
           },
-          "description": "Per binding: source globs, registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name."
+          "description": "Per binding: source globs (the catalog's `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name."
         },
         "bddSuite.schemaGenerator": {
           "type": "array",

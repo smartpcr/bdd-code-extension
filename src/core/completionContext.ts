@@ -67,6 +67,48 @@ export function stepKeysAround(lines: string[], line: number): { keyColumn: numb
   return { keyColumn, keys: new Set(stepAtColumn(lines, line, keyColumn).keys.keys()) };
 }
 
+/**
+ * A key position in an item of an `asserts:` list, on a line of its own under
+ * the item or right after its `- `: the partial key, where it starts, and the
+ * keys the item already has. Undefined anywhere else.
+ */
+export function assertKeyPrefix(lines: string[], line: number, character: number):
+  { typed: string; start: number; present: Set<string> } | undefined {
+  const m = /^(\s*)(-\s+)?([\w-]*)$/.exec(lines[line].slice(0, character));
+  if (!m || (!m[1] && !m[2])) return undefined;
+  const column = m[1].length + (m[2]?.length ?? 0);
+  const present = new Set<string>();
+  const keyAt = (text: string) => /^\s*(?:-\s+)?([\w-]+):/.exec(text)?.[1];
+  let dash = m[2] ? line : -1;
+  for (let i = line - 1; i >= 0 && dash < 0; i--) {
+    const text = lines[i];
+    if (!text.trim()) continue;
+    const at = (/^\s*-\s+/.exec(text) ?? /^\s*/.exec(text)!)[0].length;
+    if (at > column) continue;
+    const key = keyAt(text);
+    if (at < column || !key) return undefined;
+    present.add(key);
+    if (/^\s*-\s/.test(text)) dash = i;
+  }
+  if (dash < 0) return undefined;
+  for (let i = line + 1; i < lines.length; i++) {
+    const text = lines[i];
+    if (!text.trim()) continue;
+    const indent = /^\s*/.exec(text)![0].length;
+    if (indent > column) continue;
+    const key = keyAt(text);
+    if (indent < column || !key || /^\s*-\s/.test(text)) break;
+    present.add(key);
+  }
+  const dashIndent = /^\s*/.exec(lines[dash])![0].length;
+  for (let i = dash - 1; i >= 0; i--) {
+    const text = lines[i];
+    if (!text.trim() || /^\s*/.exec(text)![0].length >= dashIndent) continue;
+    return /^\s*(?:-\s+)?asserts:\s*$/.test(text) ? { typed: m[3], start: character - m[3].length, present } : undefined;
+  }
+  return undefined;
+}
+
 /** On a line that is only indentation and a partial key: where the key starts and what is typed. */
 export function keyPrefix(lineBefore: string): { column: number; typed: string } | undefined {
   const m = /^(\s+)([\w-]*)$/.exec(lineBefore);

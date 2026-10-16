@@ -1,9 +1,11 @@
 // The BDD Suite language mode's pure parts: semantic tokens, schema findings,
 // and the step context key completion reads.
 import * as assert from 'assert';
+import * as fs from 'fs';
 import { test } from 'node:test';
+import * as path from 'path';
 import { keyPrefix, stepAtColumn } from '../../src/core/completionContext';
-import { checkAgainstSchema, compileSuiteSchema } from '../../src/core/schemaCheck';
+import { checkAgainstSchema, compileSuiteSchema, librarySchema } from '../../src/core/schemaCheck';
 import { ActionStatus, suiteTokens, TokenContext } from '../../src/core/suiteTokens';
 
 const SUITE = `suite: s
@@ -120,6 +122,11 @@ test('suiteTokens: actions by status, keys by who declares them, meta steps and 
   ]);
 });
 
+test('the injection grammar stays out of block scalars, so `beforeEach:` after `description: >-` can end one', () => {
+  const grammar = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../syntaxes/bdd-suite.injection.tmLanguage.json'), 'utf8'));
+  assert.match(grammar.injectionSelector, /^L:source\.bdd-suite\b.* -string\.unquoted\.block\b/);
+});
+
 test('suiteTokens: an assertion subject is all known without a subject context; null is a keyword', () => {
   const text = 'asserts:\n  - var: a.b\n    isNull: null\n';
   const { subject: _, ...plain } = ctx;
@@ -211,6 +218,19 @@ test('checkAgainstSchema: broken YAML is one finding; a root that fails is repor
     '12 Incorrect type: expected integer.',
   ], 'the same finding twice is reported once; on one line, by column');
   assert.deepStrictEqual(checkAgainstSchema('x: 1\na: 2\nb: 3\n', twice.validate), [], 'a valid document has no findings');
+});
+
+test('librarySchema: the suite schema without its required suite and tests; a schema with no required list is unchanged', () => {
+  const suite = { type: 'object', required: ['suite', 'tests', 'other'], properties: { metaSteps: { type: 'array' } } };
+  const lib = librarySchema(suite) as typeof suite;
+  assert.deepStrictEqual(lib.required, ['other']);
+  assert.deepStrictEqual(suite.required, ['suite', 'tests', 'other'], 'the suite schema is not changed');
+  const compiled = compileSuiteSchema(librarySchema({ type: 'object', required: ['suite', 'tests'], properties: { metaSteps: { type: 'array' } } }));
+  assert.ok('validate' in compiled);
+  assert.deepStrictEqual(checkAgainstSchema('metaSteps: []\n', compiled.validate), [], 'a library has no suite: and no tests:');
+  const open = { type: 'object' };
+  assert.strictEqual(librarySchema(open), open);
+  assert.strictEqual(librarySchema(null), null);
 });
 
 test('compileSuiteSchema: a schema that does not compile gives its message', () => {

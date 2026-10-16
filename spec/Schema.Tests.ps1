@@ -128,6 +128,21 @@ Describe 'The core schema an editor reads' {
         $catalogSchema.properties.bindings.items.pattern | Should -Be '^[a-z][a-z0-9]*$'
         $catalogSchema.'$defs'.action.properties.bindings.items.pattern | Should -Be '^[a-z][a-z0-9]*$'
     }
+
+    It 'accepts bindingSources: per binding name, a list of globs' {
+        $catalogSchema = Get-Content (Join-Path $script:SpecRoot 'actions.catalog.schema.json') -Raw
+        $ok = "catalogVersion: 1`nbindings: [csharp]`nbindingSources:`n  csharp: [../bindings/dotnet/Shop/**/*.cs]`nactions: []" | ConvertFrom-Yaml | ConvertTo-Json -Depth 10
+        $ok | Test-Json -Schema $catalogSchema | Should -BeTrue
+        $bad = "catalogVersion: 1`nbindingSources:`n  csharp: []" | ConvertFrom-Yaml | ConvertTo-Json -Depth 10
+        $bad | Test-Json -Schema $catalogSchema -ErrorAction SilentlyContinue | Should -BeFalse
+    }
+
+    It 'generates the same schema whether or not the catalog has bindingSources' {
+        $plain = Invoke-Workspace @{ 'actions.catalog.yaml' = "catalogVersion: 1`nimports: [{spec}/core.catalog.yaml]`nbindings: [go]`nactions:`n" + ($script:Action -f 'shop.order') }
+        $withSources = Invoke-Workspace @{ 'actions.catalog.yaml' = "catalogVersion: 1`nimports: [{spec}/core.catalog.yaml]`nbindings: [go]`nbindingSources:`n  go: [../bindings/go/**/*.go]`nactions:`n" + ($script:Action -f 'shop.order') }
+        $withSources.ExitCode | Should -Be 0 -Because $withSources.Output
+        ($withSources.Schema | ConvertTo-Json -Depth 50) | Should -Be ($plain.Schema | ConvertTo-Json -Depth 50)
+    }
 }
 
 Describe 'A workspace extends the core by import' {

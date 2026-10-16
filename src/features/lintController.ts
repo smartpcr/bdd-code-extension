@@ -202,7 +202,8 @@ export class LintController implements vscode.Disposable {
   /** Lint after LINT_DEBOUNCE_MS, once per burst (B2.2-2). */
   schedule(uri: vscode.Uri): void {
     if (!this.isSuite(uri)) return;
-    this.debouncer.schedule(fileKey(uri.fsPath), () => void this.lintNow(uri));
+    // A library is linted through the suites that import it.
+    for (const t of this.indexer.index.lintTargets(uri.fsPath)) this.debouncer.schedule(t, () => void this.lintNow(vscode.Uri.file(t)));
   }
 
   /**
@@ -213,14 +214,16 @@ export class LintController implements vscode.Disposable {
   scheduleLive(uri: vscode.Uri): void {
     const binding = this.binding();
     if (!binding || !this.backend(binding).live || !this.isSuite(uri)) return;
+    const index = this.indexer.index;
     const open = new Set(vscode.workspace.textDocuments.map(d => fileKey(d.uri.fsPath)));
-    const targets = [fileKey(uri.fsPath), ...this.indexer.index.importersOf(uri.fsPath).filter(f => open.has(f))];
+    const targets = new Set([...index.lintTargets(uri.fsPath), ...index.importersOf(uri.fsPath).filter(f => open.has(f) && !index.isLibrary(f))]);
     for (const t of targets) this.liveDebouncer.schedule(t, () => void this.lintNow(vscode.Uri.file(t), { live: true }));
   }
 
-  /** Lint every open suite or library now (start, tool or target change, trust granted). */
+  /** Lint every open suite now, and for an open library the suites that import it (start, tool or target change, trust granted). */
   lintOpen(): void {
-    for (const d of vscode.workspace.textDocuments) if (this.isSuite(d.uri)) void this.lintNow(d.uri);
+    const targets = new Set(vscode.workspace.textDocuments.filter(d => this.isSuite(d.uri)).flatMap(d => this.indexer.index.lintTargets(d.uri.fsPath)));
+    for (const t of targets) void this.lintNow(vscode.Uri.file(t));
   }
 
   async lintNow(uri: vscode.Uri, o: { live?: boolean } = {}): Promise<LintEvent> {

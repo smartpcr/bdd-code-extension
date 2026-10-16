@@ -60,6 +60,23 @@ export function parseCatalog(text: string, file: string): Catalog {
   const root = y.doc.contents;
   catalog.bindings = stringItems(valueOf(root, 'bindings'));
   catalog.ownBindings = [...catalog.bindings];
+  const sources = valueOf(root, 'bindingSources');
+  if (sources !== undefined) {
+    if (!isMap(sources)) err('BDD025', '`bindingSources` must map a binding name to a list of globs.', y.range(sources as Node));
+    else {
+      catalog.ownSources = {};
+      for (const pair of sources.items) {
+        const name = isScalar(pair.key) ? String(pair.key.value) : '';
+        const items = isSeq(pair.value) ? pair.value.items : [];
+        const globs = items.filter(isScalar).map(n => String(n.value)).filter(Boolean);
+        if (!name || !globs.length || globs.length !== items.length) {
+          err('BDD025', `\`bindingSources.${name || '?'}\` must be a non-empty list of globs, relative to the catalog.`, y.range(pair.value as Node));
+          continue;
+        }
+        catalog.ownSources[name] = globs;
+      }
+    }
+  }
   for (const item of itemsOf(root, 'actions')) {
     const nameNode = valueOf(item, 'name');
     const name = stringOf(item, 'name');
@@ -132,12 +149,33 @@ export function resolveCatalog(text: string, file: string, read: (file: string) 
     for (const e of imported.errors) catalog.errors.push({ ...e, message: `${rel}: ${e.message}`, range });
     for (const next of importsOf(importedText)) visit(next.value, target, range, [...chain, target]);
     catalog.imports!.push(target);
+    if (imported.ownSources) importedSources.push({ from: target, sources: imported.ownSources });
     for (const b of imported.bindings) if (!catalog.bindings.includes(b)) catalog.bindings.push(b);
     for (const a of imported.actions.values()) add(a, target, range);
   };
+  const importedSources: { from: string; sources: Record<string, string[]> }[] = [];
   for (const entry of importsOf(text)) visit(entry.value, file, entry.range, [fileKey(file)]);
   for (const a of own.values()) add(a, fileKey(file), a.nameRange);
+  catalog.sources = mergeSources(file, [...(catalog.ownSources ? [{ from: file, sources: catalog.ownSources }] : []), ...importedSources]);
   return catalog;
+}
+
+/**
+ * Every catalog's `bindingSources` as one map: per binding, the union of their
+ * globs in reading order (the workspace catalog's first, then its imports'),
+ * each rebased from its own catalog's folder to the workspace catalog's. An
+ * absolute glob is kept as written. Undefined when no catalog has any.
+ */
+export function mergeSources(rootFile: string, list: { from: string; sources: Record<string, string[]> }[]): Record<string, string[]> | undefined {
+  const merged: Record<string, string[]> = {};
+  for (const { from, sources } of list) {
+    for (const [binding, globs] of Object.entries(sources)) {
+      const rebased = globs.map(g => (path.isAbsolute(g) ? g
+        : path.relative(path.dirname(rootFile), path.resolve(path.dirname(from), g)).split(path.sep).join('/')));
+      merged[binding] = [...new Set([...(merged[binding] ?? []), ...rebased])];
+    }
+  }
+  return Object.keys(merged).length ? merged : undefined;
 }
 
 /** A catalog's `imports` entries, each with its range. */

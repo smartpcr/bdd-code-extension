@@ -3,7 +3,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { test } from 'node:test';
-import { flattenShape, parseCatalog, parseShape, resolveCatalog } from '../../src/core/catalog';
+import { flattenShape, mergeSources, parseCatalog, parseShape, resolveCatalog } from '../../src/core/catalog';
 import { fileKey } from '../../src/core/paths';
 import { actionHoverMarkdown } from '../../src/core/hoverText';
 import { parseYaml } from '../../src/core/yamlPositions';
@@ -226,6 +226,28 @@ test('resolveCatalog: a name declared twice, a cycle, a missing import and a bro
   assert.match(c.errors[1]!.message, /import cycle: .*a\.yaml -> .*b\.yaml -> .*a\.yaml/);
   assert.match(c.errors[3]!.message, /^broken\.yaml: The catalog is not valid YAML/);
   assert.equal(c.actions.get('core.set')!.file, k('core.yaml'), 'the first declaration is used');
+});
+
+test('bindingSources: each catalog\'s own; merged with its imports\', per binding, rebased to the workspace catalog; a bad shape is BDD025', () => {
+  const read = files({
+    'core/core.yaml': 'catalogVersion: 1\nbindingSources:\n  csharp: [../runtime/*.cs, ../a/**/*.cs]\n  go: [x/*.go]\nactions: []\n',
+    'plain.yaml': 'catalogVersion: 1\nactions: []\n',
+  });
+  const c = resolveCatalog('catalogVersion: 1\nimports: [core/core.yaml, plain.yaml]\nbindingSources:\n  csharp: [a/**/*.cs, b/*.cs]\nactions: []\n', k('actions.catalog.yaml'), read);
+  assert.deepStrictEqual(c.ownSources, { csharp: ['a/**/*.cs', 'b/*.cs'] }, 'its own, as written');
+  assert.deepStrictEqual(c.sources, { csharp: ['a/**/*.cs', 'b/*.cs', 'runtime/*.cs'], go: ['core/x/*.go'] },
+    'the workspace catalog\'s first, then the import\'s relative to the workspace catalog; a glob both name once');
+  assert.deepStrictEqual(c.errors, []);
+  const none = resolveCatalog('catalogVersion: 1\nimports: [plain.yaml]\n', k('actions.catalog.yaml'), read);
+  assert.deepStrictEqual([none.ownSources, none.sources], [undefined, undefined], 'none when no catalog has the key');
+  assert.deepStrictEqual(mergeSources(k('w/actions.yaml'), [{ from: k('w/core.yaml'), sources: { csharp: [path.resolve('/abs/*.cs')] } }]),
+    { csharp: [path.resolve('/abs/*.cs')] }, 'an absolute glob is kept as written');
+  const notMap = parseCatalog('bindingSources: [a]\n', 'f');
+  assert.deepStrictEqual([notMap.ownSources, notMap.errors.map(e => e.code)], [undefined, ['BDD025']]);
+  const bad = parseCatalog('bindingSources:\n  csharp: []\n  go: x.go\n  rust: [a.rs, { not: a glob }]\n  ? [k]\n  : [y]\n  empty:\n  ts: [ok.ts]\n', 'f');
+  assert.deepStrictEqual(bad.ownSources, { ts: ['ok.ts'] }, 'each bad entry is skipped, the good ones kept');
+  assert.deepStrictEqual(bad.errors.map(e => e.message.match(/`bindingSources\.([^`]*)`/)?.[1]), ['csharp', 'go', 'rust', '?', 'empty']);
+  assert.strictEqual(bad.errors[4]!.range.start.line, 6, 'an entry with no value is reported at its key');
 });
 
 test('resolveCatalog: a catalog that is not YAML has no imports to follow', () => {

@@ -193,6 +193,22 @@ test('B8.2 importersOf: direct and transitive importers, sorted; a cycle ends; a
   assert.deepStrictEqual(ix.importersOf(f('c.yml')), []);
 });
 
+test('isLibrary and lintTargets: a library is linted through the suites that import it, a suite as itself', () => {
+  const ix = new WorkspaceIndex();
+  ix.updateSuite(parseSuite('suite: a\nimports: [_lib/mid.yml]\ntests: []\n', f('a.yml')));
+  ix.updateSuite(parseSuite('suite: b\nimports: [_lib/leaf.yml]\ntests: []\n', f('b.yml')));
+  ix.updateSuite(parseSuite('imports: [leaf.yml]\nmetaSteps: []\n', f('_lib/mid.yml')));
+  ix.updateSuite(parseSuite('metaSteps: []\n', f('_lib/leaf.yml')));
+  ix.updateSuite(parseSuite('metaSteps: []\n', f('_lib/orphan.yml')));
+  ix.updateSuite(parseSuite('suite: c\ntests: []\n', f('c.yml')));
+  assert.deepStrictEqual([f('_lib/leaf.yml'), f('_lib/mid.yml'), f('_lib/orphan.yml'), f('a.yml'), f('missing.yml')].map(x => ix.isLibrary(x)),
+    [true, true, false, false, false], 'an unimported file without suite: is not a library; a suite never is');
+  assert.deepStrictEqual(ix.lintTargets(f('_lib/leaf.yml')), [f('a.yml'), f('b.yml')].map(fileKey).sort(), 'every importing suite, through another library too');
+  assert.deepStrictEqual(ix.lintTargets(f('_lib/mid.yml')), [fileKey(f('a.yml'))]);
+  assert.deepStrictEqual(ix.lintTargets(f('c.yml')), [fileKey(f('c.yml'))]);
+  assert.deepStrictEqual(ix.lintTargets(f('_lib/orphan.yml')), [fileKey(f('_lib/orphan.yml'))], 'not a library: linted as itself');
+});
+
 test('siteAt and actionNameAt find a registration from its handler\'s declaration too', () => {
   const ix = new WorkspaceIndex();
   const file = '/r/go/h.go';

@@ -146,7 +146,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   exclude: 'Glob of files never indexed.',
   lintTool: 'The binding whose code lints suites.',
   targetBinding: 'The binding suites are meant to run with; lint reports actions it does not implement (E201).',
-  bindings: 'Per binding: source globs, registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name.',
+  bindings: 'Per binding: source globs (the catalog\'s `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name.',
   schemaGenerator: 'Command that regenerates suite.schema.json after a catalog edit.',
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
   'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',

@@ -53,11 +53,11 @@ export function commonStepKeys(baseSchemaText: string): string[] | undefined {
 
 const plainKey = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
-export function renderCatalogEntry(name: string, params: { name: string; value: unknown }[], eol = '\n'): string {
+export function renderCatalogEntry(name: string, params: { name: string; value: unknown }[], eol = '\n', bindings: string[] = []): string {
   const lines = [
     `  - name: ${name}`,
     `    summary: TODO describe ${name}.`,
-    '    bindings: [powershell]',
+    `    bindings: [${bindings.join(', ')}]`,
     '    interruptible: true',
   ];
   if (params.length) {
@@ -111,30 +111,28 @@ export interface DeclareInput {
   stepParams: { name: string; value: unknown }[];
   /** From commonStepKeys(); undefined refuses (B5.1-4 cannot be kept). */
   commonKeys: string[] | undefined;
-  /** The PowerShell stub file for the action, and whether it already exists. */
-  stubFile: string;
-  stubExists: boolean;
-  stubText: string;
+  /**
+   * The binding the action gets its stub in (the workspace's target binding),
+   * listed in the entry's `bindings:`; undefined lists none, for a target with no
+   * stub template, and `stub` is then empty.
+   */
+  binding?: string;
+  /** That binding's stub: a new PowerShell file, or a registry entry and its handler (planStub). */
+  stub: FileEdit[];
 }
 
-/** The two edits of *Declare action*: the catalog entry and the PowerShell file (B5.1). */
+/** The edits of *Declare action*: the catalog entry and the stub in the target binding (B5.1). */
 export function planDeclare(input: DeclareInput): EditPlan {
   const { name } = input;
   if (!ACTION_NAME.test(name)) return { refused: `\`${name}\` is not an action name the catalog can hold.` };
   if (input.declared(name)) return { refused: `${name} is already in the catalog.` };
   if (!input.commonKeys) return { refused: 'suite.schema.json (or suite.base.json) does not list `$defs.stepEnvelope.properties`, so the common step keys are unknown.' };
-  if (input.stubExists) return { refused: `${input.stubFile} already exists.` };
   const at = findCatalogInsertOffset(input.catalogText, name);
   if ('refused' in at) return at;
   const common = new Set(input.commonKeys);
   const params = input.stepParams.filter(p => !common.has(p.name));
-  const entry = renderCatalogEntry(name, params, eolOf(input.catalogText));
-  return {
-    edits: [
-      { file: input.catalogFile, start: at.offset, end: at.offset, text: at.prefix + entry },
-      { file: input.stubFile, start: 0, end: 0, text: input.stubText, create: true },
-    ],
-  };
+  const entry = renderCatalogEntry(name, params, eolOf(input.catalogText), input.binding ? [input.binding] : []);
+  return { edits: [{ file: input.catalogFile, start: at.offset, end: at.offset, text: at.prefix + entry }, ...input.stub] };
 }
 
 /**

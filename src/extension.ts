@@ -3,8 +3,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { readSettings, WorkspaceLayout } from './config/layout';
+import { catalogSourceGlobs, readSettings, WorkspaceLayout } from './config/layout';
 import { createTrustGate } from './config/trust';
+import { resolveCatalog } from './core/catalog';
 import { LintResults } from './core/diagnostics';
 import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
@@ -22,6 +23,25 @@ import { registerNavigation } from './features/navigation';
 import { SuiteStatusBar } from './features/statusBar';
 import { LintWorkerHost } from './lint/workerHost';
 import { killAll, liveChildren } from './tools/runTool';
+
+/**
+ * The `bindingSources` of a workspace catalog and the catalogs it imports, merged
+ * (resolveCatalog), or undefined when none has any or the catalog cannot be read.
+ * The catalog's open buffer wins over the disk and its imports are read from disk,
+ * as the indexer reads them, so the two agree and a rebuild settles.
+ */
+function catalogSourcesOf(file: string): Record<string, string[]> | undefined {
+  const open = vscode.workspace.textDocuments.find(d => d.uri.scheme === 'file' && fileKey(d.uri.fsPath) === fileKey(file));
+  const read = (f: string) => {
+    try {
+      return fs.readFileSync(f, 'utf8');
+    } catch {
+      return undefined;
+    }
+  };
+  const text = open ? open.getText() : read(file);
+  return text === undefined ? undefined : resolveCatalog(text, fileKey(file), read).sources;
+}
 
 /** The window's one lint worker (plan 2.4b); terminated by deactivate(). */
 let workerHost: LintWorkerHost | undefined;
@@ -105,10 +125,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
         return i?.workspaceFolderValue ?? i?.workspaceValue ?? i?.globalValue;
       });
       for (const m of messages) log(m);
-      const layout = WorkspaceLayout.create(folder.uri.fsPath, settings, storage, p => fs.existsSync(p));
+      // The catalog's own bindingSources say where each binding's registrations are, over the settings.
+      const catalogFile = path.resolve(folder.uri.fsPath, settings.catalogPath);
+      const sources = catalogSourcesOf(catalogFile);
+      const layout = WorkspaceLayout.create(folder.uri.fsPath, settings, storage, p => fs.existsSync(p), sources);
       if (!layout) continue;
       log(`Root: ${layout.root}  Catalog: ${layout.catalogPath}`);
-      const indexer = new FolderIndexer(layout, log, catalogDiagnostics, indexDiagnostics);
+      for (const s of sources ? catalogSourceGlobs(layout.folder, layout.catalogPath, sources).skipped : []) {
+        log(`BDD025 bindingSources ${s}: outside the workspace folder; not indexed.`);
+      }
+      const indexer = new FolderIndexer(layout, log, catalogDiagnostics, indexDiagnostics, () => void rebuild());
       if (!results.has(layout.folder)) results.set(layout.folder, new LintResults());
       const controller = new LintController(indexer, results.get(layout.folder)!, lintDiagnostics, log, status, gate, notifyNotBuilt, lintWorker);
       api.indexers.push(indexer);

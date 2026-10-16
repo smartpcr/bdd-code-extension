@@ -52,7 +52,7 @@ test('commonStepKeys reads $defs.stepEnvelope.properties, and says nothing when 
 
 test('renderCatalogEntry: two-space style, typed params, a TODO for a value that cannot say, an open capture', () => {
   assert.strictEqual(renderCatalogEntry('demo.echo', [{ name: 'text', value: 'hello' }, { name: 'times', value: 2 },
-    { name: 'from', value: '${capture.a}' }, { name: 'odd key', value: true }]), [
+    { name: 'from', value: '${capture.a}' }, { name: 'odd key', value: true }], '\n', ['powershell']), [
     '  - name: demo.echo',
     '    summary: TODO describe demo.echo.',
     '    bindings: [powershell]',
@@ -67,6 +67,7 @@ test('renderCatalogEntry: two-space style, typed params, a TODO for a value that
   ].join('\n'));
   assert.ok(!renderCatalogEntry('demo.none', [], '\r\n').includes('params:'));
   assert.ok(renderCatalogEntry('demo.none', [], '\r\n').endsWith('true }\r\n'));
+  assert.match(renderCatalogEntry('demo.none', []), /\n {4}bindings: \[\]\n/, 'no binding lists none');
 });
 
 test('findCatalogInsertOffset: after the family\'s last entry, else after the last, else under actions:', () => {
@@ -93,10 +94,11 @@ test('findCatalogInsertOffset: after the family\'s last entry, else after the la
 const declareInput = (over: Partial<Parameters<typeof planDeclare>[0]> = {}) => ({
   catalogFile: 'C:/r/actions.catalog.yaml', catalogText: catalog, declared: (n: string) => n === 'core.noop', name: 'demo.echo',
   stepParams: [{ name: 'action', value: 'demo.echo' }, { name: 'when', value: 'x' }, { name: 'text', value: 'hello' }, { name: 'times', value: 2 }],
-  commonKeys: ['action', 'given', 'when', 'then', 'and', 'why'], stubFile: 'C:/r/DemoEcho.ps1', stubExists: false, stubText: 'stub\n', ...over,
+  commonKeys: ['action', 'given', 'when', 'then', 'and', 'why'], binding: 'powershell',
+  stub: [{ file: 'C:/r/DemoEcho.ps1', start: 0, end: 0, text: 'stub\n', create: true }], ...over,
 });
 
-test('B5.1-4 planDeclare: common step keys never become parameters; the PowerShell file is created', () => {
+test('B5.1-4 planDeclare: common step keys never become parameters; the target binding\'s stub is created', () => {
   const plan = planDeclare(declareInput());
   assert.ok('edits' in plan);
   const out = apply(catalog, plan.edits.filter(e => !e.create));
@@ -108,11 +110,21 @@ test('B5.1-4 planDeclare: common step keys never become parameters; the PowerShe
   assert.deepStrictEqual([...parsed.actions.keys()], ['core.noop', 'lifecycle.get', 'core.set', 'demo.echo']);
 });
 
+test('planDeclare: a C# target lists csharp and carries the registry edits; no stub template lists no binding', () => {
+  const registry = [{ file: 'C:/r/Ext.cs', start: 10, end: 10, text: '["demo.echo"] = Actions.DemoEcho,\n' }, { file: 'C:/r/Actions.cs', start: 5, end: 5, text: 'stub' }];
+  const cs = planDeclare(declareInput({ binding: 'csharp', stub: registry }));
+  assert.ok('edits' in cs);
+  assert.match(apply(catalog, cs.edits.slice(0, 1)), /- name: demo\.echo\n {4}summary: [^\n]*\n {4}bindings: \[csharp\]\n/);
+  assert.deepStrictEqual(cs.edits.slice(1), registry);
+  const none = planDeclare(declareInput({ binding: undefined, stub: [] }));
+  assert.ok('edits' in none && none.edits.length === 1);
+  assert.match(apply(catalog, none.edits), /- name: demo\.echo\n {4}summary: [^\n]*\n {4}bindings: \[\]\n/);
+});
+
 test('B5.1-3 and the other refusals of planDeclare', () => {
   assert.deepStrictEqual(planDeclare(declareInput({ name: 'core.noop' })), { refused: 'core.noop is already in the catalog.' });
   assert.match((planDeclare(declareInput({ name: 'bad name' })) as { refused: string }).refused, /not an action name/);
   assert.match((planDeclare(declareInput({ commonKeys: undefined })) as { refused: string }).refused, /stepEnvelope/);
-  assert.deepStrictEqual(planDeclare(declareInput({ stubExists: true })), { refused: 'C:/r/DemoEcho.ps1 already exists.' });
   assert.deepStrictEqual(planDeclare(declareInput({ catalogText: 'bindings: []\n' })), { refused: 'The catalog has no top-level `actions:` key.' });
 });
 

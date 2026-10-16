@@ -4,7 +4,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { test } from 'node:test';
 import { parseCatalog } from '../../src/core/catalog';
-import { actionPrefix, assertSubjectPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../../src/core/completionContext';
+import { actionPrefix, assertKeyPrefix, assertSubjectPrefix, metaPrefix, requiredParamsSnippet, stepKeysAround, withKeyPrefix } from '../../src/core/completionContext';
 import { actionSortKey } from '../../src/core/coverage';
 import { captureHoverMarkdown } from '../../src/core/hoverText';
 import { capturePathAt, scopeAt, shapeAt, subjectStatus } from '../../src/core/scope';
@@ -376,6 +376,39 @@ test('subjectStatus: the capture in scope, each field in the action\'s shape, op
   const caseAsserts = pos('var: x', 5);
   assert.deepStrictEqual(status(caseAsserts, 'each', 'y'), ['known', 'open'], 'core.noop is not in this catalog, so nothing is declared');
   assert.deepStrictEqual(status(caseAsserts, 'late'), ['known'], 'the case asserts see every case step');
+});
+
+test('assertKeyPrefix: a key under an asserts item or after its dash, with the keys the item already has', () => {
+  const lines = [
+    '        asserts:',
+    '          - var: location.state',
+    '            ',
+    '            notEquals: Unknown',
+    '          - is',
+    '',
+    '          - var: x',
+    '              nested: 1',
+    '            ma',
+    '    with:',
+    '      - var: no',
+    '        ma',
+    '  plain:',
+    '    ma',
+    'top',
+  ];
+  assert.deepStrictEqual(assertKeyPrefix(lines, 2, 12), { typed: '', start: 12, present: new Set(['var', 'notEquals']) });
+  assert.deepStrictEqual(assertKeyPrefix(lines, 4, 14), { typed: 'is', start: 12, present: new Set() }, 'right after a new item\'s dash');
+  assert.deepStrictEqual(assertKeyPrefix(lines, 8, 14), { typed: 'ma', start: 12, present: new Set(['var']) }, 'past a nested line and a blank one');
+  assert.strictEqual(assertKeyPrefix(lines, 11, 10), undefined, 'an item of a list that is not asserts');
+  assert.strictEqual(assertKeyPrefix(lines, 13, 6), undefined, 'not in a list item');
+  assert.strictEqual(assertKeyPrefix(lines, 14, 3), undefined, 'a key at the margin');
+  assert.strictEqual(assertKeyPrefix(lines, 3, 23), undefined, 'a value, not a key position');
+  assert.strictEqual(assertKeyPrefix(['    - is'], 0, 8), undefined, 'an item with nothing above it');
+  assert.strictEqual(assertKeyPrefix(['    ma'], 0, 6), undefined, 'no item at all');
+  assert.strictEqual(assertKeyPrefix(['  - plain text', '    '], 1, 4), undefined, 'a line above that is not a key');
+  const below = ['  asserts:', '    - var: a', '', '      ', '        deep: 1', '      isTrue: true', '      plain', '      count: 1'];
+  assert.deepStrictEqual(assertKeyPrefix(below, 3, 6), { typed: '', start: 6, present: new Set(['var', 'isTrue']) },
+    'past a blank line above; keys below count, past nested lines, up to a line that is not a key');
 });
 
 test('assertSubjectPrefix: after var: in an asserts item, the segments, the partial name and where it starts', () => {

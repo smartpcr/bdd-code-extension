@@ -2,7 +2,7 @@
 import * as assert from 'assert';
 import { test } from 'node:test';
 import {
-  commonSource, compareProgramSet, computeCoverage, CoverageRow, driftCount, globDirectory, expectedBindings, missingImplementations, programAgrees, toMarkdownTable, workspaceBindings,
+  actionStatus, commonSource, compareProgramSet, computeCoverage, CoverageRow, driftCount, globDirectory, expectedBindings, missingImplementations, programAgrees, toMarkdownTable, workspaceBindings,
 } from '../../src/core/coverage';
 
 const catalog = {
@@ -124,4 +124,15 @@ test("workspaceBindings: the catalog's own bindings in its order, or every confi
   assert.deepStrictEqual(workspaceBindings(['go', 'powershell', 'kotlin'], configured).map(b => b.name), ['go', 'powershell']);
   assert.deepStrictEqual(workspaceBindings([], configured).map(b => b.name), configured.map(b => b.name));
   assert.deepStrictEqual(workspaceBindings(undefined, configured).map(b => b.name), configured.map(b => b.name));
+});
+
+test('actionStatus: a workspace action by its registrations; an imported (core) one by its catalog bindings, since its runtime registers it', () => {
+  const own = { bindings: ['csharp'] };
+  assert.strictEqual(actionStatus(own, ['csharp'], 'csharp'), 'implemented');
+  assert.strictEqual(actionStatus(own, ['go'], 'csharp'), 'notInTarget');
+  assert.strictEqual(actionStatus(own, [], 'csharp'), 'unimplemented', 'the catalog listing csharp does not count for a workspace action');
+  const core = { bindings: ['csharp', 'powershell'], file: '/r/core.catalog.yaml' };
+  assert.strictEqual(actionStatus(core, [], 'csharp'), 'implemented', 'no workspace registration is needed');
+  assert.strictEqual(actionStatus(core, [], 'go'), 'notInTarget');
+  assert.strictEqual(actionStatus({ bindings: [], file: '/r/core.catalog.yaml' }, ['csharp'], 'csharp'), 'unimplemented');
 });

@@ -50,6 +50,15 @@ export interface Catalog {
   bindings: BindingName[];
   /** The bindings this catalog itself lists, without the imported ones: the languages the workspace implements actions in. */
   ownBindings?: BindingName[];
+  /** This catalog's own `bindingSources`: per binding, the globs (relative to this file) where its registrations are. */
+  ownSources?: Record<BindingName, string[]>;
+  /**
+   * The `bindingSources` of this catalog and every catalog it imports, merged per
+   * binding and relative to this file (resolveCatalog). They override the
+   * binding's `sources` setting: an imported core says where its own actions are
+   * registered, beside the workspace's.
+   */
+  sources?: Record<BindingName, string[]>;
   actions: Map<string, CatalogAction>;
   errors: CoreError[];
   /** Every catalog file it imports, directly or not, in reading order (DEC-S10). */

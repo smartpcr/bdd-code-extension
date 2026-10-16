@@ -17,9 +17,10 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ValidateFunction } from 'ajv';
 import { commonStepKeys } from '../core/catalogEdit';
-import { keyPrefix, stepAtColumn } from '../core/completionContext';
-import { checkAgainstSchema, compileSuiteSchema } from '../core/schemaCheck';
+import { assertKeyPrefix, keyPrefix, stepAtColumn } from '../core/completionContext';
+import { checkAgainstSchema, compileSuiteSchema, librarySchema } from '../core/schemaCheck';
 import { ActionStatus, suiteTokens, TOKEN_MODIFIERS, TOKEN_TYPES, TokenContext } from '../core/suiteTokens';
+import { actionStatus } from '../core/coverage';
 import { Debouncer } from '../core/debounce';
 import { subjectStatus } from '../core/scope';
 import { fileKey } from '../core/paths';
@@ -53,6 +54,8 @@ interface LoadedSchema {
   mtimeMs: number;
   json?: { $defs?: Record<string, { properties?: Record<string, { description?: string }>; required?: string[] }> };
   validate?: ValidateFunction;
+  /** The same schema for a library: no required `suite` or `tests` (librarySchema). */
+  validateLibrary?: ValidateFunction;
   error?: string;
 }
 
@@ -74,7 +77,10 @@ class SchemaCache {
     try {
       const json = JSON.parse(fs.readFileSync(file, 'utf8'));
       const compiled = compileSuiteSchema(json);
-      entry = 'validate' in compiled ? { file, mtimeMs, json, validate: compiled.validate } : { file, mtimeMs, json, error: compiled.error };
+      const library = compileSuiteSchema(librarySchema(json));
+      entry = 'validate' in compiled
+        ? { file, mtimeMs, json, validate: compiled.validate, validateLibrary: 'validate' in library ? library.validate : compiled.validate }
+        : { file, mtimeMs, json, error: compiled.error };
     } catch (e) {
       entry = { file, mtimeMs, error: `${path.basename(file)} is not JSON: ${(e as Error).message}` };
     }
@@ -94,8 +100,7 @@ export function tokenContext(ix: FolderIndexer, file: string): TokenContext {
     action(name) {
       const entry = catalog?.actions.get(name);
       if (!entry) return { status: 'undeclared' };
-      const bindings = ix.index.sitesFor(name).map(s => s.binding);
-      const status: ActionStatus = bindings.includes(target) ? 'implemented' : bindings.length ? 'notInTarget' : 'unimplemented';
+      const status: ActionStatus = actionStatus(entry, ix.index.sitesFor(name).map(s => s.binding), target);
       return { status, params: entry.params.map(p => ({ name: p.name, required: !!p.required })) };
     },
     meta(name) {
@@ -129,7 +134,9 @@ export function registerSuiteLanguage(owner: Owner, changed: vscode.Event<void>)
       diagnostics.set(doc.uri, [d]);
       return;
     }
-    diagnostics.set(doc.uri, checkAgainstSchema(doc.getText(), schema.validate).map(f => {
+    // A library (imported, no suite: key) is held to the suite's shapes without its required suite and tests.
+    const against = ix.index.isLibrary(doc.uri.fsPath) ? schema.validateLibrary ?? schema.validate : schema.validate;
+    diagnostics.set(doc.uri, checkAgainstSchema(doc.getText(), against).map(f => {
       const d = new vscode.Diagnostic(toRange(f.range), f.message, vscode.DiagnosticSeverity.Error);
       d.source = 'bdd-suite schema';
       d.code = SCHEMA_DIAGNOSTIC_CODE;
@@ -173,9 +180,25 @@ export function registerSuiteLanguage(owner: Owner, changed: vscode.Event<void>)
       async provideCompletionItems(doc, pos) {
         const ix = owner(doc.uri);
         await ix?.ready;
-        const prefix = keyPrefix(doc.lineAt(pos.line).text.slice(0, pos.character));
-        if (!ix || !prefix || !schemaServes(doc, ix)) return undefined;
+        if (!ix || !schemaServes(doc, ix)) return undefined;
         const lines = doc.getText().split(/\r?\n/);
+        // An assertion's keys: its subject, then the comparisons, from the schema's own assert definition.
+        const assertion = assertKeyPrefix(lines, pos.line, pos.character);
+        if (assertion) {
+          const props = schemas.get(ix).json?.$defs?.assert?.properties ?? {};
+          const range = new vscode.Range(pos.line, assertion.start, pos.line, pos.character);
+          return Object.entries(props).filter(([k]) => !assertion.present.has(k) || k === assertion.typed).map(([k, s]) => {
+            const item = new vscode.CompletionItem(k, k === 'var' ? vscode.CompletionItemKind.Variable : vscode.CompletionItemKind.Operator);
+            item.range = range;
+            item.detail = k === 'var' ? 'assertion subject' : 'assertion operator';
+            if (s.description) item.documentation = s.description;
+            item.sortText = `${k === 'var' ? '0' : '1'}${k}`;
+            item.insertText = `${k}: `;
+            return item;
+          });
+        }
+        const prefix = keyPrefix(doc.lineAt(pos.line).text.slice(0, pos.character));
+        if (!prefix) return undefined;
         const step = stepAtColumn(lines, pos.line, prefix.column);
         if (!step.item) return undefined;
         const defs = schemas.get(ix).json?.$defs ?? {};

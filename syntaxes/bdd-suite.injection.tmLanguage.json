@@ -1,7 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "scopeName": "bdd-suite.injection",
-  "injectionSelector": "L:source.bdd-suite -comment",
+  "comment": "Not inside a block scalar (`description: >-`): its end is the first less-indented line, often a key such as `beforeEach:` that suite-key would take first with L: priority, and the scalar would then run to the end of the file, leaving every later key uncoloured.",
+  "injectionSelector": "L:source.bdd-suite -comment -string.unquoted.block",
   "patterns": [
     { "include": "#gherkin-key" },
     { "include": "#why-key" },

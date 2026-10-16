@@ -91,7 +91,16 @@ registrations, and *Implement in ...* adds new ones, in this layout:
 `samples/workspace` in this repository is a complete workspace in exactly this
 layout. Each binding's source globs, the patterns that find its
 registrations, its program and its build command are in `bddSuite.bindings`;
-override any of them for a different layout. Once a binding registers any of
+override any of them for a different layout. The source globs can instead live
+in the workspace's catalog, committed with it, and then win over the setting;
+a catalog it imports may add its own, relative to itself, and each binding
+indexes the union:
+
+```yaml
+# test/e2e/schema/actions.catalog.yaml; globs relative to this file
+bindingSources:
+  csharp: [../bindings/dotnet/Shop.Suite/**/*.cs]
+``` Once a binding registers any of
 the catalog's own actions, *Implement in ...* adds to the file that holds most
 of them instead of the one in the table. In a C# dictionary registry whose
 entries are qualified, `["shop.order"] = ShopActions.Order,`, the new entry is
@@ -149,7 +158,8 @@ Suite** (Change Language Mode, or the language name in the status bar).
   does, red, italic and underlined when no binding does, red and underlined
   when the catalog does not declare it), each parameter by its action (purple,
   bold when required, red and struck out when the action does not take it),
-  an assertion's `var:` subject (the capture teal, each field amber, red and
+  an assertion's `var:` subject (the capture teal, each field purple like a
+  parameter, red and
   underlined when not in scope or not in the action's declared captures),
   other schema keys apart from parameters, meta steps, and every other value
   by its type (string, number, boolean) in the theme's own colours; prose such

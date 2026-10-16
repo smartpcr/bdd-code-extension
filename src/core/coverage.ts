@@ -52,6 +52,18 @@ export function workspaceBindings<B extends { name: string }>(own: string[] | un
   return own.flatMap(name => configured.filter(b => b.name === name));
 }
 
+/**
+ * Where a declared action stands for the target binding. A workspace action is
+ * implemented where the code registers it. An imported one (the core's
+ * `core.*` and `wait`) is registered by each binding's runtime, outside the
+ * workspace's sources, so its catalog's `bindings` say where it is implemented.
+ */
+export function actionStatus(action: { bindings: string[]; file?: string }, registeredIn: string[], target: string):
+  'implemented' | 'notInTarget' | 'unimplemented' {
+  const where = action.file ? action.bindings : registeredIn;
+  return where.includes(target) ? 'implemented' : where.length ? 'notInTarget' : 'unimplemented';
+}
+
 /** Completion sort key: actions the target binding implements first, then by name (B3.1-2). */
 export function actionSortKey(name: string, actionBindings: string[], target: string): string {
   return `${actionBindings.includes(target) ? '0' : '1'}${name}`;

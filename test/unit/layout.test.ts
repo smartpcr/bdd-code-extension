@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test } from 'node:test';
 import { DEFAULT_BINDINGS, DEFAULT_SETTINGS } from '../../src/config/defaults';
-import { fileKey, findRepositoryRoot, readSettings, WorkspaceLayout } from '../../src/config/layout';
+import { catalogSourceGlobs, fileKey, findRepositoryRoot, readSettings, WorkspaceLayout } from '../../src/config/layout';
 import { configurationContribution } from '../../src/config/packageConfig';
 
 const ROOT = path.resolve('/repo');
@@ -116,6 +116,25 @@ test('WorkspaceLayout resolves the catalog, root and ${storage}', () => {
   assert.strictEqual(layout.bindings.find(b => b.name === 'powershell')!.build, undefined);
   assert.deepStrictEqual(layout.suiteGlobs, DEFAULT_SETTINGS.suiteGlobs);
   assert.strictEqual(layout.exclude, DEFAULT_SETTINGS.exclude);
+});
+
+test('WorkspaceLayout: the catalog\'s bindingSources replace a binding\'s sources and add a binding the settings lack', () => {
+  const catalog = path.join(ROOT, 'test', 'e2e', 'schema', 'actions.catalog.yaml');
+  const sources = { csharp: ['../bindings/dotnet/Shop.Suite/**/*.cs'], cobol: ['../bindings/cobol/*.cbl', '../../../../outside/*.cbl'] };
+  const layout = WorkspaceLayout.create(ROOT, DEFAULT_SETTINGS, '/store', has(catalog, '/repo/test/e2e/schema'), sources)!;
+  assert.deepStrictEqual(layout.bindings.find(b => b.name === 'csharp')!.sources, ['test/e2e/bindings/dotnet/Shop.Suite/**/*.cs']);
+  assert.deepStrictEqual(layout.bindings.find(b => b.name === 'csharp')!.recognizers, DEFAULT_BINDINGS.csharp.recognizers, 'only sources change');
+  assert.deepStrictEqual(layout.bindings.find(b => b.name === 'go')!.sources, DEFAULT_BINDINGS.go.sources, 'a binding it does not name keeps its setting');
+  const cobol = layout.bindings.find(b => b.name === 'cobol')!;
+  assert.deepStrictEqual([cobol.label, cobol.sources, cobol.recognizers], ['cobol', ['test/e2e/bindings/cobol/*.cbl'], []]);
+  assert.strictEqual(layout.catalogSources, sources);
+});
+
+test('catalogSourceGlobs: relative to the catalog, forward slashes; absolute or outside the folder is skipped', () => {
+  const catalog = path.join(ROOT, 'test', 'e2e', 'schema', 'actions.catalog.yaml');
+  const r = catalogSourceGlobs(ROOT, catalog, { csharp: ['../bindings/**/*.cs', path.resolve('/elsewhere/*.cs'), '../../../../up/*.cs'], go: ['../../../../up/*.go'] });
+  assert.deepStrictEqual(r.globs, { csharp: ['test/e2e/bindings/**/*.cs'] }, 'a binding left with no glob is dropped');
+  assert.deepStrictEqual(r.skipped, [`csharp: ${path.resolve('/elsewhere/*.cs')}`, 'csharp: ../../../../up/*.cs', 'go: ../../../../up/*.go']);
 });
 
 test('WorkspaceLayout is undefined without a catalog, or without a root above it', () => {

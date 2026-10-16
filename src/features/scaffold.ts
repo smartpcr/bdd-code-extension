@@ -214,7 +214,22 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
   if (!action) return report(host, refused('Declare action: put the cursor on a step whose action is not declared.'));
   const catalogFile = ix.layout.catalogPath;
   const catalogDoc = await vscode.workspace.openTextDocument(vscode.Uri.file(catalogFile));
-  const stubFile = path.join(ix.layout.root, powershellStubFile(action));
+  // The stub goes into the binding suites are meant to run with: a PowerShell file of
+  // its own, or a registry entry and handler; none for a binding with no template.
+  const binding = ix.layout.settings.targetBinding;
+  let stub: FileEdit[] = [];
+  let listed: string | undefined;
+  if (binding === 'powershell') {
+    const stubFile = path.join(ix.layout.root, powershellStubFile(action));
+    if (fs.existsSync(stubFile)) return report(host, refused(`Declare action: ${powershellStubFile(action)} already exists.`));
+    stub = [{ file: stubFile, start: 0, end: 0, text: renderTemplate(template(host, ix, 'powershell.ps1.tmpl'), action), create: true }];
+    listed = binding;
+  } else if (stubTarget(binding)) {
+    const planned = await registryStub(host, ix, action, binding);
+    if ('refused' in planned) return report(host, refused(`Declare action: ${planned.refused}`));
+    stub = planned.edits;
+    listed = binding;
+  }
   const plan = planDeclare({
     catalogFile,
     catalogText: catalogDoc.getText(),
@@ -224,9 +239,8 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
     name: action,
     stepParams: step?.params.map(p => ({ name: p.name, value: p.value })) ?? [],
     commonKeys: stepEnvelopeKeys(catalogFile),
-    stubFile,
-    stubExists: fs.existsSync(stubFile),
-    stubText: renderTemplate(template(host, ix, 'powershell.ps1.tmpl'), action),
+    binding: listed,
+    stub,
   });
   if ('refused' in plan) return report(host, refused(`Declare action: ${plan.refused}`));
   return applyAndGenerate(host, ix, plan.edits, `Declared ${action}`);
@@ -241,6 +255,30 @@ function classFile(dir: string, name: string): string | undefined {
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.cs')).sort((a, b) => Number(b === `${name}.cs`) - Number(a === `${name}.cs`) || a.localeCompare(b));
   const found = files.find(f => declares.test(fs.readFileSync(path.join(dir, f), 'utf8')));
   return found && path.join(dir, found);
+}
+
+/**
+ * A binding's registry stub for an action (B5.2-B5.4): the registry entry and the
+ * handler. The registry is where the binding's own actions already are, the
+ * layout's default file until it has any; a qualified C# dictionary registry's
+ * handler goes into the qualifying class's file.
+ */
+async function registryStub(host: ScaffoldHost, ix: FolderIndexer, action: string, binding: string): Promise<{ edits: FileEdit[] } | { refused: string }> {
+  const target = stubTarget(binding);
+  if (!target) return { refused: `there is no stub template for the ${binding} binding.` };
+  const catalog = ix.index.catalog;
+  const own = (a: string) => !!catalog?.actions.has(a) && !catalog.actions.get(a)!.file;
+  const file = registryFileOf(ix.index.allSites(), binding, own) ?? path.join(ix.layout.root, target.file);
+  const shown = path.relative(ix.layout.root, file).split(path.sep).join('/');
+  if (!fs.existsSync(file)) return { refused: `${shown} does not exist in this checkout.` };
+  const registry = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+  const owner = binding === 'csharp' ? csharpHandlerClass(registry.getText()) : undefined;
+  const handlerPath = owner ? classFile(path.dirname(file), owner) : undefined;
+  const handlerFile = handlerPath ? { file: handlerPath, text: (await vscode.workspace.openTextDocument(vscode.Uri.file(handlerPath))).getText() } : undefined;
+  return planStub({
+    binding, action, file, shown, handlerFile, text: registry.getText(), template: template(host, ix, target.template),
+    hasSite: ix.index.sitesFor(action).some(s => s.binding === binding),
+  });
 }
 
 /** *Implement in binding* (B5.2-B5.4): the registry entry, the stub, the binding in the catalog, the schema. */
@@ -266,21 +304,7 @@ export async function implementAction(host: ScaffoldHost, action?: string, bindi
   const imported = catalog.actions.get(chosen)?.file;
   if (!entry && imported) return report(host, refused(`Implement action: ${chosen} is declared in the imported catalog ${imported}, which this workspace does not edit.`));
   if (!entry) return report(host, refused(`Implement action: ${chosen} is not in the catalog; declare it first.`));
-  const target = stubTarget(binding);
-  if (!target) return report(host, refused(`Implement action: there is no stub template for the ${binding} binding.`));
-  // The registry is where the binding's own actions already are; the layout's default file until it has any.
-  const own = (a: string) => catalog.actions.has(a) && !catalog.actions.get(a)!.file;
-  const file = registryFileOf(ix.index.allSites(), binding, own) ?? path.join(ix.layout.root, target.file);
-  const shown = path.relative(ix.layout.root, file).split(path.sep).join('/');
-  if (!fs.existsSync(file)) return report(host, refused(`Implement action: ${shown} does not exist in this checkout.`));
-  const registry = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
-  const owner = binding === 'csharp' ? csharpHandlerClass(registry.getText()) : undefined;
-  const handlerPath = owner ? classFile(path.dirname(file), owner) : undefined;
-  const handlerFile = handlerPath ? { file: handlerPath, text: (await vscode.workspace.openTextDocument(vscode.Uri.file(handlerPath))).getText() } : undefined;
-  const stub = planStub({
-    binding, action: chosen, file, shown, handlerFile, text: registry.getText(), template: template(host, ix, target.template),
-    hasSite: ix.index.sitesFor(chosen).some(s => s.binding === binding),
-  });
+  const stub = await registryStub(host, ix, chosen, binding);
   if ('refused' in stub) return report(host, refused(`Implement action: ${stub.refused}`));
   const listed = addBindingEdit(catalogFile, catalogDoc.getText(), entry, binding, current.bindings);
   if (listed && 'refused' in listed) return report(host, refused(`Implement action: ${listed.refused}`));

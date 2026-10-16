@@ -23,6 +23,18 @@ export function compileSuiteSchema(schema: unknown): { validate: ValidateFunctio
   }
 }
 
+/**
+ * The suite schema as a library is held to: the same shapes, without the root's
+ * required `suite` and `tests`, since a library declares params, vars, meta steps
+ * and defaults for the suites that import it and nothing that runs. That it runs
+ * nothing (E211) is lint's to say, in the importing suite's context.
+ */
+export function librarySchema(schema: unknown): unknown {
+  const s = schema as { required?: unknown };
+  if (!s || typeof s !== 'object' || !Array.isArray(s.required)) return schema;
+  return { ...s, required: s.required.filter(k => k !== 'suite' && k !== 'tests') };
+}
+
 const unescape = (s: string) => s.replace(/~1/g, '/').replace(/~0/g, '~');
 
 /** The node at a JSON pointer, walking maps by key and sequences by index. */

@@ -161,6 +161,23 @@ export class WorkspaceIndex {
     return [...found].sort();
   }
 
+  /** A library: a file a suite imports that has no `suite:` key of its own (DEC-B13). */
+  isLibrary(file: string): boolean {
+    const key = fileKey(file);
+    return !!this.suites.get(key) && !this.suites.get(key)!.hasSuiteKey && this.j.libraries.has(key);
+  }
+
+  /**
+   * The files to lint for `file`: itself, or, for a library, every suite that
+   * imports it, directly or through another library. A library is valid only in
+   * a suite's context (E211); linted alone it is a suite missing `suite` and
+   * `tests` (E102), and its own findings come back from its importers' lint.
+   */
+  lintTargets(file: string): string[] {
+    if (!this.isLibrary(file)) return [fileKey(file)];
+    return this.importersOf(file).filter(f => !!this.suites.get(f)?.hasSuiteKey);
+  }
+
   suiteFiles(): SuiteFile[] {
     return [...this.suites.values()].filter(s => this.isSuiteOrLibrary(s.file));
   }

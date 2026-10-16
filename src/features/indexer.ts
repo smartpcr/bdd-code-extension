@@ -50,6 +50,8 @@ export class FolderIndexer implements vscode.Disposable {
     private readonly log: (line: string) => void,
     private readonly catalogDiagnostics: vscode.DiagnosticCollection,
     private readonly indexDiagnostics: vscode.DiagnosticCollection,
+    /** Called when the catalog's `bindingSources` no longer match the layout's: the sources to scan changed. */
+    private readonly onSourcesChanged?: () => void,
   ) {
     for (const b of layout.bindings) {
       const { ok, errors } = compileRecognizers(b.recognizers, `bddSuite.bindings.${b.name}.recognizers`);
@@ -112,6 +114,7 @@ export class FolderIndexer implements vscode.Disposable {
       this.index.updateCatalog(c);
       this.publish(this.catalogDiagnostics, key, c.errors);
       this.watchImports(c.imports ?? []);
+      if (JSON.stringify(c.sources ?? null) !== JSON.stringify(this.layout.catalogSources ?? null)) this.onSourcesChanged?.();
     } else if (kind.kind === 'suite') {
       const s = parseSuite(text, key);
       this.index.updateSuite(s);
