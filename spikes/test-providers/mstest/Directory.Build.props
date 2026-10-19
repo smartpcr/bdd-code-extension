@@ -1,0 +1,9 @@
+<Project>
+  <!-- Spike only. MSTestVer selects the MSTest package version; obj/bin are split per version. -->
+  <PropertyGroup>
+    <MSTestVer Condition="'$(MSTestVer)' == ''">4.3.2</MSTestVer>
+    <BaseIntermediateOutputPath>obj\$(MSTestVer)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin\$(MSTestVer)\</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

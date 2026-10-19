@@ -1,0 +1,8 @@
+suite: broken
+description: Calls an action no catalog declares.
+
+tests:
+  - name: calls nothing real
+    steps:
+      - then: it calls an action that does not exist
+        action: core.nope

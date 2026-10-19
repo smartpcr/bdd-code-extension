@@ -1,0 +1,14 @@
+<Project>
+  <!-- Explicit SDK imports so build/BddSuite.targets is imported AFTER the SDK targets,
+       like a NuGet package's build/<id>.targets would be. -->
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="build\BddSuite.targets" />
+</Project>

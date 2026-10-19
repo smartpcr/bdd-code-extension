@@ -1,0 +1,8 @@
+# Matched by the config's suites glob, but not a suite: no suite key. A library
+# like this is left out of the plan silently.
+metaSteps:
+  - name: say-nothing
+    description: A step that does nothing.
+    steps:
+      - then: nothing happens
+        action: core.noop

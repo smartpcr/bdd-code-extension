@@ -35,7 +35,7 @@ public sealed class ConformanceTests
         // The counts after the move (conformance/rename.json): the lifecycle and
         // E214 entries went back to the product that owns those rules.
         Assert.Equal(41, Corpus.Entries(manifest, "validate").Count);
-        Assert.Equal(12, Corpus.Entries(manifest, "execute").Count);
+        Assert.Equal(14, Corpus.Entries(manifest, "execute").Count);
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public sealed class ConformanceTests
         var implemented = Executor.AllNames().ToHashSet(StringComparer.Ordinal);
 
         var called = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var entry in Corpus.Entries(manifest, "execute"))
+        foreach (var entry in Corpus.Entries(manifest, "execute").Where(entry => !Corpus.PendingIn(entry, "csharp")))
         {
             Corpus.CollectActions(corpus.Yaml(entry.Text("suite")), called);
         }

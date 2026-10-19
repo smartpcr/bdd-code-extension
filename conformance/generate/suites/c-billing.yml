@@ -1,0 +1,8 @@
+suite: Billing
+description: The second of two suites whose names differ only in case, so its identifier takes a collision number.
+
+tests:
+  - name: charges a card
+    steps:
+      - then: it is charged again
+        action: core.noop

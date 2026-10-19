@@ -1,0 +1,69 @@
+{
+  "planVersion": 1,
+  "suites": [
+    {
+      "file": "suites/a-orders.yml",
+      "name": "orders",
+      "id": "Orders",
+      "tags": ["shop", "smoke"],
+      "guarded": false,
+      "guardedBy": [],
+      "cases": [
+        { "name": "places an order", "id": "PlacesAnOrder", "tags": ["smoke", "shop"] },
+        { "name": "rejects a bad quantity [qty=1]", "id": "RejectsABadQuantityQty1", "outline": "rejects a bad quantity", "row": { "qty": 1 }, "tags": ["shop", "smoke"] },
+        { "name": "rejects a bad quantity [qty=-1]", "id": "RejectsABadQuantityQty1_2", "outline": "rejects a bad quantity", "row": { "qty": -1 }, "tags": ["shop", "smoke"] },
+        { "name": "rejects a bad quantity [qty=0]", "id": "RejectsABadQuantityQty0", "outline": "rejects a bad quantity", "row": { "qty": 0 }, "tags": ["shop", "smoke"] },
+        { "name": "setup", "id": "Setup_2", "tags": ["shop", "smoke"] },
+        { "name": "3 retries", "id": "N3Retries", "tags": ["shop", "smoke"] },
+        { "name": "!!!", "id": "Case", "tags": ["shop", "smoke"] },
+        { "name": "café au lait", "id": "CafAuLait", "tags": ["shop", "smoke"] },
+        { "name": "places an order!", "id": "PlacesAnOrder_2", "tags": ["shop", "smoke"] },
+        { "name": "PLACES AN ORDER", "id": "PLACESANORDER_3", "tags": ["shop", "smoke"] }
+      ]
+    },
+    {
+      "file": "suites/b-billing.yml",
+      "name": "billing",
+      "id": "Billing",
+      "tags": [],
+      "guarded": false,
+      "guardedBy": [],
+      "cases": [
+        { "name": "charges a card", "id": "ChargesACard", "tags": [] }
+      ]
+    },
+    {
+      "file": "suites/c-billing.yml",
+      "name": "Billing",
+      "id": "Billing_2",
+      "tags": [],
+      "guarded": false,
+      "guardedBy": [],
+      "cases": [
+        { "name": "charges a card", "id": "ChargesACard", "tags": [] }
+      ]
+    },
+    {
+      "file": "suites/d-lab.yml",
+      "name": "lab-work",
+      "id": "LabWork",
+      "tags": [],
+      "guarded": true,
+      "guardedBy": ["fixture.state", "inventory.get"],
+      "cases": [
+        { "name": "reads the group", "id": "ReadsTheGroup", "tags": ["lab"] }
+      ]
+    },
+    {
+      "file": "suites/nested/g-digits.yml",
+      "name": "3-d-printing",
+      "id": "N3DPrinting",
+      "tags": [],
+      "guarded": false,
+      "guardedBy": [],
+      "cases": [
+        { "name": "x", "id": "X", "tags": [] }
+      ]
+    }
+  ]
+}

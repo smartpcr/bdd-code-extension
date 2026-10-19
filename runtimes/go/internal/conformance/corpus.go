@@ -119,6 +119,20 @@ func sortedKeys(held map[string]any) []string {
 	return names
 }
 
+// PendingIn reports whether the manifest marks the entry pending for a
+// binding: the binding does not meet it yet, reports it as pending rather than
+// passed, and is removed from the entry's pendingIn in the change that makes it
+// pass.
+func PendingIn(entry *model.Map, binding string) bool {
+	names, _ := walk.List(entry, "pendingIn")
+	for _, name := range names {
+		if text, ok := name.(string); ok && text == binding {
+			return true
+		}
+	}
+	return false
+}
+
 // Entries is the manifest entries of one kind.
 func Entries(manifest *model.Map, kind string) []*model.Map {
 	out := []*model.Map{}

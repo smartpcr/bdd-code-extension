@@ -1,9 +1,11 @@
 # The corpus's catalog: the core, imported, plus fixture actions that exist only
-# to be checked (DEC-S02). No runtime implements a fixture action; the validate
-# corpus lints suites that use them, which is all it needs. Each fixture action
-# keeps the exact parameters, types, captures and bindings of the action it
-# replaced when the corpus moved here (conformance/rename.json), so every
-# expected finding is unchanged.
+# to be checked (DEC-S02). No runtime implements a fixture action except
+# fixture.append, which each runtime's corpus test extension implements for the
+# execute corpus; the validate corpus lints suites that use the others, which is
+# all it needs. Each fixture action that replaced an os-context action keeps the
+# exact parameters, types, captures and bindings of the action it replaced when
+# the corpus moved here (conformance/rename.json), so every expected finding is
+# unchanged.
 #
 # Build-Schema.ps1 folds this catalog, the core and fixture.suite.json into
 # suite.schema.json beside it, which is the schema the corpus is validated
@@ -115,3 +117,18 @@ actions:
       properties:
         statusCode: { type: integer, description: Present only when expectedStatus is 400 or above. }
         error: { type: string, description: Present only when expectedStatus is 400 or above. }
+
+  # The one fixture action the execute corpus runs. Each runtime's corpus test
+  # extension implements it, deliberately changing the list it was given in
+  # place, so execute/capture-isolation.yml can prove that such a change stays
+  # inside the case that made it (test-providers DEC-T04).
+  - name: fixture.append
+    summary: Fixture. Append an item to the list it was given, in place, and return that list.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: list, type: array, required: true, description: The list to change in place. }
+      - { name: item, type: any, required: true, description: The value appended to it. }
+    captures:
+      type: array
+      description: The list it was given, with the item appended.

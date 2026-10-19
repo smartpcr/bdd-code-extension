@@ -1,0 +1,4 @@
+suite: Checkout
+cases:
+  - places an order
+  - applies a coupon [10%]

@@ -1,0 +1,49 @@
+suite: orders
+description: Names that sanitise alike, a reserved identifier, a leading digit, no word at all, a non-ASCII letter, and an outline whose rows collide.
+tags: [shop, smoke]
+
+tests:
+  - name: places an order
+    tags: [smoke]
+    steps:
+      - then: it is placed
+        action: core.noop
+
+  - name: rejects a bad quantity
+    examples:
+      - { qty: 1 }
+      - { qty: -1 }
+      - { qty: 0 }
+    steps:
+      - then: the quantity ${row.qty} is refused
+        action: core.noop
+
+  - name: setup
+    steps:
+      - then: a case may be called setup
+        action: core.noop
+
+  - name: 3 retries
+    steps:
+      - then: a name may start with a digit
+        action: core.noop
+
+  - name: "!!!"
+    steps:
+      - then: a name may have no word in it
+        action: core.noop
+
+  - name: café au lait
+    steps:
+      - then: a non-ASCII letter separates words
+        action: core.noop
+
+  - name: places an order!
+    steps:
+      - then: it sanitises like the first case
+        action: core.noop
+
+  - name: PLACES AN ORDER
+    steps:
+      - then: it sanitises like the first case, ignoring case
+        action: core.noop

@@ -1,0 +1,8 @@
+suite: 3-d-printing
+description: A suite name that starts with a digit, in a nested folder, which sorts after every top-level file.
+
+tests:
+  - name: x
+    steps:
+      - then: it runs
+        action: core.noop

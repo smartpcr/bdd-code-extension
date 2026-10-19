@@ -112,7 +112,7 @@ fn every_execute_entry() {
     let _ = std::fs::remove_dir_all(&scratch);
     assert_eq!(exit::PASSED, 0);
     println!("  {checked} execute entries run; {} differ", failures.len());
-    assert_eq!(checked, 12, "execute entries checked");
+    assert_eq!(checked, 14, "execute entries checked");
     assert!(
         failures.is_empty(),
         "{} of {checked} entries differ:\n{}",

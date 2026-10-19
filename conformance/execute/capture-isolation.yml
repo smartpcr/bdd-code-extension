@@ -1,0 +1,43 @@
+suite: capture-isolation
+description: An action that changes a value it was given changes it for its own case only; the next case and the teardown read what the suite setup captured.
+tags: [conformance]
+
+# Each case starts from its own copy of what the suite setup captured, and the
+# teardown reads the setup's own. A copy one level deep is not enough: the list
+# below sits inside a captured object, and fixture.append changes the list it is
+# given in place, as an extension action may. A runtime that shares the nested
+# list lets the first case's change reach the second case and the teardown,
+# whose counts then fail (test-providers DEC-T04).
+setup:
+  - action: core.set
+    value:
+      items: [from-the-suite-setup]
+    captureAs: shared
+
+teardown:
+  - action: core.noop
+    asserts:
+      - var: shared.items
+        count: 1
+
+tests:
+  - name: the-case-that-appends
+    steps:
+      - when: this case appends to the list the suite setup captured
+        action: fixture.append
+        list: ${capture.shared.items}
+        item: from-the-first-case
+        captureAs: grown
+      - then: the list it was given has grown
+        action: core.noop
+        asserts:
+          - var: grown
+            count: 2
+
+  - name: the-case-after-it
+    steps:
+      - then: it still sees the list the suite setup captured
+        action: core.noop
+        asserts:
+          - var: shared.items
+            count: 1

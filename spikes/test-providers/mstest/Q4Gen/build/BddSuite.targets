@@ -1,0 +1,31 @@
+<Project>
+  <!-- Simulates a NuGet package's build/*.targets.
+       BddHook selects the target the "add to Compile" step runs before (spike knob). -->
+  <PropertyGroup>
+    <BddHook Condition="'$(BddHook)' == ''">BeforeCompile</BddHook>
+    <BddGenDll Condition="'$(BddGenDll)' == ''">$(MSBuildThisFileDirectory)..\..\BddGen\bin\4.3.2\Release\net10.0\BddGen.dll</BddGenDll>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BddSuiteFile Include="suites\**\*.yml" />
+  </ItemGroup>
+
+  <!-- Incremental: one .g.cs per .yml; only out-of-date pairs are regenerated. -->
+  <Target Name="BddGenerateSuites"
+          Inputs="@(BddSuiteFile);$(BddGenDll);$(MSBuildThisFileFullPath)"
+          Outputs="@(BddSuiteFile->'$(IntermediateOutputPath)BddSuite\%(Filename).g.cs')">
+    <Message Importance="high" Text="BddGenerateSuites: generating %(BddSuiteFile.Identity)" />
+    <Exec Command="dotnet &quot;$(BddGenDll)&quot; &quot;%(BddSuiteFile.FullPath)&quot; &quot;$(IntermediateOutputPath)BddSuite\%(BddSuiteFile.Filename).g.cs&quot;" />
+  </Target>
+
+  <!-- Always runs (cheap); adds the generated files to Compile even when generation was skipped. -->
+  <Target Name="BddAddGeneratedCompile" BeforeTargets="$(BddHook)" DependsOnTargets="BddGenerateSuites">
+    <ItemGroup>
+      <_BddGenerated Include="@(BddSuiteFile->'$(IntermediateOutputPath)BddSuite\%(Filename).g.cs')" />
+      <Compile Remove="@(_BddGenerated)" />
+      <Compile Include="@(_BddGenerated)" />
+      <FileWrites Include="@(_BddGenerated)" />
+    </ItemGroup>
+    <Message Importance="high" Text="BddAddGeneratedCompile (before $(BddHook)): @(_BddGenerated)" />
+  </Target>
+</Project>

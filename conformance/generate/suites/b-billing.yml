@@ -1,0 +1,8 @@
+suite: billing
+description: The first of two suites whose names sanitise alike.
+
+tests:
+  - name: charges a card
+    steps:
+      - then: it is charged
+        action: core.noop

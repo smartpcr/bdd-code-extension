@@ -1,0 +1,4 @@
+suite: Refunds
+cases:
+  - refunds in full
+  - refunds partially (qty=1)

@@ -1,10 +1,12 @@
 # Running suites with each language's own test framework: design
 
-Status: **designed 2026-10-19; nothing built, nothing run.** The plan that
-builds it is [implementation.md](implementation.md). Every outcome here links
-to the deliverables that produce it and the scenarios that prove it.
-Assumptions marked **(spike)** are checked in stage T0 before a provider is
-built on them.
+Status: **designed 2026-10-19; stage T0 built the same day** (spikes and the
+shared contract, [evidence](../evidence/test-providers-t0.md)); no session,
+generator or provider built yet. The plan that builds it is
+[implementation.md](implementation.md). Every outcome here links to the
+deliverables that produce it and the scenarios that prove it. The spike
+findings are folded into the decisions below; each revised decision says
+"(T0)" where a finding changed it.
 
 Audience: anyone who writes suites or bindings and wants `dotnet test`,
 `go test`, `cargo test`, `npm test` or `Invoke-Pester` to run them; runtime
@@ -83,8 +85,9 @@ Not in scope:
   five runtimes, as Rust's already is.
 * **Replacing `suiterun`.** It stays the reference runner and the VS Code
   extension keeps using it.
-* **Mocha, xUnit v2, NUnit 3, Pester 4.** Mocha is P2; the older majors are
-  not planned.
+* **Mocha, MSTest 3, xUnit v2, NUnit 3, Pester 4.** Mocha is P2; the older
+  majors are not planned (MSTest 3 cannot keep a passed case passed when a
+  suite teardown fails, T0).
 * **Step-level test results.** A framework reports per case; steps appear in
   the case's output and failure message, as in `suiterun`'s reports today.
 
@@ -132,7 +135,7 @@ tests:
 ```csharp
 // obj/.../BddSuite/orders.g.cs  (generated at build; never edited)
 [TestClass]
-public sealed partial class Orders_Suite
+public sealed partial class Suite_Orders
 {
     static SuiteSession s = null!;
     public TestContext TestContext { get; set; } = null!;
@@ -140,15 +143,17 @@ public sealed partial class Orders_Suite
     [ClassInitialize] public static void Setup(TestContext c) => s = BddSuiteRun.Open("suites/orders.yml", c).Setup();
     [ClassCleanup]    public static void Teardown() => s.Teardown();          // throws only if teardown failed
     [TestInitialize]  public void BeforeEach() => s.BeforeEach(TestContext.TestDisplayName!);
-    [TestCleanup]     public void AfterEach() => s.AfterEach(TestContext.TestDisplayName!);
+    [TestCleanup]     public void AfterEach() => s.AfterEach(TestContext.TestDisplayName!);  // throws only if afterEach failed
 
-    [TestMethod("places an order"), TestCategory("smoke")]
+    [TestMethod(DisplayName = "places an order"), TestCategory("smoke")]
     public void PlacesAnOrder() => s.RunCase("places an order").ThrowIfFailed();
 
-    [TestMethod("rejects a bad quantity")]
-    [DataRow("rejects a bad quantity [qty=0]",  DisplayName = "rejects a bad quantity [qty=0]")]
-    [DataRow("rejects a bad quantity [qty=-1]", DisplayName = "rejects a bad quantity [qty=-1]")]
-    public void RejectsABadQuantity(string row) => s.RunCase(row).ThrowIfFailed();
+    // One method per examples row (T0): every row is selectable by its method.
+    [TestMethod(DisplayName = "rejects a bad quantity [qty=0]")]
+    public void RejectsABadQuantityQty0() => s.RunCase("rejects a bad quantity [qty=0]").ThrowIfFailed();
+
+    [TestMethod(DisplayName = "rejects a bad quantity [qty=-1]")]
+    public void RejectsABadQuantityQty1() => s.RunCase("rejects a bad quantity [qty=-1]").ThrowIfFailed();
 }
 
 // obj/.../BddSuite/_Run.g.cs: one per test assembly
@@ -201,7 +206,7 @@ it in its idiom:
 | `setup()` | runs suite setup once; idempotent; records a failure instead of throwing | suite setup |
 | `beforeEach(case)` | ensures setup ran, acquires the suite's case lock, runs beforeEach; records a failure instead of throwing | beforeEach |
 | `runCase(case) -> CaseResult` | runs case setup, steps, case asserts and case cleanup from a deep copy of setup's bag; reports a recorded setup or beforeEach failure as this case's result, exactly as the whole-file run does | case setup, steps, cleanup |
-| `afterEach(case)` | runs afterEach, appends its failure to the case result, releases the lock | afterEach |
+| `afterEach(case)` | runs afterEach, settles the case result (an afterEach failure makes it `failed`, reason `hook`), writes the case's trace entry, releases the lock; throws only if afterEach failed | afterEach |
 | `teardown() -> result` | runs teardown once if setup ran, on setup's bag | suite teardown |
 | `cases()`, `trace()` | the expanded case list; the trace so far | none |
 
@@ -226,11 +231,16 @@ record it. The next `runCase()` reports it as that case's result, with the
 same status, reason and message the whole-file run gives (setup failure:
 `error`, "Suite setup failed: ..."; beforeEach failure: `failed`, reason
 `hook`), and still runs case cleanup when the whole-file run would. Only
-`teardown()` throws, and only when teardown failed.
+`afterEach()` and `teardown()` throw, each only when its own block failed:
+afterEach is the last per-case hook, so nothing a framework skips after it can
+change a result, and every framework shows a failed per-test cleanup as that
+test's failure ([spec/session.md](../../spec/session.md), rules 3, 4 and 6).
 
-**Why.** Frameworks differ when an initialize hook throws: MSTest, NUnit, xUnit,
-Jest and Pester skip, error or re-attribute tests in different ways, and some
-then skip the cleanup hook. If hooks threw, the same suite would report
+**Why.** Frameworks differ when an initialize hook throws (T0): MSTest and
+NUnit skip the test body and still run the per-test cleanup, while xUnit
+calls neither `Dispose` nor `DisposeAsync` after a throwing constructor; Jest
+fails the cases, Vitest marks them skipped and `node:test` cancels them after
+a throwing `beforeAll`. If hooks threw, the same suite would report
 differently in each framework, and cleanup might not run. Recording keeps the
 corpus's failure rules exact everywhere and guarantees the matching
 `afterEach` is called.
@@ -258,8 +268,10 @@ selected. Lazy setup makes the rule hold in all of them.
 
 **Choice.** `runCase` deep-copies setup's bag. C#, Go, TypeScript and
 PowerShell change from a one-level copy; Rust already deep-copies. A new
-execute entry (`conformance/execute/capture-isolation.yml`) has a case modify
-a nested captured object and the next case and teardown read it unchanged.
+execute entry (`conformance/execute/capture-isolation.yml`) has a case change a
+nested captured list in place, through the corpus's `fixture.append` action
+(no core action changes a value in place, so the leak needs one), and the next
+case and the teardown read it unchanged.
 
 **Why.** The schema promises each case "a copy" and teardown setup's bag. With
 a one-level copy, a case that changes a nested value changes it for later
@@ -273,26 +285,38 @@ leak; such a suite is order-dependent already. Listed in the release notes.
 
 ### <a id="dec-t05"></a>DEC-T05. The phase-to-hook mapping per provider
 
-| Suite phase | MSTest | NUnit 4 | xUnit v3 | Go `testing` | Rust (custom harness) | `node:test` / Vitest / Jest | Pester 5 |
+| Suite phase | MSTest 4 | NUnit 4 | xUnit v3 | Go `testing` | Rust (custom harness) | `node:test` / Vitest / Jest | Pester 5 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| run context | `[AssemblyInitialize]` / `[AssemblyCleanup]` | `[SetUpFixture]` `[OneTimeSetUp]`/`[OneTimeTearDown]` | assembly fixture | generated `TestMain` | harness `main` | module scope of each test file; Vitest/Jest per worker ([DEC-T08](#dec-t08)) | `BeforeAll` in each file, module-cached |
-| suite setup | `[ClassInitialize]` | `[OneTimeSetUp]` | class fixture `InitializeAsync` | start of `TestSuite_X` | before the suite's first trial | `before` / `beforeAll` | `BeforeAll` |
+| run context | `[AssemblyInitialize]` / `[AssemblyCleanup]` | root `[SetUpFixture]` `[OneTimeSetUp]`/`[OneTimeTearDown]` | `[assembly: AssemblyFixture]` | generated `TestMain` | harness `main` | module scope of each test file ([DEC-T08](#dec-t08)) | a module imported (without `-Force`) in each file's `BeforeAll`, reset by the driver after the run |
+| suite setup | `[ClassInitialize]` | `[OneTimeSetUp]` | `IClassFixture<T>`, `InitializeAsync` | start of `TestSuite_<id>` | the suite's first executing trial | `before` / `beforeAll` | `BeforeAll` |
 | beforeEach | `[TestInitialize]` | `[SetUp]` | test class constructor | start of each `t.Run` | inside each trial | `beforeEach` | `BeforeEach` |
-| case | `[TestMethod]` | `[Test]` / `[TestCase]` | `[Fact]` / `[Theory]` | `t.Run(case)` | one trial per case | `it` / `test` | `It` |
-| examples row | `[DataRow]` with `DisplayName` | `[TestCase(..., TestName=...)]` | `[InlineData]` | one `t.Run` per row | one trial per row | one `it` per row | `It -ForEach` |
+| case | `[TestMethod(DisplayName = ...)]` | `[TestCase(TestName = ...)]` on a parameterless method | `[Fact(DisplayName = ...)]` | `t.Run(name)` | one trial per case | `it` / `test` | `It` with the name's `<` `>` escaped |
+| examples row | one method per row | one method per row | one `[Fact]` per row (a Theory row's name gets its arguments appended) | one `t.Run` per row | one trial per row | one `it` per row | one `It` per row (a `-ForEach` row cannot be selected by name) |
 | afterEach | `[TestCleanup]` | `[TearDown]` | `DisposeAsync` of the test class | `t.Cleanup` in the subtest | inside each trial, after the case | `afterEach` | `AfterEach` |
-| suite teardown | `[ClassCleanup]` | `[OneTimeTearDown]` | class fixture `DisposeAsync` | `t.Cleanup` on `TestSuite_X` | a final `<suite>::teardown` trial | `after` / `afterAll` | `AfterAll` |
+| suite teardown | `[ClassCleanup]` | `[OneTimeTearDown]` | class fixture `DisposeAsync` | `t.Cleanup` on `TestSuite_<id>` | a final `<suite>::teardown` trial, or the last executing case when that trial is filtered out | `after` / `afterAll` | `AfterAll` |
 | tags | `[TestCategory]` | `[Category]` | `[Trait("Category", ...)]` | names only; `BDD_SUITE_TAGS` | names only; `BDD_SUITE_TAGS` | names only; `BDD_SUITE_TAGS` | `-Tag` |
+| one test, from the command line | `--filter "Name=<escaped>"` | `--filter FullyQualifiedName=<method>` (a `Name=` with a space breaks the adapter) | `--filter FullyQualifiedName=<method>` | `-run 'TestSuite_<id>/<name>'` | `-- --exact '<suite>::<name>'` | `-t` / `--test-name-pattern` with an escaped, anchored regex (Vitest joins with ` > `) | `-FullNameFilter` with `[WildcardPattern]::Escape` |
 
-Where a teardown failure appears: its own entry where the framework has one
-(xUnit class cleanup failure, Go's parent test, Rust's teardown trial, Pester's
-container, node:test and Vitest suite hooks). For MSTest, NUnit and Jest the
-framework decides how a class-level cleanup failure is shown **(spike)**; the
-requirement every provider must meet is that the run fails, the message names
-the suite's teardown, and no case that passed is reported failed. Where a
-framework attributes the failure to a test, the provider instead reports it
-through the framework's run-level error channel, or documents the deviation in
-its README and E4's evidence.
+**Where a failed teardown appears (T0).** Every provider tested keeps passed
+cases passed and fails the run, as the suite rule requires; where the failure
+shows differs:
+
+| Provider | A failed suite teardown is shown as |
+| --- | --- |
+| MSTest 4 | its own Failed row `[<class> ClassCleanup]`, which reuses the class's last test's id, so a result reader matches rows by name. MSTest 3.x attaches it to a passed test, which is why MSTest 4 is the minimum. |
+| NUnit 4 | a run-level error (TRX `RunInfo`), exit 1; the console summary says "Failed: 0" |
+| xUnit v3 | a run-level error "[Test Class Cleanup Failure (...)]", exit 1 |
+| Go | the parent test `TestSuite_<id>` fails; its subtests keep their results |
+| Rust | the `<suite>::teardown` trial fails; when that trial is filtered out, the failure is printed to stderr and the harness exits 101 |
+| Vitest | a separate JUnit test case named after the describe |
+| Jest | jest-junit's synthetic test case " Test execution failure ..." (exit 1) |
+| `node:test` | only to a reporter: the built-in JUnit reporter drops it, so the provider ships a reporter that records it |
+| Pester | the container's `FailedBlocks` and, in NUnit3 output, the fixture with `site="TearDown"`; the provider writes NUnit3, because NUnit 2.5 output shows everything as Success |
+
+A failed run-level stop (`[AssemblyCleanup]` and equivalents) is reported by
+throwing, the only way the frameworks fail a run from there; MSTest then adds
+a second, Failed result to the last test, which a reader recognises by its
+message ("Assembly Cleanup method ...").
 
 **Why.** Each row uses the framework's native construct, so its UI, filters,
 reports and debugger work as for hand-written tests.
@@ -354,7 +378,9 @@ same keys in every language.
 **Choice.** The run context (composed extensions, started once, schema,
 options, params) is created once per test process: by the generated
 assembly/package hook, or lazily by the first session in frameworks without
-one (Vitest and Jest create one per worker process). Each session holds a case
+one. In the JavaScript frameworks that means **once per test file** (T0):
+Jest, Vitest's default isolation and `node:test` all give each test file its
+own module state, and Jest's `globalSetup` runs in another process. Each session holds a case
 lock from `beforeEach` to `afterEach`, so even under method-level parallelism
 two cases of one suite never run at once; different suites may run in
 parallel if the framework does so. The runtimes' shared trace and counters are
@@ -366,10 +392,13 @@ their defaults (xUnit runs classes in parallel; `cargo test` runs tests on
 threads; Jest uses worker processes); the lock and the per-process context
 make the defaults safe rather than asking users to change them.
 
-**Tradeoff.** Extension state is per worker under Vitest/Jest, so an extension
-that assumes one process (one lab connection) sees several. Documented; the
-generated Jest/Vitest config sets one worker when the suite set is guarded
-(**spike**).
+**Tradeoff.** Under the JavaScript frameworks, extension state is per test
+file, so an extension that assumes one process (one lab connection) is
+started once per suite file. Vitest can share it (`isolate: false`,
+`maxWorkers: 1`, set per project); Jest's worker count is global only and its
+module state stays per file. The TypeScript provider documents this, and its
+generated Vitest config for guarded suites sets `isolate: false` and one
+worker (T0).
 
 **Serves.** O4. **Verified by.** E11.
 
@@ -392,6 +421,15 @@ visible opt-in. Environment variables are the one input every framework and CI
 system can supply; values like lab ids and connection files are run-time
 inputs and must never be written into generated code (INV-7).
 
+How a test skips, per provider (T0): MSTest `Assert.Inconclusive`, NUnit
+`Assert.Ignore`, xUnit `Assert.Skip`, Go `t.Skip`, Rust an ignored trial,
+Vitest `ctx.skip(reason)`, `node:test` `t.skip(reason)` followed by `return`
+(it does not throw), Pester `Set-ItResult -Skipped -Because`. **Jest has no
+runtime skip**, so its generated file decides at load time, from the same
+environment variables, and declares a guarded or tag-filtered case with
+`it.skip`; the environment is read when the file loads, which is before any
+test runs, so the result is the same.
+
 **Tradeoff.** Forgetting the opt-in makes guarded tests skip rather than fail;
 the skip reason says exactly what to set, and CI can assert the expected count
 of skips.
@@ -402,7 +440,7 @@ of skips.
 
 | Language | When it runs | Output | Kept in step by |
 | --- | --- | --- | --- |
-| C# | MSBuild target in the `Bdd.Suite.Testing` package, before `CoreCompile`, with the suites as inputs | `obj/<config>/BddSuite/*.g.cs`, compiled, not committed | incremental build (inputs/outputs); the IDE's design-time build |
+| C# | Two MSBuild targets in the `Bdd.Suite.Testing` package: an incremental one generating with the suites as inputs, and an always-run one, `BeforeTargets="BeforeCompile"`, adding the files to `Compile`. `CoreCompile` is too late: a deleted suite would leave its tests in the assembly (T0). | `obj/<config>/BddSuite/*.g.cs`, compiled, not committed | incremental build (inputs/outputs); design-time builds run it too (checked with `dotnet msbuild -p:DesignTimeBuild=true` and Visual Studio 18's MSBuild, T0) |
 | Go | `//go:generate suiterun generate --config bddsuite.tests.yaml` | `*_bdd_test.go`, committed (Go convention) | `suiterun generate --check` in CI |
 | Rust | `build.rs` calling `suiterun::testing::generate` (the crate as a build-dependency) | `$OUT_DIR/suites.rs`, included by the harness file | Cargo's `rerun-if-changed` on the suites |
 | TypeScript | `npx suiterun generate` (an `npm` `pretest` script) | `*.bdd.test.ts`, committed or ignored by the team's choice | `--check` in CI when committed |
@@ -427,11 +465,29 @@ filtering by name works on the command line and in their run configurations.
 
 ### <a id="dec-t11"></a>DEC-T11. Rust uses a generated custom harness (libtest-mimic), not `#[test]` functions
 
-**Choice.** A `[[test]]` target with `harness = false` whose `main` builds one
-trial per case and row plus one `<suite>::teardown` trial per suite, applies
-the command line's filters itself (so it knows which case of a suite runs
-last), and runs each suite's trials in order on one thread while different
-suites run on the harness's threads.
+**Choice.** A `[[test]]` target with `harness = false` on libtest-mimic,
+pinned at `=0.8.2`, whose `main`:
+
+* builds one trial per case and row plus one `<suite>::teardown` trial per
+  suite, the suites interleaved round-robin;
+* predicts, before running, which trials the command line selects, with the
+  public `Arguments::is_filtered_out` and `is_ignored` on a probe trial (T0:
+  the prediction matched libtest-mimic's own for every argument combination
+  tried);
+* gives each suite a **turnstile**: a turn number for each unit that will run,
+  a mutex and condition variable so a unit waits for its turn, and a guard
+  that advances the turn even on panic. A suite's units therefore run in
+  order and never overlap, while suites run in parallel on the harness's
+  threads (a unit may run on any thread, so no suite state is thread-local);
+* runs setup in the suite's first executing unit and teardown in its last:
+  the teardown trial when it is selected, which then reports teardown's own
+  result; otherwise the last executing case, which prints a teardown failure
+  to stderr and makes the harness exit 101 after the run.
+
+The pin matters: the turnstile cannot deadlock only because 0.8.2 hands
+trials to its threads in list order; the T0 spike stays as the regression test
+for an upgrade. CI runs it with `cargo test --test <target> -- --format json
+--logfile <file>`, which works on stable for this target only.
 
 **Why.** libtest has no "before all"/"after all": with `#[test]` functions,
 setup can be done lazily but teardown has no place to run once after the last
@@ -454,6 +510,12 @@ per case with the expected statuses, and (b) the trace the session writes
 (`BDD_SUITE_TRACE_FILE`) with each corpus entry's expected trace, entry by
 entry. The same project checks name and tag filters, parallel settings,
 guarded skips and staleness.
+
+Result readers follow the T0 findings: they read run-level errors as well as
+per-test outcomes (TRX `RunInfo` rows, MSTest's `[<class> ClassCleanup]` row
+matched by name rather than id, Pester `FailedBlocks`, the exit code), and
+they treat zero executed tests as an error, because xUnit and the JavaScript
+runners exit 0 when a filter matches nothing.
 
 **Why.** The execute corpus already defines correct behaviour for every phase
 and failure; running it through each provider proves the mapping, not just
@@ -500,7 +562,8 @@ configuration.
 ### <a id="e1"></a>E1. The session reproduces the execute corpus in all five runtimes
 
 * **Given** the execute corpus plus the two new entries (`capture-isolation`,
-  and `nothing-selected`: a name filter that selects no case of a suite), and
+  and `nothing-selected`: a tag filter that selects no case of a suite, the same
+  rule a framework's name filter meets), and
   each runtime built from the tested commit.
 * **When** a session-level test drives each entry through the session in each
   framework's call order: class hook `setup()`, then per case `beforeEach`,
@@ -540,10 +603,10 @@ configuration.
 
 * **Given** `samples/workspace/tests/csharp/{mstest,nunit,xunit}`, each
   referencing `Bdd.Suite.Testing` and the sample extension, with the corpus
-  and sample suites as inputs; .NET 10 SDK; MSTest 3.x, NUnit 4.x, xUnit v3
+  and sample suites as inputs; .NET 10 SDK; MSTest 4.x, NUnit 4.x, xUnit v3
   (versions recorded).
 * **When** `dotnet test` runs each project, then with
-  `--filter "FullyQualifiedName~Orders_Suite&Name~places"`, then with
+  `--filter "FullyQualifiedName~Suite_Orders&Name~places"`, then with
   `--filter TestCategory=smoke` (MSTest/NUnit) or `Category=smoke` (xUnit),
   then with the framework's parallelism set to method level, 4 workers.
 * **Then** the generated source contains the attributes of [DEC-T05](#dec-t05)
@@ -552,7 +615,7 @@ configuration.
   skipped as not executed); the trace file equals the corpus's; the filtered
   runs run only the selected cases with setup and teardown once each; a failed
   teardown fails the run without turning a passed case into a failure, or the
-  provider's documented deviation from the spike is what happens; a failed
+  framework shows it where DEC-T05's table says; a failed
   setup reports "Suite setup failed" on each case; the parallel run passes
   E11's overlap check.
 * **Cleanup.** `dotnet clean`.
@@ -591,7 +654,8 @@ configuration.
 * **Then** one test per case and row with expected statuses (JUnit reporter);
   traces equal the corpus's; filters run setup and teardown once around the
   selection; teardown failure is reported as a suite-level error; Jest's
-  behaviour follows the spike's finding and its documented deviation if any.
+  failure appears where DEC-T05's table says (Jest's synthetic test case, the
+  `node:test` provider's own reporter).
 * **Cleanup.** None.
 
 ### <a id="e8"></a>E8. PowerShell: Pester runs the corpus

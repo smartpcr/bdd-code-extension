@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/spec/test-plan.schema.json",
+  "title": "Test plan",
+  "description": "What suiterun generate --plan prints and every generator renders: the suites and cases the generated code declares, with their identifiers, tags and guards (test-plan.md). Five runtimes must print the same plan for the same inputs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planVersion", "suites"],
+  "properties": {
+    "planVersion": { "const": 1 },
+    "suites": {
+      "description": "In ordinal order of file.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/suite" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "description": "Letters and digits from the name, each word capitalised, never starting with a digit, with _<n> appended on a collision (test-plan.md, Identifiers).",
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]*(_[0-9]+)?$"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "name", "id", "tags", "guarded", "guardedBy", "cases"],
+      "properties": {
+        "file": { "description": "Relative to the config's folder, forward slashes.", "type": "string", "minLength": 1 },
+        "name": { "description": "The suite key's value.", "type": "string", "minLength": 1 },
+        "id": { "$ref": "#/$defs/identifier" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "guarded": { "type": "boolean" },
+        "guardedBy": {
+          "description": "The actions offlineActions does not cover, sorted ordinally.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "cases": {
+          "description": "File order; examples rows in row order.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/case" }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "id", "tags"],
+      "properties": {
+        "name": { "description": "The exact case name, which is the test's display name and what the session is called with.", "type": "string", "minLength": 1 },
+        "id": { "$ref": "#/$defs/identifier" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "outline": { "description": "An examples row only: the case's own name.", "type": "string", "minLength": 1 },
+        "row": { "description": "An examples row only: its values, with their YAML types.", "type": "object" }
+      },
+      "dependentRequired": { "outline": ["row"], "row": ["outline"] }
+    }
+  }
+}

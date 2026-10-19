@@ -1,6 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **planned 2026-10-19; nothing built, nothing run.** The design, its
+Status: **stage T0 built 2026-10-19** (spikes and the shared contract,
+[evidence](../evidence/test-providers-t0.md)); stages T1-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -44,8 +45,15 @@ a completion condition.
   failure rules from DEC-T02 and DEC-T03); `spec/tests.config.schema.json`
   (DEC-T07); `conformance/execute/capture-isolation.yml` and
   `nothing-selected.yml` with expected traces (DEC-T04, DEC-T03);
-  `conformance/generate/` with suites, a config and `*.expected-plan.json`
-  (DEC-T06), listed in `run-manifest.yaml` under a new `generate` kind.
+  `conformance/generate/` with suites, a config and `plan.expected.json`
+  (DEC-T06), listed in `run-manifest.yaml` under a new top-level `generate`
+  list. **As built (T0):** `spec/test-plan.md` and `spec/test-plan.schema.json`
+  were added for the plan; `capture-isolation` needs the corpus action
+  `fixture.append` (no core action changes a value in place), which every
+  runtime's corpus test extension implements in its session stage;
+  `nothing-selected` uses a tag filter (no runtime has a name filter); entries a
+  runtime does not meet yet carry `pendingIn`; `generate` is a separate list
+  because the C# and Go corpus tests refuse unknown entry kinds.
 * **Why.** Five runtimes and nine providers need one written contract and one
   set of expected results, as the execute corpus is for running.
 * **How.** Write the session spec from the existing whole-file semantics (each
@@ -122,8 +130,8 @@ a completion condition.
 
 * **Result.** The MSTest template (the example in design section 3:
   `[TestClass]`, `[ClassInitialize]`, `[ClassCleanup]`, `[TestInitialize]`,
-  `[TestCleanup]`, `[TestMethod]` with display name, `[DataRow]` with
-  `DisplayName`, `[TestCategory]`, the assembly class with
+  `[TestCleanup]`, `[TestMethod(DisplayName = ...)]` for each case and each
+  examples row, `[TestCategory]`, the assembly class with
   `[AssemblyInitialize]`/`[AssemblyCleanup]`); `.runsettings` parameter
   support; the guarded skip as `Assert.Inconclusive` with the DEC-T09 reason;
   `samples/workspace/tests/csharp/mstest`.
@@ -157,7 +165,8 @@ a completion condition.
 
 * **Result.** xUnit template: a class fixture `IAsyncLifetime` for suite
   setup/teardown, the test class constructor and `IAsyncDisposable` for
-  beforeEach/afterEach, `[Fact(DisplayName=)]`/`[Theory]`+`[InlineData]`,
+  beforeEach/afterEach, one `[Fact(DisplayName=)]` per case and examples row
+  (a Theory row's display name gets its arguments appended, T0),
   `[Trait("Category", ...)]`, an assembly fixture for the run context,
   `Assert.Skip` for guarded; `samples/workspace/tests/csharp/xunit`.
 * **Why.** O2 for xUnit users (and the runtime's own test framework).
@@ -285,8 +294,9 @@ a completion condition.
 
 * **Result.** `Invoke-BddSuite -Generate` / `suiterun.ps1 generate`; generated
   `*.Bdd.Tests.ps1` (`Describe` per suite, `BeforeAll`/`AfterAll`,
-  `BeforeEach`/`AfterEach`, `It` per case with `-Tag`, `-ForEach` for rows,
-  `Set-ItResult -Skipped` for guarded); `samples/workspace/tests/powershell`.
+  `BeforeEach`/`AfterEach`, one `It` per case and examples row with `-Tag` and
+  `<` `>` escaped in the name (a `-ForEach` row cannot be selected, T0),
+  `Set-ItResult -Skipped` for guarded, NUnit3 output); `samples/workspace/tests/powershell`.
 * **Why.** O3, O5 for PowerShell.
 * **Files.** `runtimes/powershell/BddSuite/Generate.ps1`,
   `samples/workspace/tests/powershell/**`.
@@ -362,20 +372,20 @@ Result: spike findings; D1. Entry: none. Exit evidence: findings in
 `docs/evidence/test-providers-t0.md` with design.md revised where an answer
 differs; D1's schema tests; corpus still green. Size: 1–1.5.
 
-- [ ] T0.1 MSTest 3.x: how a throwing `[ClassCleanup]` is reported (TRX, VS, Rider); does it fail a passed test?
-- [ ] T0.2 NUnit 4: same for `[OneTimeTearDown]`; `[TestCase(TestName=)]` on a parameterless test.
-- [ ] T0.3 xUnit v3: class-fixture dispose failure reporting; assembly fixtures; `Assert.Skip`.
-- [ ] T0.4 Jest and Vitest: `afterAll` failure reporting; worker count control per project.
-- [ ] T0.5 MSTest `[DataRow(DisplayName=)]` and `[TestMethod(displayName)]` in TRX, VS and Rider Test Explorer.
-- [ ] T0.6 C#: MSBuild-target output visible to VS and Rider design-time builds.
-- [ ] T0.7 libtest-mimic: reading filters before running; ordering a group on one thread.
-- [ ] T0.8 Pester 5: discovery of generated files with `-ForEach` rows; `AfterAll` failure reporting.
-- [ ] T0.9 Record findings; revise DEC-T05, DEC-T08, DEC-T10, DEC-T11 as needed.
-- [ ] T0.10 `spec/session.md`.
-- [ ] T0.11 `spec/tests.config.schema.json` with schema tests.
-- [ ] T0.12 `capture-isolation` and `nothing-selected` execute entries; Rust confirms `capture-isolation`.
-- [ ] T0.13 Plan format and `conformance/generate/` suites with expected plans.
-- [ ] T0.14 Manifest `generate` kind; each runtime's corpus test skips it; all corpus tests green.
+- [x] T0.1 MSTest: how a throwing `[ClassCleanup]` is reported. Checked on 4.3.2 and 3.8.3 through TRX and the console; 4.x is the minimum (3.x fails a passed test). The Visual Studio and Rider view moved to T2.12 (`manual`).
+- [x] T0.2 NUnit 4: same for `[OneTimeTearDown]` (run-level error, tests stay passed); `[TestCase(TestName=)]` on a parameterless test works; `Name=` filters with spaces break the adapter.
+- [x] T0.3 xUnit v3: class- and assembly-fixture dispose failures are run-level errors; `Assert.Skip` works; a throwing constructor skips `Dispose`.
+- [x] T0.4 Jest, Vitest and `node:test`: `afterAll` failure reporting (`node:test`'s JUnit reporter drops it); per-file module state; worker control (Jest global only); runtime skip (none in Jest).
+- [x] T0.5 MSTest names: `[TestMethod(DisplayName=)]` (the 4.x constructor form silently keeps the method name) and `[DataRow(DisplayName=)]` are exact in TRX and `--list-tests`. The Visual Studio and Rider view moved to T2.12 (`manual`).
+- [x] T0.6 C#: a `BeforeCompile` target's output is compiled and listed by design-time builds (`dotnet msbuild -p:DesignTimeBuild=true`, Visual Studio 18 MSBuild); `CoreCompile` leaves a deleted suite's tests behind. Rider's own design-time build was not checked (T2.12, `manual`).
+- [x] T0.7 libtest-mimic 0.8.2: selection predicted with `is_filtered_out`/`is_ignored`; a per-suite turnstile keeps order under 8 threads; teardown trial, or the last case when it is filtered out.
+- [x] T0.8 Pester 5.7.1: one `It` per row (a `-ForEach` row cannot be selected), `<` `>` escaped; `AfterAll` failure visible only in NUnit3 output; module-state pattern.
+- [x] T0.9 Findings recorded in [the evidence](../evidence/test-providers-t0.md); DEC-T02, DEC-T05, DEC-T08, DEC-T09, DEC-T10, DEC-T11, DEC-T12 and E1, E4, E7 revised.
+- [x] T0.10 `spec/session.md` (rule 4 corrected after reading the runners: an afterEach failure is reason `hook`, settled and traced in `afterEach`).
+- [x] T0.11 `spec/tests.config.schema.json`, `spec/test-plan.schema.json` and `spec/test-plan.md`, with 19 assertions in `spec/Schema.Tests.ps1` (Passed 50, Failed 0).
+- [x] T0.12 `capture-isolation` (through `fixture.append`, declared in the corpus catalog and implemented in Rust's corpus extension) and `nothing-selected` (a tag filter) execute entries; Rust passes all 14; the other four list `capture-isolation` as pending.
+- [x] T0.13 Plan format and `conformance/generate/`: one config with eight suite files and `plan.expected.json`, one refused config.
+- [x] T0.14 Manifest: `generate` as a separate top-level list (C# and Go refuse unknown entry kinds) and `pendingIn`; the C#, Go, TypeScript and PowerShell corpus tests skip and report pending entries; all five runtimes' suites green.
 
 ### Stage T1: C# session (P0)
 
@@ -392,7 +402,7 @@ Result: D2. Entry: T0. Exit evidence: E1 and E2 for C#. Size: 1.5–2.
 - [ ] T1.9 Thread-safe `Trace`; `BDD_SUITE_TRACE_FILE` writer.
 - [ ] T1.10 `Executor.RunFile` rebuilt on the session.
 - [ ] T1.11 Unit tests per operation; E1 for C# (both orders).
-- [ ] T1.12 E2 for C#: unit tests, corpus, divergence check, VS Code integration suite.
+- [ ] T1.12 E2 for C#: unit tests, corpus, divergence check, VS Code integration suite; `fixture.append` in the corpus extension, and csharp removed from `capture-isolation`'s `pendingIn`.
 
 ### Stage T2: C# generator and MSTest (P0)
 
@@ -400,9 +410,9 @@ Result: D3, D4. Entry: T1. Exit evidence: E3 (C#), E4 (MSTest), E9 (C#),
 E10 (MSTest), E11 (MSTest), E12 (C#); E13 (MSTest) written. Size: 2.
 
 - [ ] T2.1 `Plan.Build`: suites, cases, rows, tags, guarded, identifiers.
-- [ ] T2.2 `suiterun generate --plan`; E3 plan check for C#.
+- [ ] T2.2 `suiterun generate --plan`; E3 plan check for C#; the runtime's corpus test runs the manifest's `generate` list, and csharp is removed from its `pendingIn`.
 - [ ] T2.3 `Bdd.Suite.Testing` project: `BddSuiteRun`, `ThrowIfFailed`, guarded skip.
-- [ ] T2.4 MSTest template; golden files.
+- [ ] T2.4 MSTest 4 template (`[TestMethod(DisplayName=)]`, one method per examples row); golden files.
 - [ ] T2.5 MSBuild targets: incremental generation, `Compile` items, design-time build.
 - [ ] T2.6 Provider auto-detection from package references.
 - [ ] T2.7 `--check` mode.
@@ -410,7 +420,7 @@ E10 (MSTest), E11 (MSTest), E12 (C#); E13 (MSTest) written. Size: 2.
 - [ ] T2.9 `samples/workspace/tests/csharp/mstest`: corpus and sample suites.
 - [ ] T2.10 TRX and trace comparison harness (shared by later providers).
 - [ ] T2.11 E4 for MSTest (filters, setup/teardown counts, parallel).
-- [ ] T2.12 E9 for C#; `manual` Visual Studio and Rider check recorded.
+- [ ] T2.12 E9 for C#; `manual` Visual Studio and Rider check recorded: display names, the `[<class> ClassCleanup]` row, and Rider's design-time build listing the generated files (left open by T0.1, T0.5, T0.6).
 - [ ] T2.13 E10 and E11 for MSTest.
 - [ ] T2.14 E12 for C#.
 - [ ] T2.15 E13 written and linted for MSTest.
@@ -419,10 +429,10 @@ E10 (MSTest), E11 (MSTest), E12 (C#); E13 (MSTest) written. Size: 2.
 
 Result: D5, D6. Entry: T2. Exit evidence: E4, E10, E11 for both. Size: 1.5.
 
-- [ ] T3.1 NUnit template and golden files; `[SetUpFixture]` run context.
+- [ ] T3.1 NUnit template (`[TestCase(TestName=)]` on one parameterless method per case and row) and golden files; root `[SetUpFixture]` run context.
 - [ ] T3.2 NUnit teardown reporting per T0.2.
 - [ ] T3.3 `samples/workspace/tests/csharp/nunit`; E4, E10, E11 for NUnit.
-- [ ] T3.4 xUnit v3 template and golden files; class and assembly fixtures.
+- [ ] T3.4 xUnit v3 template (one `[Fact(DisplayName=)]` per case and row) and golden files; class and assembly fixtures.
 - [ ] T3.5 xUnit skip and trait mapping.
 - [ ] T3.6 `samples/workspace/tests/csharp/xunit`; E4, E10, E11 for xUnit.
 
@@ -435,8 +445,8 @@ E9–E12 for Go. Size: 2–2.5.
 - [ ] T4.2 `RunContext` and environment options.
 - [ ] T4.3 `Session` operations with recorded failures and a case mutex.
 - [ ] T4.4 Deep copy; mutex on `Trace`; atomic `expr.minted`.
-- [ ] T4.5 `RunFile` rebuilt; E1 and E2 for Go; `go test -race`.
-- [ ] T4.6 Plan and `suiterun generate --plan`; E3 for Go.
+- [ ] T4.5 `RunFile` rebuilt; E1 and E2 for Go; `go test -race`; `fixture.append` in the corpus extension, and go removed from `capture-isolation`'s `pendingIn`.
+- [ ] T4.6 Plan and `suiterun generate --plan`; E3 for Go; the runtime's corpus test runs the manifest's `generate` list, and go is removed from its `pendingIn`.
 - [ ] T4.7 `suitetest` package: `Main`, `Open`, `Case`.
 - [ ] T4.8 Template, `gofmt`, `--check`; golden files.
 - [ ] T4.9 `samples/workspace/tests/go`; E5.
@@ -449,10 +459,10 @@ E9–E12 for Rust. Size: 2.5–3.
 
 - [ ] T5.1 Public `cli::Options::default`; `RunContext` and environment options.
 - [ ] T5.2 `Session` operations with recorded failures and a case guard.
-- [ ] T5.3 `run_file` rebuilt; E1 and E2 for Rust.
-- [ ] T5.4 Plan and `suiterun generate --plan`; E3 for Rust.
+- [ ] T5.3 `run_file` rebuilt; E1 and E2 for Rust (its corpus extension has implemented `fixture.append` since T0).
+- [ ] T5.4 Plan and `suiterun generate --plan`; E3 for Rust; the runtime's corpus test runs the manifest's `generate` list, and rust is removed from its `pendingIn`.
 - [ ] T5.5 Feature `testing`: `generate` for `build.rs`.
-- [ ] T5.6 Harness: trials per case and row, teardown trial, filter handling.
+- [ ] T5.6 Harness on libtest-mimic `=0.8.2`: trials per case and row, the teardown trial, selection predicted with `is_filtered_out`, teardown by the last case when its trial is filtered out (exit 101 on failure).
 - [ ] T5.7 Harness scheduling: one thread per suite, suites in parallel.
 - [ ] T5.8 `samples/workspace/tests/rust`; E6.
 - [ ] T5.9 E9, E10, E11, E12 for Rust.
@@ -464,12 +474,12 @@ E7, E9–E12 for TypeScript. Size: 2.5–3.
 
 - [ ] T6.1 `createRunContext` and environment options.
 - [ ] T6.2 `openSession` operations with recorded failures and a case lock.
-- [ ] T6.3 Deep copy; `runFile` rebuilt; exports; E1 and E2 for TypeScript (100% coverage).
-- [ ] T6.4 Plan and `suiterun generate --plan`; E3 for TypeScript.
+- [ ] T6.3 Deep copy; `runFile` rebuilt; exports; E1 and E2 for TypeScript (100% coverage); `fixture.append` in the corpus extension, and typescript removed from `capture-isolation`'s `pendingIn`.
+- [ ] T6.4 Plan and `suiterun generate --plan`; E3 for TypeScript; the runtime's corpus test runs the manifest's `generate` list, and typescript is removed from its `pendingIn`.
 - [ ] T6.5 Testing adapter taking the framework's hook functions.
-- [ ] T6.6 `node:test` template; sample project; E7 for `node:test`.
+- [ ] T6.6 `node:test` template and a reporter that records suite-level failures (the built-in JUnit reporter drops them); sample project; E7 for `node:test`.
 - [ ] T6.7 Vitest template; per-worker context; sample project; E7 for Vitest.
-- [ ] T6.8 Jest template; teardown reporting per T0.4; sample project; E7 for Jest.
+- [ ] T6.8 Jest template with guarded and tag-filtered cases declared `it.skip` at load time (Jest has no runtime skip); sample project; E7 for Jest.
 - [ ] T6.9 `--check`; E9, E10, E11, E12 for TypeScript.
 
 ### Stage T7: PowerShell (P1)
@@ -479,9 +489,9 @@ E9, E10, E12 for PowerShell. Size: 2.
 
 - [ ] T7.1 Session class and exported functions; run context owns the step runspace.
 - [ ] T7.2 Recorded failures; deep copy of the bag.
-- [ ] T7.3 `Invoke-BddSuiteRun` rebuilt; E1 and E2 for PowerShell.
-- [ ] T7.4 Plan and `-Generate -Plan`; E3 for PowerShell.
-- [ ] T7.5 Pester template with tags, rows, guarded skip; `-Check`.
+- [ ] T7.3 `Invoke-BddSuiteRun` rebuilt; E1 and E2 for PowerShell; `fixture.append` in the corpus extension, and powershell removed from `capture-isolation`'s `pendingIn`.
+- [ ] T7.4 Plan and `-Generate -Plan`; E3 for PowerShell; the runtime's corpus test runs the manifest's `generate` list, and powershell is removed from its `pendingIn`.
+- [ ] T7.5 Pester template: one `It` per case and row with `<` `>` escaped, tags, guarded skip, NUnit3 output; `-Check`.
 - [ ] T7.6 `samples/workspace/tests/powershell`; E8.
 - [ ] T7.7 E9, E10, E12 for PowerShell.
 

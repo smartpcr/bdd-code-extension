@@ -55,8 +55,13 @@ func TestEveryExecuteEntry(t *testing.T) {
 
 	failures := []string{}
 	checked := 0
+	pending := []string{}
 	for _, entry := range Entries(manifest, "execute") {
 		name := walk.Text(entry, "suite")
+		if PendingIn(entry, "go") {
+			pending = append(pending, name)
+			continue
+		}
 		stem := strings.TrimSuffix(filepath.Base(name), ".yml")
 		tracePath := filepath.Join(scratch, stem+".trace.json")
 		line := []string{"run", "--schema-root", corpus.Schema(), "--path", corpus.Path(name), "--trace-file", tracePath}
@@ -118,7 +123,7 @@ func TestEveryExecuteEntry(t *testing.T) {
 		}
 	}
 
-	t.Logf("%d of %d execute entries match", checked-len(failures), checked)
+	t.Logf("%d of %d execute entries match; pending for go: %v", checked-len(failures), checked, pending)
 	if checked < 9 {
 		t.Fatalf("only %d entries were checked", checked)
 	}

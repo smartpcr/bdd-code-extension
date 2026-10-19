@@ -1,0 +1,51 @@
+{
+  "kind": "execute",
+  "suite": "execute/capture-isolation.yml",
+  "description": "A nested value an action changes in place stays changed in its own case only; the next case and the teardown read the setup's value.",
+  "exitCode": 0,
+  "trace": [
+    {
+      "phase": "suite-setup",
+      "step": "step 1 (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-that-appends",
+      "step": "when this case appends to the list the suite setup captured (fixture.append)",
+      "action": "fixture.append",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-that-appends",
+      "step": "then the list it was given has grown (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-case-that-appends",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-after-it",
+      "step": "then it still sees the list the suite setup captured (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-case-after-it",
+      "status": "passed"
+    },
+    {
+      "phase": "suite-teardown",
+      "step": "step 1 (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    }
+  ]
+}

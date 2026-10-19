@@ -35,11 +35,17 @@ public sealed class ExecuteCorpusTests
 
         var failures = new List<string>();
         var checked_ = 0;
+        var pending = new List<string>();
         try
         {
             foreach (var entry in Corpus.Entries(manifest, "execute"))
             {
                 var name = entry.Text("suite");
+                if (Corpus.PendingIn(entry, "csharp"))
+                {
+                    pending.Add(name);
+                    continue;
+                }
                 var stem = Path.GetFileNameWithoutExtension(name);
                 var tracePath = Path.Combine(scratch, stem + ".trace.json");
                 var line = new List<string>
@@ -109,7 +115,8 @@ public sealed class ExecuteCorpusTests
             }
         }
 
-        Assert.Equal(12, checked_);
+        Assert.Equal(13, checked_);
+        Assert.Equal(["execute/capture-isolation.yml"], pending);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");
     }

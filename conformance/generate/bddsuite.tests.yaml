@@ -1,0 +1,7 @@
+# The generate corpus's config (spec/test-plan.md). Every runtime's
+# suiterun generate --plan, given this file, must print plan.expected.json.
+suites: [ "suites/**/*.yml" ]
+exclude: [ "suites/_lib/**" ]
+schemaRoot: ../schema
+provider: mstest
+offlineActions: [ "core.*", "wait" ]

@@ -50,13 +50,13 @@ func TestEveryEntryIsOfAKindThisBindingRuns(t *testing.T) {
 		t.Errorf("the manifest holds entries of kinds no test here runs: %s", strings.Join(unknown, ", "))
 	}
 	// The corpus as it stands here: 41 validate entries (os-context's
-	// lifecycle and E214 entries moved to os-context, DEC-S02) and 12 execute
+	// lifecycle and E214 entries moved to os-context, DEC-S02) and 14 execute
 	// entries.
 	if got := len(Entries(manifest, "validate")); got != 41 {
 		t.Errorf("%d validate entries, not 41", got)
 	}
-	if got := len(Entries(manifest, "execute")); got != 12 {
-		t.Errorf("%d execute entries, not 12", got)
+	if got := len(Entries(manifest, "execute")); got != 14 {
+		t.Errorf("%d execute entries, not 14", got)
 	}
 	if root := walk.Text(manifest, "schemaRoot"); root != "schema" {
 		t.Errorf("the manifest's schemaRoot is %q, not schema", root)
@@ -143,6 +143,9 @@ func TestEveryActionTheExecuteCorpusCallsIsOneThisBindingImplements(t *testing.T
 	}
 	called := map[string]bool{}
 	for _, entry := range Entries(manifest, "execute") {
+		if PendingIn(entry, "go") {
+			continue
+		}
 		held, err := corpus.YAML(walk.Text(entry, "suite"))
 		if err != nil {
 			t.Fatalf("%s: %v", walk.Text(entry, "suite"), err)

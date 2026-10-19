@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { parse } from 'yaml';
 import { corpus, corpusCli, corpusSchema, repo } from '../where.js';
 
-type Entry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string };
+type Entry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string; pendingIn?: string[] };
 type Expected = { exitCode: number; maxSeconds?: number; trace: Record<string, string>[] };
 
 const root = repo;
@@ -25,8 +25,12 @@ function run(argv: string[]): Promise<{ code: number | null; seconds: number }> 
 }
 
 test('B7.5-1 every execute entry: the trace, the exit code, inside maxSeconds', async () => {
-  const entries = manifest.entries.filter(e => e.kind === 'execute');
-  assert.equal(entries.length, 12);
+  const all = manifest.entries.filter(e => e.kind === 'execute');
+  assert.equal(all.length, 14);
+  // pendingIn: entries this runtime does not meet yet are reported as pending, never as passed.
+  const pending = all.filter(e => (e.pendingIn ?? []).includes('typescript')).map(e => e.suite);
+  assert.deepEqual(pending, ['execute/capture-isolation.yml']);
+  const entries = all.filter(e => !pending.includes(e.suite));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-execute-'));
   const wrong: string[] = [];
   await Promise.all(entries.map(async entry => {
@@ -45,6 +49,6 @@ test('B7.5-1 every execute entry: the trace, the exit code, inside maxSeconds', 
     if (expected.maxSeconds !== undefined && r.seconds > expected.maxSeconds) wrong.push(`${entry.suite}: ${r.seconds}s, over ${expected.maxSeconds}s`);
   }));
   fs.rmSync(dir, { recursive: true, force: true });
-  console.log(`  ${entries.length} execute entries run; ${wrong.length} differ`);
+  console.log(`  ${entries.length} execute entries run; ${wrong.length} differ; pending: ${pending.join(', ')}`);
   assert.deepEqual(wrong, []);
 });

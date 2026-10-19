@@ -1,0 +1,11 @@
+# A library: excluded by the config, and imported by d-lab.yml. Its meta step
+# uses an action offlineActions does not cover, which guards the suite that
+# uses it.
+metaSteps:
+  - name: read-the-group
+    description: Read the group's state.
+    steps:
+      - when: the group is read
+        action: fixture.state
+        captureAs: group
+    exports: [group]

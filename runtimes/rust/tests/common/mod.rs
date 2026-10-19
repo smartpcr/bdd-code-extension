@@ -9,7 +9,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::{json, Value};
-use suiterun::{Extension, Registry, RunState};
+use suiterun::actions::ActionError;
+use suiterun::{Action, Extension, Registry, RunState};
 
 /// This repository's root.
 pub fn repo() -> PathBuf {
@@ -36,12 +37,18 @@ pub fn core_catalog() -> PathBuf {
 
 /// The corpus's context keys (conformance/README.md): the core defines none
 /// beyond timeoutSec and defaults, so the corpus declares the ones its suites
-/// and expression table read, with the values of expressions/context.yaml.
+/// and expression table read, with the values of expressions/context.yaml. It
+/// also implements fixture.append, the one fixture action the execute corpus
+/// runs (execute/capture-isolation.yml).
 pub struct CorpusExtension;
 
 impl Extension for CorpusExtension {
     fn name(&self) -> &str {
         "the corpus"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        vec![Action::new("fixture.append", fixture_append)]
     }
 
     fn context_keys(&self) -> Vec<String> {
@@ -63,6 +70,19 @@ impl Extension for CorpusExtension {
             ..RunState::default()
         }
     }
+}
+
+/// fixture.append: the list it was given, with the item appended. The catalog
+/// says it changes that list in place; here the step is already a copy, so the
+/// append can only ever reach this step's own result, which is the isolation
+/// execute/capture-isolation.yml proves.
+fn fixture_append(request: &suiterun::actions::Request) -> suiterun::actions::Outcome {
+    let mut list = match request.step.get("list") {
+        Some(Value::Array(items)) => items.clone(),
+        _ => return Err(ActionError::action("fixture.append: list must be a list")),
+    };
+    list.push(request.step.get("item").cloned().unwrap_or(Value::Null));
+    Ok(Value::Array(list))
 }
 
 pub fn corpus_extensions() -> Vec<Arc<dyn Extension>> {

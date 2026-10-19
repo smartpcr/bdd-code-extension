@@ -4,3 +4,13 @@ out-test/
 coverage/
 .vscode-test/
 out/
+
+# Throw-away spikes (docs/test-providers, stage T0): keep their sources, never
+# their build output or test results.
+spikes/**/bin/
+spikes/**/obj/
+spikes/**/target/
+spikes/**/results/
+spikes/**/TestResults/
+spikes/**/*.trx
+spikes/**/events.log

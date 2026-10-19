@@ -111,6 +111,14 @@ public sealed class Corpus
         return out_;
     }
 
+    /// <summary>
+    /// Whether the manifest marks this entry pending for a binding: the binding
+    /// does not meet it yet, reports it as pending rather than passed, and is
+    /// removed from the entry's pendingIn in the change that makes it pass.
+    /// </summary>
+    public static bool PendingIn(OrderedMap entry, string binding) =>
+        (entry.List("pendingIn") ?? []).Any(name => name is string text && string.Equals(text, binding, StringComparison.Ordinal));
+
     /// <summary>Every action name a value names anywhere inside it.</summary>
     public static void CollectActions(object? value, HashSet<string> found)
     {

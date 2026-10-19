@@ -34,6 +34,7 @@ The same rule is stated for diagnostics in
 | `expressions/` | The expression language as a table: a fixed context and one row per expression. |
 | `asserts/` | The assertion operator table: one row per operator per interesting pair of operands. |
 | `report/` | How two reports are compared, and the canonical form of three of them. |
+| `generate/` | Test-generation configs, the suites they name, and the plan `suiterun generate --plan` must print for each ([spec/test-plan.md](../spec/test-plan.md)). |
 
 ## An expectation
 
@@ -90,6 +91,26 @@ A runtime's corpus test registers a test extension supplying the context keys
 the expression table reads (`cluster`, `target`, `labId`, `apiUrl`, with the
 values in `expressions/context.yaml`), because the core defines none of its
 own. Each runtime's own folder says how to run its corpus test.
+
+## Entries a runtime does not meet yet
+
+An entry may carry `pendingIn`, the runtimes that do not meet it yet. Such a
+runtime reports the entry as pending, never as passed, and removes itself from
+the list in the change that makes it pass, so the list only ever shrinks. Two
+uses today:
+
+* `execute/capture-isolation.yml` runs `fixture.append`, the one fixture action
+  the execute corpus runs, which each runtime's corpus test extension
+  implements. A runtime that copies the suite bag only one level deep fails
+  it; each removes itself when its session lands (docs/test-providers,
+  DEC-T04).
+* Every `generate` entry, until that runtime's generator lands.
+
+The `generate` list is separate from `entries`, so a runtime with no generator
+reads nothing new. For each `generate` entry a runtime runs `suiterun generate
+--config <config> --plan` and compares the printed plan with `expected` (as
+JSON, ignoring key order), or, for a refusal, the exit code and the
+diagnostics.
 
 ## Adding an entry
 

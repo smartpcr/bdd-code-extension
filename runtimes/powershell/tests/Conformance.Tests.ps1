@@ -384,8 +384,12 @@ try {
     # passed; only a trace says in which order the phases ran, which step a
     # guard skipped and which row of a table failed.
     # -------------------------------------------------------------------
+    # pendingIn names the runtimes that do not meet an entry yet; this one
+    # reports such an entry as pending, never as passed.
+    $pending = [System.Collections.Generic.List[string]]::new()
     foreach ($entry in $entries) {
         if ([string]$entry.kind -ne 'execute') { continue }
+        if (@($entry.pendingIn) -contains 'powershell') { $pending.Add([string]$entry.suite); continue }
         $result = Invoke-ExecuteEntry -Entry (@{} + $entry)
         $expectationPath = Get-CorpusPath ([string]$entry.expectation)
         if ($dump) {
@@ -422,6 +426,7 @@ try {
         Assert ($actualText -eq $expectedText) "$($entry.suite) trace differs.`nProduced:`n$actualText`nExpected:`n$expectedText"
         $counts.execute++
     }
+    Assert (($pending -join ',') -eq 'execute/capture-isolation.yml') "Pending for powershell: $($pending -join ', ')"
 
 
     # -------------------------------------------------------------------
@@ -649,8 +654,8 @@ line two</b><c></c><d>text<e/></d></r>'
     $uncovered = @($documented | Where-Object { -not $seenCodes.ContainsKey($_) })
     Assert (-not $uncovered.Count) "No corpus entry produces: $($uncovered -join ', ')"
 
-    Write-Host ("PASS: $script:checks conformance assertions: {0} validate, {1} execute, {2} reports, {3} expression rows, {4} assertion rows, core catalog = {5} registered." -f
-        $counts.validate, $counts.execute, $counts.reports, $counts.expressions, $counts.asserts, $registered.Count)
+    Write-Host ("PASS: $script:checks conformance assertions: {0} validate, {1} execute ({6} pending), {2} reports, {3} expression rows, {4} assertion rows, core catalog = {5} registered." -f
+        $counts.validate, $counts.execute, $counts.reports, $counts.expressions, $counts.asserts, $registered.Count, $pending.Count)
 } finally {
     if (Test-Path -LiteralPath $scratch) {
         $resolved = [IO.Path]::GetFullPath($scratch)

@@ -1,0 +1,4 @@
+# A suite that does not lint clean stops the whole plan: generate exits 2 and
+# writes nothing (spec/test-plan.md, Building the plan, step 2).
+suites: [ "suites/*.yml" ]
+schemaRoot: ../../schema

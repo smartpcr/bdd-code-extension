@@ -1,0 +1,8 @@
+suite: fine
+description: Lints clean; the plan still stops, because of the next file.
+
+tests:
+  - name: runs
+    steps:
+      - then: it runs
+        action: core.noop

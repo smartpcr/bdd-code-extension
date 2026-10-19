@@ -1,0 +1,30 @@
+suite: nothing-selected
+description: A tag filter that selects no case runs neither the suite setup nor the teardown, and reports every case as skipped.
+tags: [conformance]
+
+# The suite setup runs before the first selected case, and the teardown only
+# after a setup that ran. A run that selects none of this file's cases, which is
+# what a test framework's filter does to most files, must leave both alone
+# (test-providers DEC-T03). The manifest runs this entry with a tag no case has.
+setup:
+  - action: core.record
+    marker: setup-must-not-run
+
+teardown:
+  - action: core.record
+    marker: teardown-must-not-run
+
+tests:
+  - name: first
+    tags: [not-this-one]
+    steps:
+      - when: this case would run
+        action: core.record
+        marker: never-reached
+
+  - name: second
+    tags: [nor-this-one]
+    steps:
+      - when: this case would run too
+        action: core.record
+        marker: also-never-reached

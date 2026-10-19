@@ -14,7 +14,11 @@ importing it (DEC-S10 in `docs/self-contained/design.md`).
 | `diagnostics.md` | Every finding code, its meaning, the limit ceilings and the output formats. |
 | `Build-Schema.ps1` | Generates a workspace's `suite.schema.json` and `suite.schema.md` from the core, its catalog and what that imports. |
 | `suite.schema.json`, `suite.schema.md` | The generated schema and reference for the core catalog alone, committed so `-Check` keeps them current. |
-| `Schema.Tests.ps1` | The schema and import rules, asserted (Pester). |
+| `session.md` | The session contract: how a runtime runs one suite a phase at a time (setup, one case, teardown), so a test framework can drive it; the whole-file run is built on it. |
+| `test-plan.md` | What `suiterun generate` builds before it writes test code for a framework: the plan, its identifiers and guards, the config and the command line. |
+| `tests.config.schema.json` | What a test project's `bddsuite.tests.yaml` may contain. |
+| `test-plan.schema.json` | The JSON `suiterun generate --plan` prints. |
+| `Schema.Tests.ps1` | The schema, import, config and plan rules, asserted (Pester). |
 
 ## Extending the core in a workspace
 

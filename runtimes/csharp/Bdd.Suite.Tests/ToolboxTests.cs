@@ -307,7 +307,8 @@ public sealed class ToolboxTests
         Assert.True(schema.Has("core.noop"));
         Assert.True(schema.Has("wait"));
         Assert.True(schema.Has("fixture.state"));
-        Assert.Equal(12, schema.ActionNames.Count);
+        Assert.True(schema.Has("fixture.append"));
+        Assert.Equal(13, schema.ActionNames.Count);
         Assert.Equal(schema.ActionNames.OrderBy(name => name, StringComparer.Ordinal), schema.ActionNames);
 
         var invoke = schema.Actions["invoke"];

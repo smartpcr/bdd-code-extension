@@ -294,6 +294,22 @@ entries:
     expectation: execute/gherkin.expected.json
     description: A scenario reads as one, a table runs a step once per row in row order, an outline names its entries by their columns, and a failure carries the keyword and the sentence.
 
+  - kind: execute
+    suite: execute/nothing-selected.yml
+    expectation: execute/nothing-selected.expected.json
+    description: A tag filter that selects no case skips every case and runs neither the suite setup nor the teardown.
+    tags: selected-by-nobody
+
+  # pendingIn names the runtimes that do not meet an entry yet. Such a runtime
+  # reports the entry as pending, never as passed, and removes itself from the
+  # list in the change that makes it pass. Every runtime implements
+  # fixture.append in its corpus test extension before it removes itself.
+  - kind: execute
+    suite: execute/capture-isolation.yml
+    expectation: execute/capture-isolation.expected.json
+    description: A nested value an action changes in place stays changed in its own case only; the next case and the teardown read the setup's value.
+    pendingIn: [csharp, go, typescript, powershell]
+
 support:
   # Libraries the validate entries import, and catalog overlays they validate
   # against. They have no expectation of their own: what they are for is what
@@ -306,6 +322,25 @@ support:
   - validate/_catalog/new-parameter.yaml
   # The library execute/meta-from-library.yml imports.
   - execute/_lib/marks.yml
+
+generate:
+  # suiterun generate --plan (spec/test-plan.md): the plan a config must produce,
+  # or the refusal it must end in. A separate list rather than entries, so a
+  # runtime that has no generator yet reads nothing new. Every runtime is
+  # pending until its generator lands (docs/test-providers, stages T2 and
+  # T4-T7), and removes itself from pendingIn in that change.
+  - config: generate/bddsuite.tests.yaml
+    expected: generate/plan.expected.json
+    exitCode: 0
+    description: 'Names that sanitise alike in a suite and across suites, a reserved identifier, leading digits, no word at all, a non-ASCII letter, colliding outline rows, a library left out, an excluded folder, and a suite guarded through an imported meta step and a polled step.'
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - config: generate/invalid/bddsuite.tests.yaml
+    exitCode: 2
+    diagnostics:
+      - { file: suites/b-broken.yml, code: E104, line: 8, column: 17 }
+    description: 'A suite that does not lint clean stops the whole plan, though the file before it is fine: exit 2, the finding, nothing written.'
+    pendingIn: [powershell, csharp, go, rust, typescript]
 
 tables:
   # Two tables that are the specification rather than a description of one.

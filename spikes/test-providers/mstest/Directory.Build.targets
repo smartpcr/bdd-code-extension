@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <TestSdkVer Condition="'$(MSTestVer)' == '4.3.2'">18.4.0</TestSdkVer>
+    <TestSdkVer Condition="'$(TestSdkVer)' == ''">17.13.0</TestSdkVer>
+    <DefineConstants>$(DefineConstants);$(Variant.Replace('+', ';'))</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest.TestFramework" Version="$(MSTestVer)" />
+    <PackageReference Include="MSTest.TestAdapter" Version="$(MSTestVer)" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(TestSdkVer)" />
+  </ItemGroup>
+</Project>

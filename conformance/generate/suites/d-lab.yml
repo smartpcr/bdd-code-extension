@@ -1,0 +1,27 @@
+suite: lab-work
+description: Guarded through a meta step from a library and through the step a wait polls; core actions and wait alone guard nothing.
+imports:
+  - _lib/lab-steps.yml
+
+teardown:
+  - action: wait
+    intervalSec: 1
+    timeoutSec: 5
+    forStep:
+      action: inventory.get
+      route: /groups
+      captureAs: polled
+    until:
+      var: polled.statusCode
+      isNull: true
+
+tests:
+  - name: reads the group
+    tags: [lab]
+    steps:
+      - meta: read-the-group
+      - then: it came back
+        asserts:
+          - var: group
+            isNotNull: true
+        action: core.noop

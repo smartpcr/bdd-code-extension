@@ -212,3 +212,73 @@ Describe 'A workspace extends the core by import' {
         $r.Output | Should -Match ([regex]::Escape($Says))
     }
 }
+
+Describe 'The test-generation config and the test plan (test-plan.md)' {
+    BeforeAll {
+        Import-Module powershell-yaml -ErrorAction Stop
+        $script:ConfigSchema = Get-Content (Join-Path $script:SpecRoot 'tests.config.schema.json') -Raw
+        $script:PlanSchema = Get-Content (Join-Path $script:SpecRoot 'test-plan.schema.json') -Raw
+        $script:Corpus = Join-Path (Split-Path $script:SpecRoot -Parent) 'conformance'
+        function ConvertTo-ConfigJson([string]$Yaml) { ConvertFrom-Yaml $Yaml | ConvertTo-Json -Depth 20 }
+        $script:ValidConfig = "suites: [suites/**/*.yml]`nschemaRoot: ../schema"
+    }
+
+    It 'are drafts every JSON Schema validator the runtimes use understands' {
+        ($script:ConfigSchema | ConvertFrom-Json).'$schema' | Should -Be 'https://json-schema.org/draft/2020-12/schema'
+        ($script:PlanSchema | ConvertFrom-Json).'$schema' | Should -Be 'https://json-schema.org/draft/2020-12/schema'
+    }
+
+    It 'accepts the generate corpus config <Config>' -ForEach @(
+        @{ Config = 'generate/bddsuite.tests.yaml' }
+        @{ Config = 'generate/invalid/bddsuite.tests.yaml' }
+    ) {
+        $json = ConvertTo-ConfigJson (Get-Content (Join-Path $script:Corpus $Config) -Raw)
+        $json | Test-Json -Schema $script:ConfigSchema | Should -BeTrue
+    }
+
+    It 'accepts a config that names every key' {
+        $yaml = @(
+            'suites: [suites/**/*.yml]', 'exclude: [suites/_lib/**]', 'schemaRoot: ../schema', 'provider: xunit',
+            'extensions: [MyCompany.Actions.OrdersExtension]', "offlineActions: ['core.*', wait, orders.read]",
+            'output: { folder: generated, namespace: MyCompany.Suites.Tests, package: suites_test }'
+        ) -join "`n"
+        ConvertTo-ConfigJson $yaml | Test-Json -Schema $script:ConfigSchema | Should -BeTrue
+    }
+
+    It 'refuses a config with <What>' -ForEach @(
+        @{ What = 'no suites'; Yaml = 'schemaRoot: ../schema' }
+        @{ What = 'no schemaRoot'; Yaml = 'suites: [a.yml]' }
+        @{ What = 'an empty suites list'; Yaml = "suites: []`nschemaRoot: ../schema" }
+        @{ What = 'an unknown key'; Yaml = "suites: [a.yml]`nschemaRoot: ../schema`nprovidr: mstest" }
+        @{ What = 'an unknown provider'; Yaml = "suites: [a.yml]`nschemaRoot: ../schema`nprovider: junit" }
+        @{ What = 'a backslash in a path'; Yaml = "suites: ['suites\a.yml']`nschemaRoot: ../schema" }
+        @{ What = 'a pattern with a star in the middle'; Yaml = "suites: [a.yml]`nschemaRoot: ../schema`nofflineActions: ['core.*.x']" }
+        @{ What = 'an unknown output key'; Yaml = "suites: [a.yml]`nschemaRoot: ../schema`noutput: { dir: x }" }
+        @{ What = 'a namespace that is not one'; Yaml = "suites: [a.yml]`nschemaRoot: ../schema`noutput: { namespace: 'My.1Bad' }" }
+    ) {
+        ConvertTo-ConfigJson $Yaml | Test-Json -Schema $script:ConfigSchema -ErrorAction SilentlyContinue | Should -BeFalse
+    }
+
+    It 'accepts the generate corpus expected plan' {
+        Get-Content (Join-Path $script:Corpus 'generate/plan.expected.json') -Raw | Test-Json -Schema $script:PlanSchema | Should -BeTrue
+    }
+
+    It 'refuses a plan with <What>' -ForEach @(
+        @{ What = 'an identifier starting with a digit'; Case = '{ "name": "3 retries", "id": "3Retries", "tags": [] }' }
+        @{ What = 'an identifier with an underscore before a word'; Case = '{ "name": "a b", "id": "A_B", "tags": [] }' }
+        @{ What = 'an outline without its row'; Case = '{ "name": "a [x=1]", "id": "AX1", "tags": [], "outline": "a" }' }
+        @{ What = 'a repeated tag'; Case = '{ "name": "a", "id": "A", "tags": ["x", "x"] }' }
+    ) {
+        $plan = '{ "planVersion": 1, "suites": [ { "file": "a.yml", "name": "a", "id": "A", "tags": [], "guarded": false, "guardedBy": [], "cases": [ ' + $Case + ' ] } ] }'
+        $plan | Test-Json -Schema $script:PlanSchema -ErrorAction SilentlyContinue | Should -BeFalse
+    }
+
+    It 'names, in the run manifest, only generate files that exist' {
+        $manifest = ConvertFrom-Yaml (Get-Content (Join-Path $script:Corpus 'run-manifest.yaml') -Raw)
+        @($manifest.generate).Count | Should -BeGreaterThan 0
+        foreach ($entry in $manifest.generate) {
+            Join-Path $script:Corpus $entry.config | Should -Exist
+            if ($entry.expected) { Join-Path $script:Corpus $entry.expected | Should -Exist }
+        }
+    }
+}
