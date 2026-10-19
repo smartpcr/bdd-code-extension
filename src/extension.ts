@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { catalogSourceGlobs, readSettings, WorkspaceLayout } from './config/layout';
+import { catalogSourceGlobs, readSettings, servingLayout, WorkspaceLayout } from './config/layout';
 import { createTrustGate } from './config/trust';
 import { resolveCatalog } from './core/catalog';
 import { LintResults } from './core/diagnostics';
@@ -96,9 +96,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
   // Lint results outlive a rebuild, so a settings change never empties a file's findings (B2.4-1).
   const results = new Map<string, LintResults>();
 
+  // A suite under another test/e2e/schema in the same folder is that tree's, not this catalog's.
   const owner = (uri: vscode.Uri): FolderIndexer | undefined => {
-    const key = fileKey(uri.fsPath);
-    return api.indexers.find(ix => key === ix.layout.folder || key.startsWith(ix.layout.folder + path.sep));
+    const layout = servingLayout(uri.fsPath, api.indexers.map(ix => ix.layout), p => fs.existsSync(p));
+    return layout && api.indexers.find(ix => ix.layout === layout);
   };
 
   const notifyNotBuilt = (tool: string) => {

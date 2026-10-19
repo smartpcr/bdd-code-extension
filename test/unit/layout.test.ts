@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test } from 'node:test';
 import { DEFAULT_BINDINGS, DEFAULT_SETTINGS } from '../../src/config/defaults';
-import { catalogSourceGlobs, fileKey, findRepositoryRoot, readSettings, WorkspaceLayout } from '../../src/config/layout';
+import { catalogSourceGlobs, fileKey, findRepositoryRoot, readSettings, servingLayout, WorkspaceLayout } from '../../src/config/layout';
 import { configurationContribution } from '../../src/config/packageConfig';
 
 const ROOT = path.resolve('/repo');
@@ -25,6 +25,31 @@ test('B1.1-3 nearest ancestor wins', () => {
 
 test('B1.1-3 no root', () => {
   assert.strictEqual(findRepositoryRoot('/repo/a', () => false), undefined);
+});
+
+// A folder whose settings name a catalog in one suite tree, holding a second tree.
+const fixtureRoot = fileKey('/repo/fixture');
+const sampleRoot = fileKey('/repo/samples/workspace');
+const repoLayout = { folder: fileKey('/repo'), root: fixtureRoot };
+const twoTrees = has('/repo/fixture/test/e2e/schema', '/repo/samples/workspace/test/e2e/schema');
+
+test('servingLayout: a suite under the catalog\'s own root is served', () => {
+  assert.strictEqual(servingLayout('/repo/fixture/test/e2e/suites/a.yml', [repoLayout], twoTrees), repoLayout);
+});
+
+test('servingLayout: a suite under another root in the same folder is not served by this catalog', () => {
+  assert.strictEqual(servingLayout('/repo/samples/workspace/test/e2e/suites/checkout.yml', [repoLayout], twoTrees), undefined);
+});
+
+test('servingLayout: a folder opened on the other tree serves it, though an outer folder holds it too', () => {
+  const sample = { folder: sampleRoot, root: sampleRoot };
+  assert.strictEqual(servingLayout('/repo/samples/workspace/test/e2e/suites/checkout.yml', [repoLayout, sample], twoTrees), sample);
+  assert.strictEqual(servingLayout('/repo/fixture/test/e2e/suites/a.yml', [repoLayout, sample], twoTrees), repoLayout);
+});
+
+test('servingLayout: a file with no root above it falls to the innermost folder; outside every folder, none', () => {
+  assert.strictEqual(servingLayout('/repo/src/x.ts', [repoLayout], twoTrees), repoLayout);
+  assert.strictEqual(servingLayout('/elsewhere/x.yml', [repoLayout], twoTrees), undefined);
 });
 
 test('fileKey lowercases a drive letter only', () => {

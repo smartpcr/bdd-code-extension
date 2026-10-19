@@ -18,6 +18,25 @@ export function findRepositoryRoot(start: string, exists: (p: string) => boolean
 
 export { fileKey };
 
+/**
+ * The layout that serves `file`. Of the layouts whose folder holds it, the one
+ * whose root is the file's own root (findRepositoryRoot from its directory):
+ * a file under a second suite tree inside the folder belongs to that tree's
+ * catalog, never to this one, so it gets none of this catalog's checks. A file
+ * with no root above it falls to the innermost folder holding it.
+ */
+export function servingLayout<T extends { folder: string; root: string }>(
+  file: string, layouts: readonly T[], exists: (p: string) => boolean): T | undefined {
+  const key = fileKey(file);
+  const holding = layouts.filter(l => key === l.folder || key.startsWith(l.folder + path.sep))
+    .sort((a, b) => b.folder.length - a.folder.length);
+  if (holding.length === 0) return undefined;
+  const root = findRepositoryRoot(path.dirname(key), exists);
+  if (root === undefined) return holding[0];
+  const rootKey = fileKey(root);
+  return holding.find(l => l.root === rootKey);
+}
+
 export interface SettingsResult {
   settings: Settings;
   messages: string[];
