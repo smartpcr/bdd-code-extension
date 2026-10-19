@@ -1,0 +1,7 @@
+# The conformance corpus's execute suites as go test tests.
+suites: [ "../../../../../conformance/execute/*.yml" ]
+schemaRoot: ../../../../../conformance/schema
+provider: go
+extensions: [ example.com/shop/suitetests/corpusext.Extension ]
+contextKeys: [ cluster, target, labId, apiUrl ]
+output: { package: corpus }

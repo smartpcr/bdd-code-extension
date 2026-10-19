@@ -68,7 +68,7 @@ nothing generates the framework's test declarations (`[TestClass]`,
 | <a id="o2"></a>**O2** | **C# suites run as MSTest, NUnit or xUnit tests.** For each suite file the build generates a test class: `[TestClass]`, `[ClassInitialize]`/`[ClassCleanup]` for suite setup/teardown, `[TestInitialize]`/`[TestCleanup]` for beforeEach/afterEach, one `[TestMethod]` per case with `[DataRow]` per examples row, `[TestCategory]` per tag, and `[AssemblyInitialize]`/`[AssemblyCleanup]` for the run context (and the NUnit and xUnit equivalents). | [D3](implementation.md#d3)–[D6](implementation.md#d6) | [E3](#e3), [E4](#e4), [E9](#e9) |
 | <a id="o3"></a>**O3** | **Go, Rust, TypeScript and PowerShell suites run under `go test`, `cargo test`, `node:test`/Vitest/Jest and Pester**, with the same mapping in each language's idiom. | [D8](implementation.md#d8), [D10](implementation.md#d10), [D12](implementation.md#d12), [D14](implementation.md#d14) | [E3](#e3), [E5](#e5)–[E9](#e9) |
 | <a id="o4"></a>**O4** | **A native run keeps the suite's rules**: the six phases in order with their failure rules (the execute corpus), selection by name and tag with setup and teardown once around what is selected, cases of one suite never overlapping, and guarded suites never running without an explicit opt-in. | [D1](implementation.md#d1), every session and provider | [E1](#e1), [E4](#e4)–[E8](#e8), [E10](#e10), [E11](#e11), [E13](#e13) |
-| <a id="o5"></a>**O5** | **Generated tests stay in step with the YAML and are found by the usual tools**: a suite edit is reflected at the next build or fails a check; each framework's list command and IDE test explorer show one test per case and row. | [D3](implementation.md#d3), [D8](implementation.md#d8), [D10](implementation.md#d10), [D12](implementation.md#d12), [D14](implementation.md#d14), [D15](implementation.md#d15) | [E9](#e9), [E12](#e12) |
+| <a id="o5"></a>**O5** | **Generated tests stay in step with the YAML and are found by the usual tools**: a suite edit is reflected at the next build or fails a check; each framework's list command shows one test per case and row (IDE test explorers are out of scope, 1.3). | [D3](implementation.md#d3), [D8](implementation.md#d8), [D10](implementation.md#d10), [D12](implementation.md#d12), [D14](implementation.md#d14), [D15](implementation.md#d15) | [E9](#e9), [E12](#e12) |
 
 ### 1.3 Scope and non-goals
 
@@ -513,9 +513,13 @@ generates tests for the whole execute corpus and the sample suites, runs them
 with the framework's own command, and compares (a) the framework's results
 (TRX, JUnit XML, `go test -json`, libtest JSON, TAP/JUnit, Pester NUnit XML)
 per case with the expected statuses, and (b) the trace the session writes
-(`BDD_SUITE_TRACE_FILE`) with each corpus entry's expected trace, entry by
-entry. The same project checks name and tag filters, parallel settings,
-guarded skips and staleness.
+(`BDD_SUITE_TRACE_FILE`) with each corpus entry's expected trace: the suite
+setup's entries first and the teardown's last, exactly, and each case's
+entries as one unbroken group, exactly, in whatever order the framework ran the
+cases (T3: NUnit and xUnit do not keep file order, and the suite rules do not
+ask them to; interleaved cases break a group and fail the comparison). The
+same project checks name and tag filters, parallel settings, guarded skips and
+staleness.
 
 Result readers follow the T0 findings: they read run-level errors as well as
 per-test outcomes (TRX `RunInfo` rows, MSTest's `[<class> ClassCleanup]` row

@@ -1,7 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **stages T0, T1 and T2 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
-[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md)); stages T3-T10 not started. The design, its
+Status: **stages T0 to T4 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md)); stages T5-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -429,28 +429,28 @@ E10 (MSTest), E11 (MSTest), E12 (C#); E13 (MSTest) written. Size: 2.
 
 Result: D5, D6. Entry: T2. Exit evidence: E4, E10, E11 for both. Size: 1.5.
 
-- [ ] T3.1 NUnit template (`[TestCase(TestName=)]` on one parameterless method per case and row) and golden files; root `[SetUpFixture]` run context.
-- [ ] T3.2 NUnit teardown reporting per T0.2.
-- [ ] T3.3 `samples/workspace/tests/csharp/nunit`; E4, E10, E11 for NUnit.
-- [ ] T3.4 xUnit v3 template (one `[Fact(DisplayName=)]` per case and row) and golden files; class and assembly fixtures.
-- [ ] T3.5 xUnit skip and trait mapping.
-- [ ] T3.6 `samples/workspace/tests/csharp/xunit`; E4, E10, E11 for xUnit.
+- [x] T3.1 NUnit template (`[TestCase(TestName=)]` on one parameterless method per case and row) and golden files; root `[SetUpFixture]` run context.
+- [x] T3.2 NUnit teardown reporting per T0.2.
+- [x] T3.3 `samples/workspace/tests/csharp/nunit`; E4, E10, E11 for NUnit.
+- [x] T3.4 xUnit v3 template (one `[Fact(DisplayName=)]` per case and row) and golden files; class and assembly fixtures.
+- [x] T3.5 xUnit skip and trait mapping.
+- [x] T3.6 `samples/workspace/tests/csharp/xunit`; E4, E10, E11 for xUnit.
 
 ### Stage T4: Go (P1)
 
 Result: D7, D8. Entry: T0 (T1 as reference). Exit evidence: E1, E2, E3, E5,
 E9–E12 for Go. Size: 2–2.5.
 
-- [ ] T4.1 Move the needed scope builders out of `internal/suite`.
-- [ ] T4.2 `RunContext` and environment options.
-- [ ] T4.3 `Session` operations with recorded failures and a case mutex.
-- [ ] T4.4 Deep copy; mutex on `Trace`; atomic `expr.minted`.
-- [ ] T4.5 `RunFile` rebuilt; E1 and E2 for Go; `go test -race`; `fixture.append` in the corpus extension, and go removed from `capture-isolation`'s `pendingIn`.
-- [ ] T4.6 Plan and `suiterun generate --plan`; E3 for Go; the runtime's corpus test runs the manifest's `generate` list, and go is removed from its `pendingIn`.
-- [ ] T4.7 `suitetest` package: `Main`, `Open`, `Case`.
-- [ ] T4.8 Template, `gofmt`, `--check`; golden files.
-- [ ] T4.9 `samples/workspace/tests/go`; E5.
-- [ ] T4.10 E9, E10, E11, E12 for Go.
+- [x] T4.1 Move the needed scope builders out of `internal/suite`. (Not needed: the session is in the same module; see the T4 evidence.)
+- [x] T4.2 `RunContext` and environment options.
+- [x] T4.3 `Session` operations with recorded failures and a case mutex.
+- [x] T4.4 Deep copy; mutex on `Trace`; atomic `expr.minted`.
+- [x] T4.5 `RunFile` rebuilt; E1 and E2 for Go; `go test -race`; `fixture.append` in the corpus extension, and go removed from `capture-isolation`'s `pendingIn`.
+- [x] T4.6 Plan and `suiterun generate --plan`; E3 for Go; the runtime's corpus test runs the manifest's `generate` list, and go is removed from its `pendingIn`.
+- [x] T4.7 `suitetest` package: `Main`, `Open`, `Case`.
+- [x] T4.8 Template, `gofmt`, `--check`; golden files.
+- [x] T4.9 `samples/workspace/tests/go`; E5.
+- [x] T4.10 E9, E10, E11, E12 for Go.
 
 ### Stage T5: Rust (P1)
 

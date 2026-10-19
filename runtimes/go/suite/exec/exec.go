@@ -69,11 +69,17 @@ func CoreOnly() *RunExtensions {
 
 // CaseResult is what one case did.
 type CaseResult struct {
-	Name        string
-	Status      trace.Status
-	Message     string
-	Output      string
-	DurationSec float64
+	Name   string
+	Status trace.Status
+	// Reason is the trace's reason when the case did not pass.
+	Reason trace.Reason
+	// AfterEachFailed says whether the afterEach block failed, which a test
+	// framework shows as a failure of its per-test cleanup (spec/session.md,
+	// rule 4).
+	AfterEachFailed bool
+	Message         string
+	Output          string
+	DurationSec     float64
 }
 
 // SuiteResult is what one suite file did.
@@ -482,7 +488,12 @@ func limitOf(held *model.Map, key string, fallback int64) int64 {
 	return fallback
 }
 
-// RunFile runs one suite file.
+// RunFile runs one suite file: the whole-file run every suiterun run does,
+// built on the session a test framework drives a phase at a time
+// (spec/session.md). The suite setup runs before the first case, as it always
+// has, so a case a tag filter skips is traced after it; then each case through
+// BeforeEach, RunCase and AfterEach; then the teardown, whose failure is its own
+// entry.
 func RunFile(
 	path string,
 	suiteModel *model.Map,
@@ -491,204 +502,51 @@ func RunFile(
 	run *RunExtensions,
 	recorded *trace.Trace,
 ) (SuiteResult, error) {
-	if run == nil {
-		run = CoreOnly()
-	}
-	// The name a report carries is the one the file declares, not the file name:
-	// two suites in one directory may be renamed without every stored report
-	// changing, and the declared name is what a person recognises.
-	name := walk.Text(suiteModel, "suite")
-	if name == "" {
-		name = baseName(path)
-	}
-	library, err := suite.ReadLibraries(suiteModel, path)
+	session, err := Open(path, suiteModel, loaded, ForRun(options, run, recorded), false)
 	if err != nil {
 		return SuiteResult{}, err
 	}
-	definitions := suite.MetaDefinitions(suiteModel, library)
-	hooks, err := suite.ExpandedHooks(suiteModel, definitions)
-	if err != nil {
-		return SuiteResult{}, err
-	}
-
-	result := SuiteResult{Name: name}
-	allCases := suite.Cases(suiteModel)
-	selected := 0
-	for _, held := range allCases {
-		tags := suite.CaseTags(suiteModel, held)
-		if suite.TagsMatch(tags, options.Tags) {
-			selected++
+	result := SuiteResult{Name: session.Name}
+	session.Setup()
+	for index := range session.Cases {
+		if err := session.BeforeEach(index); err != nil {
+			return SuiteResult{}, err
 		}
-	}
-
-	// The suite bag: filled once before the first selected case and read by the
-	// teardown after the last. Every case starts from a copy of it.
-	suiteScope := model.NewMap()
-	suiteScope.Set("capture", model.NewMap())
-	suiteScope.Set("var", model.NewMap())
-	suiteSetupError := ""
-	if !options.DryRun && selected > 0 && len(hooks["setup"]) > 0 {
-		held := &Context{Scope: cloneScope(suiteScope), RecordPath: options.RecordPath, Run: run}
-		failure := runHook(hooks["setup"], held, loaded,
-			limitOf(suiteModel, "setupTimeoutSec", defaultHookSec),
-			"suite setup", trace.SuiteSetup, "", recorded)
-		suiteScope = held.Scope
-		if failure != nil {
-			suiteSetupError = failure.Error()
+		if _, err := session.RunCase(index); err != nil {
+			return SuiteResult{}, err
 		}
-	}
-
-	for _, held := range allCases {
-		caseName := walk.Text(held, "name")
-		tags := suite.CaseTags(suiteModel, held)
-		if !suite.TagsMatch(tags, options.Tags) {
-			recorded.Add(trace.Case, caseName, "", "", trace.Skipped, trace.Tag)
-			result.Cases = append(result.Cases, CaseResult{
-				Name: caseName, Status: trace.Skipped, Message: "tag filter",
-			})
-			continue
-		}
-		if suiteSetupError != "" {
-			recorded.Add(trace.Case, caseName, "", "", trace.Error, trace.SuiteSetupFail)
-			result.Cases = append(result.Cases, CaseResult{
-				Name: caseName, Status: trace.Error,
-				Message: "Suite setup failed: " + suiteSetupError,
-			})
-			continue
-		}
-		if options.DryRun {
-			result.Cases = append(result.Cases, CaseResult{
-				Name: caseName, Status: trace.Skipped,
-				Message: "Validated only; live execution pending.",
-			})
-			continue
-		}
-
-		started := time.Now()
-		phases, err := suite.ExpandedCase(held, definitions)
+		settled, err := session.AfterEach(index)
 		if err != nil {
 			return SuiteResult{}, err
 		}
-		scope := cloneScope(suiteScope)
-		scope.Set("param", suite.ResolveParams(library, suiteModel, held, options.Params, run.Composite.EnvPrefix))
-		if row, found := held.Get("__row"); found {
-			scope.Set("row", row)
-		}
-		defaults := library.Defaults.Clone()
-		if declared, ok := walk.AsMap(suiteModel.Value("defaults")); ok {
-			for _, key := range declared.Keys() {
-				defaults.Set(key, declared.Value(key))
-			}
-		}
-		for _, key := range defaults.Keys() {
-			scope.Set(key, defaults.Value(key))
-		}
-		scope.Set("defaults", defaults)
-		scope.Set("timeoutSec", limitOf(held, "timeoutSec", defaultCaseSec))
-		// The extensions' context keys: a value given for this run wins over the
-		// suite's defaults; a key with neither reads as "".
-		for _, key := range run.Composite.ContextKeys {
-			if given, found := run.Started.Context[key]; found {
-				scope.Set(key, given)
-			} else if !scope.Has(key) {
-				scope.Set(key, "")
-			}
-		}
-		if err := suite.ResolveVars(library, suiteModel, held, scope, run.Composite.Roots...); err != nil {
-			return SuiteResult{}, err
-		}
-		context := &Context{Scope: scope, RecordPath: options.RecordPath, Run: run}
-
-		status := trace.Passed
-		message := ""
-		reason := trace.None
-		output := strings.Builder{}
-
-		caseLimit := run.Composite.CaseLimitSec(suiteModel, limitOf(held, "timeoutSec", defaultCaseSec))
-
-		failure := runCase(held, phases, hooks, context, loaded, suiteModel, caseName, caseLimit, recorded, &output)
-		if failure != nil {
-			status = trace.Failed
-			message = failure.Error()
-			reason = trace.Action
-			if refused, ok := failure.(*actions.Error); ok {
-				reason = refused.Reason
-			}
-		}
-
-		// Cleanup gets its own bounded window even after a case timed out, and
-		// afterEach runs even when the cleanup threw.
-		if len(phases["cleanup"]) > 0 {
-			if failure := runHook(phases["cleanup"], context, loaded,
-				limitOf(held, "cleanupTimeoutSec", defaultCleanupSec),
-				"cleanup", trace.CaseCleanup, caseName, recorded); failure != nil {
-				status = trace.Failed
-				reason = trace.Cleanup
-				message = message + " Cleanup failed: " + failure.Error()
-			}
-		}
-		if failure := runHook(hooks["afterEach"], context, loaded,
-			limitOf(suiteModel, "afterEachTimeoutSec", defaultHookSec),
-			"afterEach", trace.AfterEach, caseName, recorded); failure != nil {
-			status = trace.Failed
-			reason = trace.Hook
-			message = message + " afterEach failed: " + failure.Error()
-		}
-
-		recorded.Add(trace.Case, caseName, "", "", status, reason)
-		result.Cases = append(result.Cases, CaseResult{
-			Name:        caseName,
-			Status:      status,
-			Message:     strings.TrimSpace(message),
-			Output:      output.String(),
-			DurationSec: time.Since(started).Seconds(),
-		})
+		result.Cases = append(result.Cases, settled)
 	}
 
-	// The teardown runs after the last case whether cases passed and whether the
-	// setup did: state a failed setup half-built still has to be undone.
-	//
 	// A teardown that fails is its own entry rather than a change to the last
 	// case's result, because a teardown is not a test and the case it would be
 	// charged to did nothing wrong. It does fail the run: a suite whose teardown
 	// could not undo what it did has not finished cleanly.
-	if !options.DryRun && selected > 0 && len(hooks["teardown"]) > 0 {
-		held := &Context{Scope: suiteScope, RecordPath: options.RecordPath, Run: run}
-		started := time.Now()
-		if failure := runHook(hooks["teardown"], held, loaded,
-			limitOf(suiteModel, "teardownTimeoutSec", defaultHookSec),
-			"suite teardown", trace.SuiteTeardown, "", recorded); failure != nil {
-			result.Cases = append(result.Cases, CaseResult{
-				Name:        "teardown",
-				Status:      trace.Failed,
-				Message:     failure.Error(),
-				DurationSec: time.Since(started).Seconds(),
-			})
-		}
+	if teardown := session.Teardown(); teardown.Failed {
+		result.Cases = append(result.Cases, CaseResult{
+			Name: "teardown", Status: trace.Failed, Reason: trace.Hook,
+			Message: teardown.Message, DurationSec: teardown.DurationSec,
+		})
 	}
-
 	return result, nil
 }
 
-// runCase is the part of a case that a cleanup and an afterEach run after,
-// whether it succeeded or not.
+// runCase is the case's own setup, steps and case-level asserts: the part a
+// cleanup and an afterEach run after, whether it succeeded or not.
 func runCase(
 	held *model.Map,
 	phases map[string][]*model.Map,
-	hooks map[string][]*model.Map,
 	context *Context,
 	loaded *schema.Schema,
-	suiteModel *model.Map,
 	caseName string,
 	caseLimit int64,
 	recorded *trace.Trace,
 	output *strings.Builder,
 ) error {
-	if failure := runHook(hooks["beforeEach"], context, loaded,
-		limitOf(suiteModel, "beforeEachTimeoutSec", defaultHookSec),
-		"beforeEach", trace.BeforeEach, caseName, recorded); failure != nil {
-		return failure
-	}
 	if failure := runHook(phases["setup"], context, loaded,
 		limitOf(held, "setupTimeoutSec", defaultHookSec),
 		"case setup", trace.CaseSetup, caseName, recorded); failure != nil {
@@ -724,18 +582,6 @@ func runCase(
 		}
 	}
 	return nil
-}
-
-// cloneScope copies a scope one level deep, and its two bags with it, so that a
-// case cannot write into the suite's.
-func cloneScope(scope *model.Map) *model.Map {
-	copied := scope.Clone()
-	for _, bag := range []string{"capture", "var"} {
-		if held, ok := walk.AsMap(scope.Value(bag)); ok {
-			copied.Set(bag, held.Clone())
-		}
-	}
-	return copied
 }
 
 // Failed says whether a run failed, which is what decides between exit 0 and

@@ -57,6 +57,35 @@ public static class CSharpCode
     /// <summary>A path as generated code holds it: absolute, forward slashes.</summary>
     public static string PathLiteral(string path) => Literal(Path.GetFullPath(path).Replace('\\', '/'));
 
+    /// <summary>Text for an XML doc comment.</summary>
+    public static string Xml(string text) =>
+        text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+
+    /// <summary>The config files a run hook comes from, for its header.</summary>
+    public static string Sources(IEnumerable<TestsConfig> configs) =>
+        string.Join(", ", configs.Select(config => Path.GetFileName(config.File)));
+
+    /// <summary>The configs' extensions as constructor calls, each after a comma.</summary>
+    public static string Extensions(IEnumerable<TestsConfig> configs) =>
+        string.Concat(configs.SelectMany(config => config.Extensions).Distinct(StringComparer.Ordinal)
+            .Select(type => $", new global::{type}()"));
+
+    /// <summary>The statement that opens a suite's session for a test class:
+    /// its file, its schema, whether it is guarded, and each test method's case.</summary>
+    public static string Open(PlanSuite suite, TestsConfig config, string indent)
+    {
+        var code = new StringBuilder($"{indent}Session = global::Bdd.Suite.Testing.BddSuiteRun.Open(\n");
+        code.Append($"{indent}    {PathLiteral(suite.FullPath)},\n");
+        code.Append($"{indent}    {PathLiteral(config.SchemaRoot)},\n");
+        code.Append($"{indent}    guarded: {(suite.Guarded ? "true" : "false")}");
+        foreach (var one in suite.Cases)
+        {
+            code.Append($",\n{indent}    ({Literal(one.Id)}, {Literal(one.Name)})");
+        }
+        return code.Append(");").ToString();
+    }
+
     /// <summary>The header of a generated file.</summary>
     public static string Header(string provider, string source) =>
         $"{Marker}\n// suiterun generate ({provider}) from {source}.\n// Do not edit: the build writes this file again.\n#nullable enable\n";

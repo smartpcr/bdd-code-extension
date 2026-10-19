@@ -7,7 +7,11 @@
 // word differently.
 package trace
 
-import "github.com/smartpcr/bdd-code-extension/runtimes/go/suite/model"
+import (
+	"sync"
+
+	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/model"
+)
 
 // Phase is where in the run one entry happened.
 type Phase string
@@ -80,24 +84,37 @@ func (entry Entry) JSON() *model.Map {
 	return out
 }
 
-// Trace is everything the run did, in order.
+// Trace is everything the run did, in order. Sessions of one run context may
+// add to it from different goroutines (spec/session.md, rule 7), so Add and the
+// readers hold a lock; Entries is safe to read once the run has ended.
 type Trace struct {
 	Entries []Entry
+	gate    sync.Mutex
 }
 
 // Add records one thing the run did. An empty name is no name.
 func (recorded *Trace) Add(phase Phase, caseName, step, action string, status Status, reason Reason) {
+	recorded.gate.Lock()
+	defer recorded.gate.Unlock()
 	recorded.Entries = append(recorded.Entries, Entry{
 		Phase: phase, Case: caseName, Step: step, Action: action,
 		Status: status, Reason: reason,
 	})
 }
 
+// Snapshot is a copy of the entries so far.
+func (recorded *Trace) Snapshot() []Entry {
+	recorded.gate.Lock()
+	defer recorded.gate.Unlock()
+	return append([]Entry(nil), recorded.Entries...)
+}
+
 // JSON is an array even when the run did one thing, and empty rather than
 // absent when it did none.
 func (recorded *Trace) JSON() []any {
-	out := make([]any, 0, len(recorded.Entries))
-	for _, entry := range recorded.Entries {
+	entries := recorded.Snapshot()
+	out := make([]any, 0, len(entries))
+	for _, entry := range entries {
 		out = append(out, entry.JSON())
 	}
 	return out

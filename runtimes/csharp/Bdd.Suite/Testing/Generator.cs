@@ -22,12 +22,13 @@ public static class Generator
     /// <summary>The files a provider's template makes from the plans.</summary>
     public static IReadOnlyList<GeneratedFile> Render(IReadOnlyList<TestPlan> plans, string provider)
     {
-        if (!string.Equals(provider, "mstest", StringComparison.Ordinal))
+        (Func<PlanSuite, TestsConfig, string, string> suiteOf, Func<IReadOnlyList<TestsConfig>, string> assemblyOf) = provider switch
         {
-            throw new TestsConfigException(Providers.CSharp.ContainsKey(provider)
-                ? $"the {provider} provider is not built yet (docs/test-providers, stage T3); mstest is."
-                : $"{provider} is not a C# provider; the C# runtime generates for mstest, nunit and xunit.");
-        }
+            "mstest" => (MsTestTemplate.Suite, MsTestTemplate.Assembly),
+            "nunit" => ((Func<PlanSuite, TestsConfig, string, string>)NUnitTemplate.Suite, (Func<IReadOnlyList<TestsConfig>, string>)NUnitTemplate.Assembly),
+            "xunit" => (XUnitTemplate.Suite, XUnitTemplate.Assembly),
+            _ => throw new TestsConfigException($"{provider} is not a C# provider; the C# runtime generates for mstest, nunit and xunit."),
+        };
         var files = new List<GeneratedFile>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var plan in plans)
@@ -41,10 +42,10 @@ public static class Generator
                     throw new TestsConfigException(
                         $"two configs generate {ns}.Suite_{suite.Id}; give one of them its own output.namespace.");
                 }
-                files.Add(new GeneratedFile(name, MsTestTemplate.Suite(suite, plan.Config, ns)));
+                files.Add(new GeneratedFile(name, suiteOf(suite, plan.Config, ns)));
             }
         }
-        files.Add(new GeneratedFile("BddSuite.Run.g.cs", MsTestTemplate.Assembly(plans.Select(plan => plan.Config).ToList())));
+        files.Add(new GeneratedFile("BddSuite.Run.g.cs", assemblyOf(plans.Select(plan => plan.Config).ToList())));
         return files;
     }
 

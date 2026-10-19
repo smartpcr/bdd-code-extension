@@ -85,6 +85,40 @@ func (ordered *Map) Delete(key string) {
 	}
 }
 
+// DeepClone copies the map and every map and list inside it, so nothing the copy
+// holds is shared with the original. What a case starts from: an action that
+// changes a nested value it was given in place cannot reach another case or
+// the teardown (spec/session.md, rule 5).
+func (ordered *Map) DeepClone() *Map {
+	copied, _ := deepCopy(ordered).(*Map)
+	if copied == nil {
+		return NewMap()
+	}
+	return copied
+}
+
+func deepCopy(held any) any {
+	switch value := held.(type) {
+	case *Map:
+		if value == nil {
+			return value
+		}
+		copied := NewMap()
+		for _, key := range value.keys {
+			copied.Set(key, deepCopy(value.values[key]))
+		}
+		return copied
+	case []any:
+		copied := make([]any, len(value))
+		for index, item := range value {
+			copied[index] = deepCopy(item)
+		}
+		return copied
+	default:
+		return held
+	}
+}
+
 // Clone copies the map one level deep, which is what a step that is about to be
 // rewritten needs.
 func (ordered *Map) Clone() *Map {

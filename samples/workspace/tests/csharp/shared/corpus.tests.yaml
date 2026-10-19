@@ -3,6 +3,6 @@
 # results through MSTest must equal its expectation.
 suites: [ "../../../../../conformance/execute/*.yml" ]
 schemaRoot: ../../../../../conformance/schema
-extensions: [ Shop.Suite.MsTest.CorpusExtension ]
+extensions: [ Shop.Suite.Testing.CorpusExtension ]
 contextKeys: [ cluster, target, labId, apiUrl ]
 output: { namespace: Corpus.Tests }

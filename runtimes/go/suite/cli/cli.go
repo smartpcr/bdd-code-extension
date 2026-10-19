@@ -32,6 +32,8 @@ const (
 	Run     Verb = "run"
 	List    Verb = "list"
 	Actions Verb = "actions"
+	// Generate writes go test code from a test project's suites (spec/test-plan.md).
+	Generate Verb = "generate"
 )
 
 // ReportFormat is which report a run writes.
@@ -72,6 +74,14 @@ type Options struct {
 	// ExtensionOptions is the value given for each option an extension
 	// declares, by flag.
 	ExtensionOptions map[string]string
+	// Configs, Plan, Check, Provider and Out are generate's: the
+	// bddsuite.tests.yaml files, print the plan, only say what is stale, the
+	// provider, and the folder written to.
+	Configs  []string
+	Plan     bool
+	Check    bool
+	Provider string
+	Out      string
 }
 
 // Usage is the text a refusal prints beside its own message.
@@ -79,7 +89,8 @@ const Usage = `suiterun lint    --path <glob> [--json] [--strict] [--binding-che
 suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
                  [--dry-run] [--param name=value] [--trace-file f.json]
 suiterun list    --path <glob> [--tags a,b]
-suiterun actions [--json]`
+suiterun actions [--json]
+suiterun generate --config <bddsuite.tests.yaml> [--provider go] [--out <folder>] [--plan | --check]`
 
 // UsageWith is the usage text with every option the extensions declare.
 func UsageWith(declared []extension.Option) string {
@@ -106,7 +117,7 @@ func Parse(arguments []string, declared ...extension.Option) (Options, error) {
 		return options, fmt.Errorf("a verb is needed.\n%s", Usage)
 	}
 	switch Verb(arguments[0]) {
-	case Lint, Run, List, Actions:
+	case Lint, Run, List, Actions, Generate:
 		options.Verb = Verb(arguments[0])
 	default:
 		return options, fmt.Errorf("there is no verb called %s.\n%s", arguments[0], Usage)
@@ -169,6 +180,19 @@ func Parse(arguments []string, declared ...extension.Option) (Options, error) {
 					options.Params = append(options.Params, [2]string{found[:at], found[at+1:]})
 				}
 			}
+		case "--config":
+			found, err = value(name)
+			options.Configs = append(options.Configs, found)
+		case "--plan":
+			options.Plan = true
+		case "--check":
+			options.Check = true
+		case "--provider":
+			found, err = value(name)
+			options.Provider = found
+		case "--out":
+			found, err = value(name)
+			options.Out = found
 		case "--json":
 			options.JSON = true
 		case "--strict":
@@ -193,6 +217,18 @@ func Parse(arguments []string, declared ...extension.Option) (Options, error) {
 
 	// A verb that reads files needs to be told which. `actions` reads the
 	// catalog and nothing else, so it is the one that does not.
+	if options.Verb == Generate {
+		if len(options.Configs) == 0 {
+			return options, fmt.Errorf("generate needs --config.\n%s", Usage)
+		}
+		if options.Plan && options.Check {
+			return options, fmt.Errorf("generate takes --plan or --check, not both")
+		}
+		return options, nil
+	}
+	if len(options.Configs) > 0 || options.Plan || options.Check || options.Provider != "" || options.Out != "" {
+		return options, fmt.Errorf("%s does not take generate's flags.\n%s", options.Verb, Usage)
+	}
 	if options.Verb != Actions && options.Path == "" {
 		return options, fmt.Errorf("%s needs --path.\n%s", options.Verb, Usage)
 	}

@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/model"
@@ -906,11 +907,11 @@ func call(name string, arguments []any, scope *Scope) (any, error) {
 // test tool needs an identifier nobody else has this second, not a
 // cryptographic one, and this avoids a dependency for one function.
 func newIdentifier() string {
-	minted++
-	return fmt.Sprintf("%016x%016x", time.Now().UnixNano(), minted)
+	return fmt.Sprintf("%016x%016x", time.Now().UnixNano(), minted.Add(1))
 }
 
-var minted int64
+// minted counts identifiers; sessions may evaluate expressions concurrently.
+var minted atomic.Int64
 
 // Evaluate runs one expression.
 func Evaluate(text string, scope *Scope) (any, error) {

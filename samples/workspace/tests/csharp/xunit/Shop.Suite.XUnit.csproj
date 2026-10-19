@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The sample workspace's suites and the conformance corpus as xUnit v3 tests
+    (docs/test-providers, D6), from the same configs as the MSTest and NUnit
+    projects (../shared). The build generates per suite a class fixture (the
+    suite setup and teardown) and a test class with one Fact per case and row.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Shop.Suite.XUnit</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\runtimes\csharp\Bdd.Suite.Testing\Bdd.Suite.Testing.csproj" />
+    <ProjectReference Include="..\..\..\test\e2e\bindings\dotnet\Suite.Cli\Suite.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <BddSuiteConfig Include="..\shared\bddsuite.tests.yaml" />
+    <BddSuiteConfig Include="..\shared\corpus.tests.yaml" />
+    <Compile Include="..\shared\CorpusExtension.cs" />
+  </ItemGroup>
+
+  <Import Project="..\..\..\..\..\runtimes\csharp\Bdd.Suite.Testing\build\Bdd.Suite.Testing.targets" />
+
+</Project>

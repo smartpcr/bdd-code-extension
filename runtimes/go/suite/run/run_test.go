@@ -43,7 +43,8 @@ func TestActionsListsWhatThisBindingImplements(t *testing.T) {
 	if report.Code != cli.ExitPassed {
 		t.Fatalf("it exited %d: %s", report.Code, report.Errors)
 	}
-	if report.Out != "core.fail\ncore.noop\ncore.record\ncore.set\ncore.sleep\nwait" {
+	// The core, wait, and the corpus extension's fixture.append.
+	if report.Out != "core.fail\ncore.noop\ncore.record\ncore.set\ncore.sleep\nfixture.append\nwait" {
 		t.Errorf("it listed:\n%s", report.Out)
 	}
 	asJSON := corpusExecute(options(t, "actions --json"))

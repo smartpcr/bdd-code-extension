@@ -317,6 +317,8 @@ func Execute(options cli.Options, composite *extension.Composite) Report {
 		return List(options)
 	case cli.Actions:
 		return Actions(options, composite)
+	case cli.Generate:
+		return Generate(options)
 	default:
 		return refused(string(options.Verb) + " is not a verb.")
 	}

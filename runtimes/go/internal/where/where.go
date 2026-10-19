@@ -12,7 +12,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/actions"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/extension"
+	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/trace"
 )
 
 // Repo is this repository's root. It panics when the tests are run from
@@ -56,9 +58,23 @@ func CoreCatalog() string { return filepath.Join(Repo(), "spec", "core.catalog.y
 // core defines none beyond timeoutSec and defaults, so the corpus declares the
 // ones its suites and expression table read, with the values of
 // expressions/context.yaml. These names are the corpus's own, not the core's.
+// It also implements fixture.append, the one fixture action the execute corpus
+// runs (execute/capture-isolation.yml): it changes the list it is given in
+// place, as an extension action may, so a case that shared that list with the
+// suite bag would show it.
 var CorpusExtension = extension.Extension{
 	Name:        "the corpus",
 	ContextKeys: []string{"cluster", "target", "labId", "apiUrl"},
+	Actions: []actions.Registration{{Name: "fixture.append", Handler: func(request *actions.Request) (any, error) {
+		list, ok := request.Step.Value("list").([]any)
+		if !ok {
+			return nil, &actions.Error{Message: "fixture.append: list must be a list", Reason: trace.Action}
+		}
+		// A Go slice cannot grow where its other holders see it, so this is
+		// append; a shared map is how Go would leak, which the session tests
+		// prove instead (exec/session_test.go).
+		return append(list, request.Step.Value("item")), nil
+	}}},
 	Start: func(map[string]string) extension.RunState {
 		return extension.RunState{Context: map[string]any{
 			"cluster": "HOST-CL01", "target": "HOST-N1", "labId": "lab1", "apiUrl": "http://api/api/v1",

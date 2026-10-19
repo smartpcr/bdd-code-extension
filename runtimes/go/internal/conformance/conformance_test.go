@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/internal/where"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/exec"
+	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/extension"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/model"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/walk"
 )
@@ -137,8 +138,12 @@ func TestEveryActionTheExecuteCorpusCallsIsOneThisBindingImplements(t *testing.T
 		t.Fatal(err)
 	}
 	implemented := map[string]bool{}
-	// The core alone: the execute corpus calls only core actions and wait.
-	for _, name := range exec.AllNames(nil) {
+	// The core, wait and the corpus extension's fixture.append.
+	composite, err := extension.Compose(where.CorpusExtension)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range exec.AllNames(composite) {
 		implemented[name] = true
 	}
 	called := map[string]bool{}

@@ -25,7 +25,7 @@ public static class MsTestTemplate
 
             namespace {{ns}};
 
-            /// <summary>The suite {{Xml(suite.Name)}} ({{Xml(suite.File)}}).</summary>
+            /// <summary>The suite {{CSharpCode.Xml(suite.Name)}} ({{CSharpCode.Xml(suite.File)}}).</summary>
             [{{Mst}}.TestClass]
             public sealed class Suite_{{suite.Id}}
             {
@@ -36,24 +36,7 @@ public static class MsTestTemplate
                 [{{Mst}}.ClassInitialize]
                 public static void Setup({{Mst}}.TestContext context)
                 {
-                    Session = global::Bdd.Suite.Testing.BddSuiteRun.Open(
-                        {{CSharpCode.PathLiteral(suite.FullPath)}},
-                        {{CSharpCode.PathLiteral(config.SchemaRoot)}},
-                        guarded: {{(suite.Guarded ? "true" : "false")}},
-
-            """);
-        for (var index = 0; index < suite.Cases.Count; index++)
-        {
-            var one = suite.Cases[index];
-            code.Append($"            ({CSharpCode.Literal(one.Id)}, {CSharpCode.Literal(one.Name)})");
-            code.Append(index + 1 < suite.Cases.Count ? ",\n" : ");\n");
-        }
-        if (suite.Cases.Count == 0)
-        {
-            code.Length -= 2;
-            code.Append(");\n");
-        }
-        code.Append($$"""
+            {{CSharpCode.Open(suite, config, "        ")}}
                     Session.Setup();
                 }
 
@@ -83,10 +66,7 @@ public static class MsTestTemplate
     /// <summary>The run hook and the MSTest verdicts, once per test assembly.</summary>
     public static string Assembly(IReadOnlyList<TestsConfig> configs)
     {
-        var extensions = configs.SelectMany(config => config.Extensions).Distinct(StringComparer.Ordinal)
-            .Select(type => $", new global::{type}()");
-        var sources = string.Join(", ", configs.Select(config => Path.GetFileName(config.File)));
-        return CSharpCode.Header("mstest", sources) + $$"""
+        return CSharpCode.Header("mstest", CSharpCode.Sources(configs)) + $$"""
 
             namespace {{CSharpCode.GlueNamespace}};
 
@@ -99,7 +79,7 @@ public static class MsTestTemplate
                 [{{Mst}}.AssemblyInitialize]
                 public static void Start({{Mst}}.TestContext context) =>
                     global::Bdd.Suite.Testing.BddSuiteRun.Start(
-                        name => context.Properties.TryGetValue(name, out var value) ? value as string : null{{string.Concat(extensions)}});
+                        name => context.Properties.TryGetValue(name, out var value) ? value as string : null{{CSharpCode.Extensions(configs)}});
 
                 [{{Mst}}.AssemblyCleanup]
                 public static void Stop() => global::Bdd.Suite.Testing.BddSuiteRun.Stop();
@@ -148,7 +128,4 @@ public static class MsTestTemplate
             """;
     }
 
-    private static string Xml(string text) =>
-        text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
 }

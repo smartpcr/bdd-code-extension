@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The sample workspace's suites and the conformance corpus as NUnit 4 tests
+    (docs/test-providers, D5), from the same configs as the MSTest and xUnit
+    projects (../shared). The build generates one fixture per suite. One case
+    is selected by its method (FullyQualifiedName=<namespace>.Suite_<id>.<method>):
+    NUnit's Name filter breaks on a space (T0).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Shop.Suite.NUnit</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="4.6.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\runtimes\csharp\Bdd.Suite.Testing\Bdd.Suite.Testing.csproj" />
+    <ProjectReference Include="..\..\..\test\e2e\bindings\dotnet\Suite.Cli\Suite.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <BddSuiteConfig Include="..\shared\bddsuite.tests.yaml" />
+    <BddSuiteConfig Include="..\shared\corpus.tests.yaml" />
+    <Compile Include="..\shared\CorpusExtension.cs" />
+  </ItemGroup>
+
+  <Import Project="..\..\..\..\..\runtimes\csharp\Bdd.Suite.Testing\build\Bdd.Suite.Testing.targets" />
+
+</Project>

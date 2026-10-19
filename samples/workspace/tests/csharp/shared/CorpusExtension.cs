@@ -1,7 +1,7 @@
 using Bdd.Suite.Actions;
 using Bdd.Suite.Extensions;
 
-namespace Shop.Suite.MsTest;
+namespace Shop.Suite.Testing;
 
 /// <summary>
 /// What the conformance corpus needs from a runtime's extension

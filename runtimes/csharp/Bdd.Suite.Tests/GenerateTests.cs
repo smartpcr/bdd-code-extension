@@ -103,6 +103,13 @@ public sealed class GenerateTests
         Assert.Equal(provider, Providers.Detect(packages.Split(';')));
 
     [Fact]
+    public void AProviderTheCSharpRuntimeDoesNotHaveIsRefused()
+    {
+        var plan = TestPlan.Build(Config("generate/bddsuite.tests.yaml")).Plan!;
+        Assert.Contains("not a C# provider", Assert.Throws<TestsConfigException>(() => Generator.Render([plan], "jest")).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TwoFrameworksAreAChoiceTheProjectMakes()
     {
         Assert.Throws<TestsConfigException>(() => Providers.Detect(["MSTest", "NUnit"]));
@@ -130,15 +137,18 @@ public sealed class GenerateTests
         Assert.Contains(says, refused.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>The MSTest code for the generate corpus, with the repository's
-    /// path replaced, equals the committed golden files (T2.4). With
-    /// BDD_UPDATE_GOLDEN=1 the test writes them instead.</summary>
-    [Fact]
-    public void TheMsTestCodeEqualsTheGoldenFiles()
+    /// <summary>Each C# provider's code for the generate corpus, with the
+    /// repository's path replaced, equals the committed golden files (T2.4, T3.1,
+    /// T3.4). With BDD_UPDATE_GOLDEN=1 the test writes them instead.</summary>
+    [Theory]
+    [InlineData("mstest")]
+    [InlineData("nunit")]
+    [InlineData("xunit")]
+    public void EachProvidersCodeEqualsTheGoldenFiles(string provider)
     {
         var plan = TestPlan.Build(Config("generate/bddsuite.tests.yaml")).Plan!;
-        var files = Generator.Render([plan], "mstest");
-        var golden = Path.Combine(Where.Repo, "runtimes", "csharp", "Bdd.Suite.Tests", "Golden", "mstest");
+        var files = Generator.Render([plan], provider);
+        var golden = Path.Combine(Where.Repo, "runtimes", "csharp", "Bdd.Suite.Tests", "Golden", provider);
         var root = Where.Repo.Replace('\\', '/');
         var update = Environment.GetEnvironmentVariable("BDD_UPDATE_GOLDEN") == "1";
         Directory.CreateDirectory(golden);

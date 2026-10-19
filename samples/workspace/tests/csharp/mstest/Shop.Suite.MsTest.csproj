@@ -4,10 +4,11 @@
     The sample workspace's suites and the conformance corpus as MSTest tests
     (docs/test-providers, D4). Nothing here is written by hand except the
     corpus extension: the build generates one test class per suite from
-    bddsuite.tests.yaml and corpus.tests.yaml (obj/.../BddSuite/*.g.cs).
+    ../shared/bddsuite.tests.yaml and ../shared/corpus.tests.yaml
+    (obj/.../BddSuite/*.g.cs).
 
       dotnet test runs everything; the filter TestCategory=smoke runs a tag,
-      and Name=<case name> runs one case (README.md).
+      and Name=<case name> runs one case.
   -->
   <PropertyGroup>
     <RootNamespace>Shop.Suite.MsTest</RootNamespace>
@@ -26,8 +27,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <BddSuiteConfig Include="bddsuite.tests.yaml" />
-    <BddSuiteConfig Include="corpus.tests.yaml" />
+    <!-- Shared with the NUnit and xUnit projects: the same suites under each framework. -->
+    <BddSuiteConfig Include="..\shared\bddsuite.tests.yaml" />
+    <BddSuiteConfig Include="..\shared\corpus.tests.yaml" />
+    <Compile Include="..\shared\CorpusExtension.cs" />
   </ItemGroup>
 
   <Import Project="..\..\..\..\..\runtimes\csharp\Bdd.Suite.Testing\build\Bdd.Suite.Testing.targets" />

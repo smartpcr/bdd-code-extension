@@ -194,7 +194,7 @@ func TestACaseCannotWriteIntoTheSuiteBag(t *testing.T) {
 	suiteScope.Set("capture", bag)
 	suiteScope.Set("var", model.NewMap())
 
-	copied := cloneScope(suiteScope)
+	copied := suiteScope.DeepClone()
 	held := &Context{Scope: copied}
 	held.capture("fromCase", "new")
 	if !held.has("fromSetup") || !held.has("fromCase") {
