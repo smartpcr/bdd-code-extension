@@ -28,11 +28,11 @@ public sealed class ExecutionTests
     /// given as text and never read from it.</summary>
     private static string Probe() => Corpus.Find().Path("probe.yml");
 
-    private static RunContext BagWith(string text)
+    private static CaseContext BagWith(string text)
     {
         var scope = new OrderedMap();
         scope.Set("capture", SuiteDocument.Load(text).Value);
-        return new RunContext { Scope = scope };
+        return new CaseContext { Scope = scope };
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class ExecutionTests
                 Assert.Equal(want, value);
             }
         }
-        Assert.False(Executor.Actual("anything", new RunContext { Scope = new OrderedMap() }).Present);
+        Assert.False(Executor.Actual("anything", new CaseContext { Scope = new OrderedMap() }).Present);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public sealed class ExecutionTests
     public void AnActionThatIgnoresItsDeadlineIsAbandoned()
     {
         var (run, finished) = SlowExtension();
-        var context = new RunContext { Scope = new OrderedMap(), Run = run };
+        var context = new CaseContext { Scope = new OrderedMap(), Run = run };
         var started = DateTime.UtcNow;
         var refused = Assert.Throws<ActionException>(() =>
             Executor.Bounded("fixture.slow", new OrderedMap(), context, 1, "the step", false));
@@ -147,7 +147,7 @@ public sealed class ExecutionTests
             OnStart = _ => new RunState { State = "mine" },
         };
         var composite = Composite.Compose(extension);
-        var context = new RunContext
+        var context = new CaseContext
         {
             Scope = new OrderedMap(),
             Run = new RunExtensions(composite, composite.Start(new Dictionary<string, string>())),
@@ -161,7 +161,7 @@ public sealed class ExecutionTests
     [Fact]
     public void AnInterruptibleActionSaysItWasCancelled()
     {
-        var context = new RunContext { Scope = new OrderedMap() };
+        var context = new CaseContext { Scope = new OrderedMap() };
         var step = new OrderedMap();
         step.Set("seconds", 30L);
         var refused = Assert.Throws<ActionException>(() =>
@@ -172,7 +172,7 @@ public sealed class ExecutionTests
     [Fact]
     public void AnActionNobodyImplementsIsNamedRatherThanGuessed()
     {
-        var context = new RunContext { Scope = new OrderedMap() };
+        var context = new CaseContext { Scope = new OrderedMap() };
         Assert.Equal("Unknown action: nosuch.action. No extension of this runtime registers it.",
             Assert.Throws<ActionException>(() =>
                 Executor.Bounded("nosuch.action", new OrderedMap(), context, 5, "the step", true)).Message);
@@ -199,7 +199,7 @@ public sealed class ExecutionTests
         var path = Path.Combine(Path.GetTempPath(), "suiterun-markers-" + Guid.NewGuid().ToString("N") + ".txt");
         try
         {
-            var context = new RunContext { Scope = new OrderedMap(), RecordPath = path };
+            var context = new CaseContext { Scope = new OrderedMap(), RecordPath = path };
             var step = new OrderedMap();
             step.Set("marker", "here");
             Executor.Bounded("core.record", step, context, 5, "the step", true);
@@ -520,7 +520,7 @@ public sealed class ExecutionTests
             Assert.True(CoreActions.Registry.ContainsKey(name), name);
         }
 
-        var context = new RunContext { Scope = new OrderedMap() };
+        var context = new CaseContext { Scope = new OrderedMap() };
         var noop = Executor.Bounded("core.noop", new OrderedMap(), context, 5, "s", true) as OrderedMap;
         Assert.Equal(true, noop!.Value("ok"));
 

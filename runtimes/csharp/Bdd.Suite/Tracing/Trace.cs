@@ -82,11 +82,31 @@ public sealed record TraceEntry(
 /// </summary>
 public sealed class Trace
 {
-    public List<TraceEntry> Entries { get; } = [];
+    // Sessions of one run context may run on different threads (a test
+    // framework running suites in parallel), so every access is under a lock.
+    private readonly List<TraceEntry> _entries = [];
+    private readonly object _gate = new();
+
+    /// <summary>The entries so far, as a copy.</summary>
+    public IReadOnlyList<TraceEntry> Entries
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _entries];
+            }
+        }
+    }
 
     /// <summary>Record one thing the run did. An empty name is no name.</summary>
-    public void Add(string phase, string caseName, string step, string action, string status, string reason) =>
-        Entries.Add(new TraceEntry(phase, caseName, step, action, status, reason));
+    public void Add(string phase, string caseName, string step, string action, string status, string reason)
+    {
+        lock (_gate)
+        {
+            _entries.Add(new TraceEntry(phase, caseName, step, action, status, reason));
+        }
+    }
 
     /// <summary>An array even when the run did one thing, and empty rather than
     /// absent when it did none.</summary>
@@ -96,14 +116,15 @@ public sealed class Trace
     /// binding writes it.</summary>
     public string ToJson()
     {
-        if (Entries.Count == 0)
+        var entries = Entries;
+        if (entries.Count == 0)
         {
             return "[]";
         }
         var built = new System.Text.StringBuilder("[\n");
-        for (var index = 0; index < Entries.Count; index++)
+        for (var index = 0; index < entries.Count; index++)
         {
-            var map = Entries[index].ToMap();
+            var map = entries[index].ToMap();
             built.Append("  {\n");
             for (var key = 0; key < map.Keys.Count; key++)
             {
@@ -114,7 +135,7 @@ public sealed class Trace
                 built.Append(key + 1 < map.Keys.Count ? ",\n" : "\n");
             }
             built.Append("  }");
-            built.Append(index + 1 < Entries.Count ? ",\n" : "\n");
+            built.Append(index + 1 < entries.Count ? ",\n" : "\n");
         }
         built.Append(']');
         return built.ToString();

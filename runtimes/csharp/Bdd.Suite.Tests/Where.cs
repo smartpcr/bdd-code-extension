@@ -1,3 +1,4 @@
+using Bdd.Suite.Actions;
 using Bdd.Suite.Extensions;
 
 namespace Bdd.Suite.Tests;
@@ -54,12 +55,28 @@ internal static class Where
     /// The corpus's context keys (conformance/README.md): the core defines none
     /// beyond timeoutSec and defaults, so the corpus declares the ones its suites
     /// and expression table read, with the values of expressions/context.yaml.
-    /// These four names are the corpus's, not the runtime's.
+    /// These four names are the corpus's, not the runtime's. It also implements
+    /// fixture.append, the one fixture action the execute corpus runs
+    /// (execute/capture-isolation.yml): it changes the list it is given in place,
+    /// as an extension action may, so a case that shared that list with the
+    /// suite bag would show it.
     /// </summary>
     public static Extension CorpusExtension { get; } = new()
     {
         Name = "the corpus",
         ContextKeys = ["cluster", "target", "labId", "apiUrl"],
+        Actions =
+        [
+            new ActionRegistration("fixture.append", request =>
+            {
+                if (request.Step.Value("list") is not List<object?> list)
+                {
+                    throw ActionException.Failed("fixture.append: list must be a list");
+                }
+                list.Add(request.Step.Value("item"));
+                return list;
+            }),
+        ],
         OnStart = _ => new RunState
         {
             Context = new Dictionary<string, object?>(StringComparer.Ordinal)

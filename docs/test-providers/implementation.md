@@ -1,7 +1,8 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **stage T0 built 2026-10-19** (spikes and the shared contract,
-[evidence](../evidence/test-providers-t0.md)); stages T1-T10 not started. The design, its
+Status: **stages T0 and T1 built 2026-10-19** (spikes and the shared contract,
+[evidence](../evidence/test-providers-t0.md); the C# session,
+[evidence](../evidence/test-providers-t1.md)); stages T2-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -391,18 +392,18 @@ differs; D1's schema tests; corpus still green. Size: 1–1.5.
 
 Result: D2. Entry: T0. Exit evidence: E1 and E2 for C#. Size: 1.5–2.
 
-- [ ] T1.1 `RunContext`: compose, start once, options, params, tags, dry run.
-- [ ] T1.2 `RunContext.FromEnvironment` and `.runsettings` reader (DEC-T09).
-- [ ] T1.3 `SuiteSession.Open`: parse, expand, resolve, case list.
-- [ ] T1.4 `Setup` lazy and idempotent, recording failure.
-- [ ] T1.5 `BeforeEach` with case lock, recording failure.
-- [ ] T1.6 `RunCase` from a deep copy; recorded failures reported as today.
-- [ ] T1.7 `AfterEach`, failure appended, lock released in `finally`.
-- [ ] T1.8 `Teardown` once if setup ran; pseudo-case `teardown` for the whole-file path.
-- [ ] T1.9 Thread-safe `Trace`; `BDD_SUITE_TRACE_FILE` writer.
-- [ ] T1.10 `Executor.RunFile` rebuilt on the session.
-- [ ] T1.11 Unit tests per operation; E1 for C# (both orders).
-- [ ] T1.12 E2 for C#: unit tests, corpus, divergence check, VS Code integration suite; `fixture.append` in the corpus extension, and csharp removed from `capture-isolation`'s `pendingIn`.
+- [x] T1.1 `RunContext`: compose, start once, options, params, tags, dry run.
+- [x] T1.2 `RunContext.FromEnvironment` and `FromValues(lookup)` (DEC-T09); a provider passes a lookup over its `.runsettings` parameters (T2, T3), since MSTest and NUnit hand them to test code at run time.
+- [x] T1.3 `SuiteSession.Open`: parse, expand, resolve, case list.
+- [x] T1.4 `Setup` lazy and idempotent, recording failure.
+- [x] T1.5 `BeforeEach` with case lock, recording failure.
+- [x] T1.6 `RunCase` from a deep copy; recorded failures reported as today.
+- [x] T1.7 `AfterEach`, failure appended, lock released in `finally`.
+- [x] T1.8 `Teardown` once if setup ran; pseudo-case `teardown` for the whole-file path.
+- [x] T1.9 Thread-safe `Trace`; `BDD_SUITE_TRACE_FILE` writer.
+- [x] T1.10 `Executor.RunFile` rebuilt on the session.
+- [x] T1.11 Unit tests per operation; E1 for C# (both orders).
+- [x] T1.12 E2 for C#: unit tests (186), corpus, VS Code integration suite (exit 0); `fixture.append` in the corpus extension, and csharp removed from `capture-isolation`'s `pendingIn`. The divergence check was not rerun: it patches only Go and TypeScript, unchanged here.
 
 ### Stage T2: C# generator and MSTest (P0)
 

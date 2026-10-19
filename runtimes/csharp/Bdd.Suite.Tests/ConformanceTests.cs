@@ -149,7 +149,8 @@ public sealed class ConformanceTests
     {
         var corpus = Corpus.Find();
         var manifest = corpus.Manifest();
-        var implemented = Executor.AllNames().ToHashSet(StringComparer.Ordinal);
+        // The core, wait and the corpus extension's fixture.append.
+        var implemented = Executor.AllNames(Where.CorpusComposite).ToHashSet(StringComparer.Ordinal);
 
         var called = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in Corpus.Entries(manifest, "execute").Where(entry => !Corpus.PendingIn(entry, "csharp")))

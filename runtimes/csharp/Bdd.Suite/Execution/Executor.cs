@@ -27,6 +27,15 @@ public sealed class CaseResult
 {
     public required string Name { get; init; }
     public required string Status { get; set; }
+
+    /// <summary>The trace's reason when the case did not pass (Tracing.Reason),
+    /// empty when it passed.</summary>
+    public string Reason { get; set; } = string.Empty;
+
+    /// <summary>Whether the afterEach block failed, which a test framework shows
+    /// as a failure of its per-test cleanup hook (spec/session.md, rule 4).</summary>
+    public bool AfterEachFailed { get; set; }
+
     public string Message { get; set; } = string.Empty;
     public string Output { get; set; } = string.Empty;
     public double DurationSec { get; set; }
@@ -39,8 +48,9 @@ public sealed class SuiteResult
     public List<CaseResult> Cases { get; } = [];
 }
 
-/// <summary>The bag one case reads and writes.</summary>
-public sealed class RunContext
+/// <summary>The bag one case (or one hook) reads and writes. Not the run
+/// context of spec/session.md, which is <see cref="RunContext"/>.</summary>
+public sealed class CaseContext
 {
     public required OrderedMap Scope { get; set; }
     public string RecordPath { get; init; } = string.Empty;
@@ -90,14 +100,14 @@ public static class Executor
 {
     /// <summary>The fallbacks for a limit nobody declared. A stricter limit is
     /// an extension's rule (ExtensionRules.CaseLimitSec), not the core's.</summary>
-    private const long DefaultCaseSec = 600;
-    private const long DefaultHookSec = 300;
-    private const long DefaultCleanupSec = 120;
+    internal const long DefaultCaseSec = 600;
+    internal const long DefaultHookSec = 300;
+    internal const long DefaultCleanupSec = 120;
 
     /// <summary>Walk a dotted subject into the capture bag, and say whether it
     /// was there at all. Absent and null are different things to isNull and
     /// isNotNull, and the same to nothing else.</summary>
-    internal static (object? Value, bool Present) Actual(string path, RunContext context)
+    internal static (object? Value, bool Present) Actual(string path, CaseContext context)
     {
         if (!context.Scope.TryGet("capture", out var current))
         {
@@ -130,7 +140,7 @@ public static class Executor
     /// <summary>Compare one assertion and fail when it does not hold. Every
     /// operator in one assertion has to pass, and the first failure ends the
     /// case.</summary>
-    internal static void CheckAssertion(object? raw, RunContext context)
+    internal static void CheckAssertion(object? raw, CaseContext context)
     {
         object? expanded;
         try
@@ -190,7 +200,7 @@ public static class Executor
     /// <summary>Run one action with a limit, and give up on it when the limit
     /// expires.</summary>
     internal static object? Bounded(
-        string name, OrderedMap step, RunContext context, long limitSec, string description, bool interruptible)
+        string name, OrderedMap step, CaseContext context, long limitSec, string description, bool interruptible)
     {
         if (limitSec <= 0)
         {
@@ -265,7 +275,7 @@ public static class Executor
     /// transiently is tried again rather than ending the case.
     /// </summary>
     private static object? Wait(
-        OrderedMap step, RunContext context, SuiteSchema schema, DateTime deadline,
+        OrderedMap step, CaseContext context, SuiteSchema schema, DateTime deadline,
         string phase, string caseName, Trace trace)
     {
         var nested = step.Map("forStep");
@@ -338,8 +348,8 @@ public static class Executor
     }
 
     /// <summary>Run one step: guard, substitute, act, capture, assert.</summary>
-    private static object? RunStep(
-        OrderedMap step, RunContext context, SuiteSchema schema, DateTime deadline,
+    internal static object? RunStep(
+        OrderedMap step, CaseContext context, SuiteSchema schema, DateTime deadline,
         string phase, string caseName, Trace trace, Dictionary<string, List<object?>> collected)
     {
         var label = SuiteExpansion.StepLabel(step);
@@ -444,8 +454,8 @@ public static class Executor
     }
 
     /// <summary>Run one hook list inside its own window.</summary>
-    private static void RunHook(
-        List<OrderedMap> steps, RunContext context, SuiteSchema schema, long limitSec,
+    internal static void RunHook(
+        List<OrderedMap> steps, CaseContext context, SuiteSchema schema, long limitSec,
         string label, string phase, string caseName, Trace trace)
     {
         if (steps.Count == 0)
@@ -471,279 +481,48 @@ public static class Executor
         }
     }
 
-    private static long LimitOf(OrderedMap held, string key, long fallback) =>
+    internal static long LimitOf(OrderedMap held, string key, long fallback) =>
         held.Value(key) as long? ?? fallback;
 
-    /// <summary>Run one suite file.</summary>
+    /// <summary>
+    /// Run one suite file: the whole-file run every `suiterun run` does, built on
+    /// the session a test framework drives a phase at a time (spec/session.md).
+    /// The suite setup runs before the first case, as it always has, so a case a
+    /// tag filter skips is traced after it; then each case through beforeEach, the
+    /// case and afterEach; then the teardown, whose failure is its own entry.
+    /// </summary>
     public static SuiteResult RunFile(
         string path, OrderedMap suite, SuiteSchema schema, RunOptions options, Trace trace,
         RunExtensions? extensions = null)
     {
-        var run = extensions ?? RunExtensions.CoreOnly;
-        // The name a report carries is the one the file declares, not the file
-        // name: two suites in one directory may be renamed without every stored
-        // report changing, and the declared name is what a person recognises.
-        var name = suite.Text("suite");
-        if (name.Length == 0)
+        var context = RunContext.ForRun(options, extensions ?? RunExtensions.CoreOnly, trace);
+        var session = SuiteSession.Open(path, suite, schema, context);
+        var result = new SuiteResult { Name = session.Name };
+        session.Setup();
+        for (var index = 0; index < session.Cases.Count; index++)
         {
-            name = Path.GetFileNameWithoutExtension(path);
-        }
-        var library = SuiteExpansion.ReadLibraries(suite, path);
-        var definitions = SuiteExpansion.MetaDefinitions(suite, library);
-        var hooks = SuiteExpansion.ExpandedHooks(suite, definitions);
-
-        var result = new SuiteResult { Name = name };
-        var allCases = SuiteExpansion.Cases(suite);
-        var selected = allCases.Count(held =>
-        {
-            var tags = SuiteExpansion.CaseTags(suite, held);
-            return SuiteExpansion.TagsMatch(tags, options.Tags);
-        });
-
-        // The suite bag: filled once before the first selected case and read by
-        // the teardown after the last. Every case starts from a copy of it.
-        var suiteScope = new OrderedMap();
-        suiteScope.Set("capture", new OrderedMap());
-        suiteScope.Set("var", new OrderedMap());
-        var suiteSetupError = string.Empty;
-        if (!options.DryRun && selected > 0 && hooks["setup"].Count > 0)
-        {
-            var context = new RunContext
-            {
-                Scope = CloneScope(suiteScope),
-                RecordPath = options.RecordPath,
-                Run = run,
-            };
-            try
-            {
-                RunHook(hooks["setup"], context, schema, LimitOf(suite, "setupTimeoutSec", DefaultHookSec),
-                    "suite setup", Phase.SuiteSetup, string.Empty, trace);
-            }
-            catch (ActionException failure)
-            {
-                suiteSetupError = failure.Message;
-            }
-            suiteScope = context.Scope;
+            session.BeforeEach(index);
+            session.RunCase(index);
+            result.Cases.Add(session.AfterEach(index));
         }
 
-        foreach (var held in allCases)
-        {
-            var caseName = held.Text("name");
-            var tags = SuiteExpansion.CaseTags(suite, held);
-            if (!SuiteExpansion.TagsMatch(tags, options.Tags))
-            {
-                trace.Add(Phase.Case, caseName, string.Empty, string.Empty, Status.Skipped, Reason.Tag);
-                result.Cases.Add(new CaseResult
-                {
-                    Name = caseName, Status = Status.Skipped, Message = "tag filter",
-                });
-                continue;
-            }
-            if (suiteSetupError.Length > 0)
-            {
-                trace.Add(Phase.Case, caseName, string.Empty, string.Empty, Status.Error, Reason.SuiteSetup);
-                result.Cases.Add(new CaseResult
-                {
-                    Name = caseName, Status = Status.Error, Message = "Suite setup failed: " + suiteSetupError,
-                });
-                continue;
-            }
-            if (options.DryRun)
-            {
-                result.Cases.Add(new CaseResult
-                {
-                    Name = caseName, Status = Status.Skipped,
-                    Message = "Validated only; live execution pending.",
-                });
-                continue;
-            }
-
-            var started = Stopwatch.StartNew();
-            var phases = SuiteExpansion.ExpandedCase(held, definitions);
-            var scope = CloneScope(suiteScope);
-            scope.Set("param", SuiteExpansion.ResolveParams(library, suite, held, options.Params, run.Composite.EnvPrefix));
-            if (held.TryGet("__row", out var row))
-            {
-                scope.Set("row", row);
-            }
-            var defaults = library.Defaults.Clone();
-            if (suite.Map("defaults") is { } declaredDefaults)
-            {
-                foreach (var key in declaredDefaults.Keys)
-                {
-                    defaults.Set(key, declaredDefaults.Value(key));
-                }
-            }
-            foreach (var key in defaults.Keys)
-            {
-                scope.Set(key, defaults.Value(key));
-            }
-            scope.Set("defaults", defaults);
-            scope.Set("timeoutSec", LimitOf(held, "timeoutSec", DefaultCaseSec));
-            // The extensions' context keys: a value given for this run wins over
-            // the suite's defaults, and a key with neither reads as an empty
-            // string. They come from the extensions rather than the file, which
-            // is what keeps an address or an environment's name out of a suite.
-            foreach (var (key, value) in run.Started.Context)
-            {
-                scope.Set(key, value);
-            }
-            foreach (var key in run.Composite.ContextKeys)
-            {
-                if (!scope.Has(key))
-                {
-                    scope.Set(key, string.Empty);
-                }
-            }
-            SuiteExpansion.ResolveVars(library, suite, held, scope, run.Composite.Roots);
-            var context = new RunContext
-            {
-                Scope = scope, RecordPath = options.RecordPath, Run = run,
-            };
-
-            var status = Status.Passed;
-            var message = string.Empty;
-            var reason = Reason.None;
-            var output = new StringBuilder();
-
-            // An extension's rule may hold a case to less than it declares.
-            var caseLimit = run.Composite.CaseLimitSec(suite, LimitOf(held, "timeoutSec", DefaultCaseSec));
-
-            try
-            {
-                RunCase(held, phases, hooks, context, schema, suite, caseName, caseLimit, trace, output);
-            }
-            catch (ActionException failure)
-            {
-                status = Status.Failed;
-                message = failure.Message;
-                reason = failure.Reason;
-            }
-
-            // Cleanup gets its own bounded window even after a case timed out,
-            // and afterEach runs even when the cleanup threw.
-            if (phases["cleanup"].Count > 0)
-            {
-                try
-                {
-                    RunHook(phases["cleanup"], context, schema,
-                        LimitOf(held, "cleanupTimeoutSec", DefaultCleanupSec),
-                        "cleanup", Phase.CaseCleanup, caseName, trace);
-                }
-                catch (ActionException failure)
-                {
-                    status = Status.Failed;
-                    reason = Reason.Cleanup;
-                    message = message + " Cleanup failed: " + failure.Message;
-                }
-            }
-            try
-            {
-                RunHook(hooks["afterEach"], context, schema,
-                    LimitOf(suite, "afterEachTimeoutSec", DefaultHookSec),
-                    "afterEach", Phase.AfterEach, caseName, trace);
-            }
-            catch (ActionException failure)
-            {
-                status = Status.Failed;
-                reason = Reason.Hook;
-                message = message + " afterEach failed: " + failure.Message;
-            }
-
-            trace.Add(Phase.Case, caseName, string.Empty, string.Empty, status, reason);
-            result.Cases.Add(new CaseResult
-            {
-                Name = caseName,
-                Status = status,
-                Message = message.Trim(),
-                Output = output.ToString(),
-                DurationSec = started.Elapsed.TotalSeconds,
-            });
-        }
-
-        // The teardown runs after the last case whether cases passed and whether
-        // the setup did: state a failed setup half-built still has to be undone.
-        //
         // A teardown that fails is its own entry rather than a change to the last
         // case's result, because a teardown is not a test and the case it would
         // be charged to did nothing wrong. It does fail the run: a suite whose
         // teardown could not undo what it did has not finished cleanly.
-        if (!options.DryRun && selected > 0 && hooks["teardown"].Count > 0)
+        var teardown = session.Teardown();
+        if (teardown.Failed)
         {
-            var context = new RunContext
+            result.Cases.Add(new CaseResult
             {
-                Scope = suiteScope, RecordPath = options.RecordPath, Run = run,
-            };
-            var started = Stopwatch.StartNew();
-            try
-            {
-                RunHook(hooks["teardown"], context, schema,
-                    LimitOf(suite, "teardownTimeoutSec", DefaultHookSec),
-                    "suite teardown", Phase.SuiteTeardown, string.Empty, trace);
-            }
-            catch (ActionException failure)
-            {
-                result.Cases.Add(new CaseResult
-                {
-                    Name = "teardown",
-                    Status = Status.Failed,
-                    Message = failure.Message,
-                    DurationSec = started.Elapsed.TotalSeconds,
-                });
-            }
+                Name = "teardown",
+                Status = Status.Failed,
+                Reason = Reason.Hook,
+                Message = teardown.Message,
+                DurationSec = teardown.DurationSec,
+            });
         }
-
         return result;
-    }
-
-    /// <summary>The part of a case that a cleanup and an afterEach run after,
-    /// whether it succeeded or not.</summary>
-    private static void RunCase(
-        OrderedMap held, Dictionary<string, List<OrderedMap>> phases,
-        Dictionary<string, List<OrderedMap>> hooks, RunContext context, SuiteSchema schema,
-        OrderedMap suite, string caseName, long caseLimit, Trace trace, StringBuilder output)
-    {
-        RunHook(hooks["beforeEach"], context, schema, LimitOf(suite, "beforeEachTimeoutSec", DefaultHookSec),
-            "beforeEach", Phase.BeforeEach, caseName, trace);
-        RunHook(phases["setup"], context, schema, LimitOf(held, "setupTimeoutSec", DefaultHookSec),
-            "case setup", Phase.CaseSetup, caseName, trace);
-        // The case's own limit starts here, after the hooks, because a hook never
-        // draws on it.
-        var deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, caseLimit));
-        var collected = new Dictionary<string, List<object?>>(StringComparer.Ordinal);
-        foreach (var step in phases["steps"])
-        {
-            var produced = RunStep(step, context, schema, deadline, Phase.Step, caseName, trace, collected);
-            if (produced is not null)
-            {
-                var written = new StringBuilder();
-                OrderedMap.WriteJson(produced, written);
-                output.Append(written);
-                output.Append('\n');
-            }
-        }
-        foreach (var one in held.List("asserts") ?? [])
-        {
-            if (one is not null)
-            {
-                CheckAssertion(one, context);
-            }
-        }
-    }
-
-    /// <summary>Copy a scope one level deep, and its two bags with it, so that a
-    /// case cannot write into the suite's.</summary>
-    private static OrderedMap CloneScope(OrderedMap scope)
-    {
-        var copied = scope.Clone();
-        foreach (var bag in new[] { "capture", "var" })
-        {
-            if (scope.Map(bag) is { } held)
-            {
-                copied.Set(bag, held.Clone());
-            }
-        }
-        return copied;
     }
 
     /// <summary>Whether a run failed, which is what decides between exit 0 and

@@ -115,8 +115,8 @@ public sealed class ExecuteCorpusTests
             }
         }
 
-        Assert.Equal(13, checked_);
-        Assert.Equal(["execute/capture-isolation.yml"], pending);
+        Assert.Equal(14, checked_);
+        Assert.Empty(pending);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");
     }

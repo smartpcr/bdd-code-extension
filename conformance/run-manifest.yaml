@@ -308,7 +308,7 @@ entries:
     suite: execute/capture-isolation.yml
     expectation: execute/capture-isolation.expected.json
     description: A nested value an action changes in place stays changed in its own case only; the next case and the teardown read the setup's value.
-    pendingIn: [csharp, go, typescript, powershell]
+    pendingIn: [go, typescript, powershell]
 
 support:
   # Libraries the validate entries import, and catalog overlays they validate

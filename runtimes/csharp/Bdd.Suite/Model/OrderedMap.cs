@@ -65,6 +65,25 @@ public sealed class OrderedMap
         return copied;
     }
 
+    /// <summary>
+    /// Copy the map and every map and list inside it, so nothing the copy holds is
+    /// shared with the original. What a case starts from: an action that changes a
+    /// nested value it was given in place cannot reach another case or the
+    /// teardown (spec/session.md, rule 5).
+    /// </summary>
+    public OrderedMap DeepClone() => (OrderedMap)DeepCopy(this)!;
+
+    private static object? DeepCopy(object? value) => value switch
+    {
+        OrderedMap map => map._keys.Aggregate(new OrderedMap(), (copied, key) =>
+        {
+            copied.Set(key, DeepCopy(map._values[key]));
+            return copied;
+        }),
+        List<object?> items => items.Select(DeepCopy).ToList(),
+        _ => value,
+    };
+
     /// <summary>Read one key as text, or the empty string.</summary>
     public string Text(string key) => Value(key) as string ?? string.Empty;
 

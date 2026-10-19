@@ -25,7 +25,7 @@ below names the corpus entry that pins it, under
 
 | Operation | What it does |
 | --- | --- |
-| `open(file, context)` | Parses the file, resolves imports, meta steps, params and vars, and lists the cases with outline rows expanded. Fails, without running anything, if the file does not lint clean. |
+| `open(file, context)` | Parses the file, resolves imports and meta steps, and lists the cases with outline rows expanded. As a test process opens a file, it first lints it and refuses one that does not lint clean, with its findings, running nothing. The whole-file run opens the file as it finds it, as `suiterun run` always has (it does not lint first). |
 | `cases()` | The case names in file order, rows in row order. |
 | `setup()` | Runs the suite setup once, into the suite capture bag. Calling it again does nothing. |
 | `beforeEach(case)` | Ensures `setup()` ran, takes the session's case lock, and runs `beforeEach` for this case. |
@@ -36,8 +36,18 @@ below names the corpus entry that pins it, under
 
 A **case result** has the same fields in every runtime: `name`, `status`
 (`passed`, `failed`, `skipped`, `error`), `reason` (the trace's reason, when
-not passed), `message`, `output` and `durationSec`. A **teardown result** has
-`status` (`passed` or `failed`) and `message`.
+not passed), `message`, `output`, `durationSec`, and whether afterEach failed.
+A **teardown result** says whether the teardown ran, whether it failed, and
+its message.
+
+**Results, not exceptions.** The session's operations return these results and
+never throw for a step that fails, so the whole-file run and a test framework
+read the same thing. A test framework's provider (the generated code and its
+small glue library) turns them into the framework's verdicts: it fails the test
+when `runCase`'s result is not passed, fails the per-test cleanup hook when
+afterEach failed (rule 4), and fails the class-level cleanup hook when the
+teardown failed (rule 6), each by throwing. The rules below say "throws" for
+that provider step.
 
 ## Rules
 
@@ -73,8 +83,8 @@ not passed), `message`, `output` and `durationSec`. A **teardown result** has
    case `failed` with reason `cleanup`; a failed afterEach makes it `failed`
    with reason `hook`, its message appended, as a whole-file run does. The
    case's `case` trace entry is written here, after afterEach, which is where
-   a whole-file run writes it (`hooks.yml`). If afterEach failed, `afterEach`
-   reports it by throwing: it is the last per-case hook, so nothing a
+   a whole-file run writes it (`hooks.yml`). If afterEach failed, the provider's
+   per-test cleanup hook throws: it is the last per-case hook, so nothing a
    framework skips after it can change a result, and every framework shows a
    failure in its per-test cleanup hook as that test's failure.
 
@@ -84,9 +94,10 @@ not passed), `message`, `output` and `durationSec`. A **teardown result** has
 
 6. **Teardown runs on the setup's bag, once, if setup ran,** after the last case
    the framework ran, whether cases passed (`setup-fails.yml`,
-   `teardown-fails.yml`). Besides `afterEach` (rule 4), it is the only operation
-   that reports a failure by throwing (or the language's equivalent), because a framework shows a
-   class-level cleanup failure as a failure of the run, not of a case: a
+   `teardown-fails.yml`). Besides afterEach (rule 4), it is the only failure a
+   provider reports by throwing from a hook rather than from a test, because a
+   framework shows a class-level cleanup failure as a failure of the run, not
+   of a case: a
    failed teardown fails the run and never turns a passed case into a failed
    one (`teardown-fails.yml`). The whole-file run still adds it to its report as
    the extra entry named `teardown`.
@@ -103,9 +114,14 @@ not passed), `message`, `output` and `durationSec`. A **teardown result** has
 
 9. **Guarded suites need an opt-in.** A session whose suite the test plan marks
    guarded ([test-plan.md](test-plan.md)) reports every case `skipped` with the
-   message `guarded suite: set BDD_SUITE_ALLOW_GUARDED=1 to run it`, and runs no
-   phase, unless the run context allows guarded suites. `suiterun` allows them;
-   a test process allows them only when `BDD_SUITE_ALLOW_GUARDED=1`.
+   message `guarded suite: set BDD_SUITE_ALLOW_GUARDED=1 to run it`, traced as
+   `skipped` with reason `guard`, and runs no phase (no setup, no teardown),
+   unless the run context allows guarded suites. `suiterun` allows them; a test
+   process allows them only when `BDD_SUITE_ALLOW_GUARDED=1`.
+
+10. **A dry run** validates and runs nothing: no setup, no teardown, every
+    selected case `skipped`, and no `case` trace entry, as `suiterun run
+    --dry-run` has always done.
 
 ## Inputs a test process takes from the environment
 
