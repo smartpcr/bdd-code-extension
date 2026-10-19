@@ -112,6 +112,10 @@ public static class CoreActions
         return out_;
     }
 
+    // Sessions of one process may run in parallel (spec/session.md, rule 7), and
+    // two appends to one file at once can fail on Windows: one at a time.
+    private static readonly object RecordGate = new();
+
     /// <summary>Appends one marker to the trace file the run named, and returns
     /// it.</summary>
     private static object? Record(ActionRequest request)
@@ -125,7 +129,10 @@ public static class CoreActions
         {
             try
             {
-                File.AppendAllText(request.RecordPath, marker + "\n");
+                lock (RecordGate)
+                {
+                    File.AppendAllText(request.RecordPath, marker + "\n");
+                }
             }
             catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
             {

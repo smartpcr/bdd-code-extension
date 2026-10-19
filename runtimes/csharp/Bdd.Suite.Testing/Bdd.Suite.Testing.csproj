@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    What tests generated from suites run on (docs/test-providers, D3): the run
+    context a test process starts once (BddSuiteRun), and a suite's session as
+    a test class drives it (SuiteTests). It depends on no test framework: each
+    provider's verdicts (fail, skip) are in the code the generator writes.
+
+    A test project references this project and imports build/Bdd.Suite.Testing.targets,
+    which runs `suiterun generate` before every compile.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Bdd.Suite.Testing</RootNamespace>
+    <AssemblyName>Bdd.Suite.Testing</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bdd.Suite\Bdd.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

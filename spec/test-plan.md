@@ -22,6 +22,7 @@ exclude: [ "../suites/_lib/**" ]       # never considered (optional)
 schemaRoot: ../schema                   # actions.catalog.yaml and suite.schema.json
 provider: mstest                        # optional where it can be detected
 extensions: [ "MyCompany.Actions.OrdersExtension" ]   # in the language's own terms
+contextKeys: [ store ]                  # the keys the extensions add, for linting before they load
 offlineActions: [ "core.*", "wait", "orders.*" ]     # what may run without an opt-in
 output: { namespace: MyCompany.Suites.Tests }        # language-specific naming
 ```
@@ -32,9 +33,14 @@ output: { namespace: MyCompany.Suites.Tests }        # language-specific naming
    to the config's folder with forward slashes, in ordinal order of that path.
 2. **Suites.** A file is a suite when its top level has a `suite` key; any other
    matching file (a library, which declares and never runs) is left out
-   silently. A suite that does not lint clean stops the whole plan: `generate`
-   prints the runtime's diagnostics with their positions and exits 2, writing
-   nothing, because partial test code would silently drop cases.
+   silently. Every suite is linted against `schemaRoot`, with the config's
+   `contextKeys` standing in for the extensions, which are not loaded yet. A
+   suite that does not lint clean stops the whole plan: `generate` prints the
+   runtime's diagnostics with their positions and exits 2, writing nothing,
+   because partial test code would silently drop cases. A runtime whose build
+   runs the generator prints them in that build tool's error format (C#:
+   `path(line,column): error E104: message`, which MSBuild and an IDE show as
+   build errors).
 3. **Suite name.** The `suite` value.
 4. **Cases.** The suite's cases in file order; a case with `examples` becomes one
    case per row, in row order, named `<name> [<column>=<value>, ...]` exactly as

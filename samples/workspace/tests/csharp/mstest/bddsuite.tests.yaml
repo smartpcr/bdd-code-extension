@@ -1,0 +1,14 @@
+# The sample workspace's suites as MSTest tests (docs/test-providers, D4;
+# spec/test-plan.md). The provider is not named: the build detects MSTest from
+# the project's package references.
+suites:
+  - ../../../test/e2e/suites/*.yml   # not flawed/, which does not lint clean on purpose
+  - suites/*.yml
+schemaRoot: ../../../test/e2e/schema
+extensions: [ Shop.Suite.ShopExtension ]
+contextKeys: [ store ]
+# Everything the shop does without a real environment. order.place stands in
+# for a lab action here: a suite that uses it is guarded and skips unless
+# BDD_SUITE_ALLOW_GUARDED=1 (suites/order-placement.yml).
+offlineActions: [ "core.*", "wait", "inventory.*", "cart.*", "customer.*", "shipping.*", "price.*", "stock.*", "audit.*", "shop.*" ]
+output: { namespace: Shop.Suite.Tests }

@@ -1,8 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **stages T0 and T1 built 2026-10-19** (spikes and the shared contract,
-[evidence](../evidence/test-providers-t0.md); the C# session,
-[evidence](../evidence/test-providers-t1.md)); stages T2-T10 not started. The design, its
+Status: **stages T0, T1 and T2 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md)); stages T3-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -373,12 +372,12 @@ Result: spike findings; D1. Entry: none. Exit evidence: findings in
 `docs/evidence/test-providers-t0.md` with design.md revised where an answer
 differs; D1's schema tests; corpus still green. Size: 1–1.5.
 
-- [x] T0.1 MSTest: how a throwing `[ClassCleanup]` is reported. Checked on 4.3.2 and 3.8.3 through TRX and the console; 4.x is the minimum (3.x fails a passed test). The Visual Studio and Rider view moved to T2.12 (`manual`).
+- [x] T0.1 MSTest: how a throwing `[ClassCleanup]` is reported. Checked on 4.3.2 and 3.8.3 through TRX and the console; 4.x is the minimum (3.x fails a passed test). The Visual Studio and Rider view is out of scope (design 1.3).
 - [x] T0.2 NUnit 4: same for `[OneTimeTearDown]` (run-level error, tests stay passed); `[TestCase(TestName=)]` on a parameterless test works; `Name=` filters with spaces break the adapter.
 - [x] T0.3 xUnit v3: class- and assembly-fixture dispose failures are run-level errors; `Assert.Skip` works; a throwing constructor skips `Dispose`.
 - [x] T0.4 Jest, Vitest and `node:test`: `afterAll` failure reporting (`node:test`'s JUnit reporter drops it); per-file module state; worker control (Jest global only); runtime skip (none in Jest).
-- [x] T0.5 MSTest names: `[TestMethod(DisplayName=)]` (the 4.x constructor form silently keeps the method name) and `[DataRow(DisplayName=)]` are exact in TRX and `--list-tests`. The Visual Studio and Rider view moved to T2.12 (`manual`).
-- [x] T0.6 C#: a `BeforeCompile` target's output is compiled and listed by design-time builds (`dotnet msbuild -p:DesignTimeBuild=true`, Visual Studio 18 MSBuild); `CoreCompile` leaves a deleted suite's tests behind. Rider's own design-time build was not checked (T2.12, `manual`).
+- [x] T0.5 MSTest names: `[TestMethod(DisplayName=)]` (the 4.x constructor form silently keeps the method name) and `[DataRow(DisplayName=)]` are exact in TRX and `--list-tests`. The Visual Studio and Rider view is out of scope (design 1.3).
+- [x] T0.6 C#: a `BeforeCompile` target's output is compiled and listed by design-time builds (`dotnet msbuild -p:DesignTimeBuild=true`, Visual Studio 18 MSBuild); `CoreCompile` leaves a deleted suite's tests behind. Rider's own design-time build is out of scope (design 1.3).
 - [x] T0.7 libtest-mimic 0.8.2: selection predicted with `is_filtered_out`/`is_ignored`; a per-suite turnstile keeps order under 8 threads; teardown trial, or the last case when it is filtered out.
 - [x] T0.8 Pester 5.7.1: one `It` per row (a `-ForEach` row cannot be selected), `<` `>` escaped; `AfterAll` failure visible only in NUnit3 output; module-state pattern.
 - [x] T0.9 Findings recorded in [the evidence](../evidence/test-providers-t0.md); DEC-T02, DEC-T05, DEC-T08, DEC-T09, DEC-T10, DEC-T11, DEC-T12 and E1, E4, E7 revised.
@@ -410,21 +409,21 @@ Result: D2. Entry: T0. Exit evidence: E1 and E2 for C#. Size: 1.5–2.
 Result: D3, D4. Entry: T1. Exit evidence: E3 (C#), E4 (MSTest), E9 (C#),
 E10 (MSTest), E11 (MSTest), E12 (C#); E13 (MSTest) written. Size: 2.
 
-- [ ] T2.1 `Plan.Build`: suites, cases, rows, tags, guarded, identifiers.
-- [ ] T2.2 `suiterun generate --plan`; E3 plan check for C#; the runtime's corpus test runs the manifest's `generate` list, and csharp is removed from its `pendingIn`.
-- [ ] T2.3 `Bdd.Suite.Testing` project: `BddSuiteRun`, `ThrowIfFailed`, guarded skip.
-- [ ] T2.4 MSTest 4 template (`[TestMethod(DisplayName=)]`, one method per examples row); golden files.
-- [ ] T2.5 MSBuild targets: incremental generation, `Compile` items, design-time build.
-- [ ] T2.6 Provider auto-detection from package references.
-- [ ] T2.7 `--check` mode.
-- [ ] T2.8 Teardown failure reporting as chosen in T0.1; README note.
-- [ ] T2.9 `samples/workspace/tests/csharp/mstest`: corpus and sample suites.
-- [ ] T2.10 TRX and trace comparison harness (shared by later providers).
-- [ ] T2.11 E4 for MSTest (filters, setup/teardown counts, parallel).
-- [ ] T2.12 E9 for C#; `manual` Visual Studio and Rider check recorded: display names, the `[<class> ClassCleanup]` row, and Rider's design-time build listing the generated files (left open by T0.1, T0.5, T0.6).
-- [ ] T2.13 E10 and E11 for MSTest.
-- [ ] T2.14 E12 for C#.
-- [ ] T2.15 E13 written and linted for MSTest.
+- [x] T2.1 `Plan.Build`: suites, cases, rows, tags, guarded, identifiers.
+- [x] T2.2 `suiterun generate --plan`; E3 plan check for C#; the runtime's corpus test runs the manifest's `generate` list, and csharp is removed from its `pendingIn`.
+- [x] T2.3 `Bdd.Suite.Testing` project: `BddSuiteRun`, `ThrowIfFailed`, guarded skip.
+- [x] T2.4 MSTest 4 template (`[TestMethod(DisplayName=)]`, one method per examples row); golden files.
+- [x] T2.5 MSBuild targets: incremental generation, `Compile` items, design-time build.
+- [x] T2.6 Provider auto-detection from package references.
+- [x] T2.7 `--check` mode.
+- [x] T2.8 Teardown failure reporting as chosen in T0.1; README note.
+- [x] T2.9 `samples/workspace/tests/csharp/mstest`: corpus and sample suites.
+- [x] T2.10 TRX and trace comparison harness (shared by later providers).
+- [x] T2.11 E4 for MSTest (filters, setup/teardown counts, parallel).
+- [x] T2.12 E9 for C# (`scenarios.mjs E9`). The Visual Studio and Rider check once planned here is out of scope (design 1.3, decided 2026-10-19).
+- [x] T2.13 E10 and E11 for MSTest.
+- [x] T2.14 E12 for C#.
+- [x] T2.15 E13 written and linted for MSTest.
 
 ### Stage T3: NUnit and xUnit (P1)
 

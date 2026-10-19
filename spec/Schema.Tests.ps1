@@ -239,7 +239,7 @@ Describe 'The test-generation config and the test plan (test-plan.md)' {
     It 'accepts a config that names every key' {
         $yaml = @(
             'suites: [suites/**/*.yml]', 'exclude: [suites/_lib/**]', 'schemaRoot: ../schema', 'provider: xunit',
-            'extensions: [MyCompany.Actions.OrdersExtension]', "offlineActions: ['core.*', wait, orders.read]",
+            'extensions: [MyCompany.Actions.OrdersExtension]', "offlineActions: ['core.*', wait, orders.read]", 'contextKeys: [store, region]',
             'output: { folder: generated, namespace: MyCompany.Suites.Tests, package: suites_test }'
         ) -join "`n"
         ConvertTo-ConfigJson $yaml | Test-Json -Schema $script:ConfigSchema | Should -BeTrue

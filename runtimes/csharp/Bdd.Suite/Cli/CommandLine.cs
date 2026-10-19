@@ -10,6 +10,7 @@ public enum Verb
     Run,
     List,
     Actions,
+    Generate,
 }
 
 /// <summary>Which report a run writes.</summary>
@@ -56,6 +57,25 @@ public sealed class Options
     /// <summary>The value given for each option an extension declares, by
     /// flag. A runtime with no extension takes none.</summary>
     public Dictionary<string, string> ExtensionOptions { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>generate: the bddsuite.tests.yaml files (spec/test-plan.md).</summary>
+    public List<string> Configs { get; } = [];
+
+    /// <summary>generate: print the plan instead of writing code.</summary>
+    public bool Plan { get; set; }
+
+    /// <summary>generate: say which files differ instead of writing them.</summary>
+    public bool Check { get; set; }
+
+    /// <summary>generate: the provider, over the config's and the detected one.</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>generate: the folder the code is written to.</summary>
+    public string Out { get; set; } = string.Empty;
+
+    /// <summary>generate: the test project's package references, which identify
+    /// its provider when nothing names one.</summary>
+    public List<string> Packages { get; } = [];
 }
 
 /// <summary>Why a command line could not be read.</summary>
@@ -90,6 +110,8 @@ public static class CommandLine
                          [--dry-run] [--param name=value] [--trace-file f.json]
         suiterun list    --path <glob> [--tags a,b]
         suiterun actions [--json]
+        suiterun generate --config <bddsuite.tests.yaml> [--config <another>] [--provider <name>]
+                         [--out <folder>] [--packages a;b] [--plan | --check]
         """;
 
     /// <summary>The usage text, with every option the extensions
@@ -115,6 +137,7 @@ public static class CommandLine
         Verb.Lint => "lint",
         Verb.Run => "run",
         Verb.List => "list",
+        Verb.Generate => "generate",
         _ => "actions",
     };
 
@@ -140,6 +163,7 @@ public static class CommandLine
             "run" => Verb.Run,
             "list" => Verb.List,
             "actions" => Verb.Actions,
+            "generate" => Verb.Generate,
             _ => throw new CommandLineException($"there is no verb called {arguments[0]}.\n{usage}"),
         };
 
@@ -220,6 +244,24 @@ public static class CommandLine
                 case "--binding-check":
                     options.BindingCheck = true;
                     break;
+                case "--config" when options.Verb == Verb.Generate:
+                    options.Configs.Add(Value(name));
+                    break;
+                case "--plan" when options.Verb == Verb.Generate:
+                    options.Plan = true;
+                    break;
+                case "--check" when options.Verb == Verb.Generate:
+                    options.Check = true;
+                    break;
+                case "--provider" when options.Verb == Verb.Generate:
+                    options.Provider = Value(name);
+                    break;
+                case "--out" when options.Verb == Verb.Generate:
+                    options.Out = Value(name);
+                    break;
+                case "--packages" when options.Verb == Verb.Generate:
+                    options.Packages.AddRange(Value(name).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                    break;
                 default:
                     throw new CommandLineException($"{Spell(options.Verb)} does not take {name}.\n{usage}");
             }
@@ -227,6 +269,18 @@ public static class CommandLine
 
         // A verb that reads files needs to be told which. `actions` reads the
         // catalog and nothing else, so it is the one that does not.
+        if (options.Verb == Verb.Generate)
+        {
+            if (options.Configs.Count == 0)
+            {
+                throw new CommandLineException($"generate needs --config.\n{usage}");
+            }
+            if (options.Plan && options.Check)
+            {
+                throw new CommandLineException("generate takes --plan or --check, not both");
+            }
+            return options;
+        }
         if (options.Verb != Verb.Actions && options.Path.Length == 0)
         {
             throw new CommandLineException($"{Spell(options.Verb)} needs --path.\n{usage}");

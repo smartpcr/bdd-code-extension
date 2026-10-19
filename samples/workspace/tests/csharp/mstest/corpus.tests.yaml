@@ -1,0 +1,8 @@
+# The conformance corpus's execute suites as MSTest tests, so the corpus
+# proves the provider (docs/test-providers, DEC-T12): every entry's trace and
+# results through MSTest must equal its expectation.
+suites: [ "../../../../../conformance/execute/*.yml" ]
+schemaRoot: ../../../../../conformance/schema
+extensions: [ Shop.Suite.MsTest.CorpusExtension ]
+contextKeys: [ cluster, target, labId, apiUrl ]
+output: { namespace: Corpus.Tests }

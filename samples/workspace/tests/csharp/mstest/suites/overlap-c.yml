@@ -1,0 +1,46 @@
+suite: overlap-c
+description: Three short cases whose markers show, under method-level parallelism, that no two cases of one suite overlap and that beforeEach and afterEach bracket only their own case (docs/test-providers, E11).
+tags: [overlap]
+
+beforeEach:
+  - action: core.record
+    marker: overlap-c:before
+
+afterEach:
+  - action: core.record
+    marker: overlap-c:after
+
+tests:
+  - name: one
+    steps:
+      - given: the case starts
+        action: core.record
+        marker: overlap-c:one:start
+      - when: it works for a moment
+        action: core.sleep
+        seconds: 0.2
+      - then: it ends
+        action: core.record
+        marker: overlap-c:one:end
+  - name: two
+    steps:
+      - given: the case starts
+        action: core.record
+        marker: overlap-c:two:start
+      - when: it works for a moment
+        action: core.sleep
+        seconds: 0.2
+      - then: it ends
+        action: core.record
+        marker: overlap-c:two:end
+  - name: three
+    steps:
+      - given: the case starts
+        action: core.record
+        marker: overlap-c:three:start
+      - when: it works for a moment
+        action: core.sleep
+        seconds: 0.2
+      - then: it ends
+        action: core.record
+        marker: overlap-c:three:end

@@ -70,6 +70,7 @@ public static partial class Runner
             Verb.Run => RunSuites(options, composite),
             Verb.List => List(options),
             Verb.Actions => Actions(options, composite),
+            Verb.Generate => Generate(options),
             _ => Report.Refused($"{options.Verb} is not a verb."),
         };
     }

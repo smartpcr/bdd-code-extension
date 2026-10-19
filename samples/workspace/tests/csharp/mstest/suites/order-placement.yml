@@ -1,0 +1,41 @@
+suite: order-placement
+description: Places a real order, so it is guarded (bddsuite.tests.yaml leaves order.place out of offlineActions) and runs only with BDD_SUITE_ALLOW_GUARDED=1.
+tags: [orders]
+
+setup:
+  - action: core.record
+    marker: order-placement-setup
+
+teardown:
+  - action: core.record
+    marker: order-placement-teardown
+
+tests:
+  - name: places an order
+    tags: [smoke]
+    steps:
+      - when: one widget is ordered
+        action: order.place
+        sku: WIDGET-1
+        quantity: 1
+        captureAs: order
+      - then: the order is accepted
+        action: core.noop
+        asserts:
+          - var: order.orderId
+            equals: ORD-WIDGET-1-1
+
+  - name: rejects a bad quantity
+    examples:
+      - { qty: 0 }
+      - { qty: -1 }
+    steps:
+      - when: the quantity is ${row.qty}
+        action: core.set
+        value: ${row.qty}
+        captureAs: quantity
+      - then: it is not a positive number
+        action: core.noop
+        asserts:
+          - var: quantity
+            lte: 0

@@ -1,0 +1,67 @@
+<Project>
+
+  <!--
+    Generates a test project's tests from its suites before every compile
+    (docs/test-providers, DEC-T10). Import it after the SDK:
+
+      <Import Project="<runtimes/csharp>/Bdd.Suite.Testing/build/Bdd.Suite.Testing.targets" />
+
+    and reference <runtimes/csharp>/Bdd.Suite.Testing/Bdd.Suite.Testing.csproj.
+
+    Inputs:
+      BddSuiteConfig   the bddsuite.tests.yaml files; by default the one beside
+                       the project. Several are allowed (one run hook for all).
+      BddSuiteProvider optional; else the configs' provider, else detected from
+                       the PackageReference items (MSTest, NUnit, xunit.v3).
+
+    The generated files go to $(IntermediateOutputPath)BddSuite\ and are never
+    committed. The generator runs on every build, including an IDE's
+    design-time build, and rewrites only files whose text changed, so an
+    unchanged suite costs one short process and no recompile; a file no suite
+    needs any more is deleted, so a deleted suite's tests leave the assembly.
+    The files are added to Compile in a separate target that always runs,
+    before BeforeCompile: hooking CoreCompile instead leaves a deleted suite's
+    tests in the assembly (T0).
+  -->
+
+  <PropertyGroup>
+    <BddSuiteRoot>$(MSBuildThisFileDirectory)..\..\</BddSuiteRoot>
+    <BddSuiteCliProject>$(BddSuiteRoot)Bdd.Suite.Cli\Bdd.Suite.Cli.csproj</BddSuiteCliProject>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'@(BddSuiteConfig)' == ''">
+    <BddSuiteConfig Include="$(MSBuildProjectDirectory)\bddsuite.tests.yaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Built first, so the generator exists; nothing of it is referenced. -->
+    <ProjectReference Include="$(BddSuiteCliProject)" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <Target Name="BddSuiteGenerate">
+    <MSBuild Projects="$(BddSuiteCliProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" PropertyName="BddSuiteCliDll" />
+    </MSBuild>
+    <PropertyGroup>
+      <!-- Here rather than at the top: IntermediateOutputPath is set by the SDK after this file is read. -->
+      <BddSuiteOutput>$(IntermediateOutputPath)BddSuite\</BddSuiteOutput>
+      <_BddSuiteConfigs>@(BddSuiteConfig->'--config &quot;%(FullPath)&quot;', ' ')</_BddSuiteConfigs>
+      <_BddSuitePackages>@(PackageReference->'%(Identity)', ';')</_BddSuitePackages>
+      <_BddSuiteProviderArgument Condition="'$(BddSuiteProvider)' != ''">--provider $(BddSuiteProvider)</_BddSuiteProviderArgument>
+    </PropertyGroup>
+    <!-- In a design-time build before the first real build, the generator may
+         not be built yet: the tests appear after that build. -->
+    <Exec Condition="Exists('$(BddSuiteCliDll)')"
+          Command="dotnet &quot;$(BddSuiteCliDll)&quot; generate $(_BddSuiteConfigs) --out &quot;$(BddSuiteOutput.TrimEnd('\'))&quot; --packages &quot;$(_BddSuitePackages)&quot; $(_BddSuiteProviderArgument)"
+          StandardOutputImportance="low" />
+  </Target>
+
+  <Target Name="BddSuiteCompileItems" BeforeTargets="BeforeCompile" DependsOnTargets="BddSuiteGenerate">
+    <ItemGroup>
+      <Compile Remove="$(BddSuiteOutput)**\*.g.cs" />
+      <Compile Include="$(BddSuiteOutput)*.g.cs" />
+      <FileWrites Include="$(BddSuiteOutput)*.g.cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>

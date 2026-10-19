@@ -79,6 +79,12 @@ a custom harness** (Rust), **`node:test`, Vitest, Jest** (TypeScript), **Pester
 
 Not in scope:
 
+* **Visual Studio and Rider.** How their test explorers show, run and debug the
+  generated tests, and their design-time builds, are deferred and not checked
+  here (decided 2026-10-19). The generated tests are ordinary framework tests,
+  so the frameworks' own command lines (`dotnet test`, `--list-tests`) are
+  what this work proves.
+
 * **Changing what a suite means.** No phase order, failure rule, finding code
   or trace field changes, with one exception made explicit and tested:
   [DEC-T04](#dec-t04) makes the per-case copy of the capture bag deep in all
@@ -677,10 +683,8 @@ configuration.
   discovery (`Invoke-Pester -Configuration @{Run=@{SkipRun=$true}}` with
   `PassThru`) run.
 * **Then** each lists one entry per case and row with the case's exact display
-  name (Go: with Go's space-to-underscore rewrite). Separately, labelled
-  `manual` and not counted as a pass: Visual Studio and Rider Test Explorer
-  show and run a single MSTest case and debug into an action; VS Code's Go and
-  Vitest extensions run one case.
+  name (Go: with Go's space-to-underscore rewrite). How an IDE's test explorer
+  shows them (Visual Studio, Rider) is out of scope (see 1.3).
 * **Cleanup.** None.
 
 ### <a id="e10"></a>E10. Guarded suites skip without the opt-in, in every provider

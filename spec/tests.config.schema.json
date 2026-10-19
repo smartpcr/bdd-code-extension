@@ -39,6 +39,11 @@
         "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*(\\.\\*)?$"
       }
     },
+    "contextKeys": {
+      "description": "The context keys the extensions add (each read as ${key}). The generator lints every suite before any extension is loaded, so it learns them here; without them a suite that reads ${store} would be refused (E301).",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+    },
     "output": {
       "description": "Where and under what names the code is written. Every key is optional; each generator documents its defaults.",
       "type": "object",

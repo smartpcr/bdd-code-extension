@@ -7,7 +7,7 @@ PowerShell 7 with Pester 5.7.1. The spikes were run by five agents in parallel;
 their projects, scripts and result files are under `spikes/test-providers/`
 (build output ignored by `.gitignore`) so each finding can be re-run. Nothing
 here was run in CI, and no Visual Studio, Rider or VS Code test-explorer UI was
-checked (that is a `manual` check in stage T2, step T2.12).
+checked; Visual Studio and Rider are out of scope (design 1.3, decided 2026-10-19).
 
 ## Spike findings (T0.1-T0.8)
 
@@ -154,6 +154,6 @@ catalog and schema, the corpus tests):
 
 ## Open
 
-* Visual Studio, Rider and VS Code test explorers were not checked (T2.12, manual).
+* Visual Studio and Rider test explorers are out of scope (design 1.3).
 * xUnit v3 4.x and the Microsoft.Testing.Platform runner mode were not tried.
 * CI has not run any of this.
