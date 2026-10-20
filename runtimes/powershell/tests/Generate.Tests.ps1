@@ -106,6 +106,19 @@ Describe 'the Pester tests' {
         Test-Path -LiteralPath (Join-Path $folder 'Mine.Bdd.Tests.ps1') | Should -BeTrue
     }
 
+    It 'counts a file whose line ends a Windows checkout changed to CRLF as current' {
+        $plan = (Get-BddSuitePlan -Config (Read-BddSuiteTestsConfig -Path $script:corpusConfig)).Plan
+        $folder = Join-Path $TestDrive 'crlf'
+        $files = @(ConvertTo-BddSuitePesterFile -Plans @($plan) -Folder $folder)
+        Write-BddSuiteGeneratedFile -Folder $folder -File $files | Out-Null
+        foreach ($one in $files) {
+            $path = Join-Path $folder $one.Name
+            [IO.File]::WriteAllText($path, ([IO.File]::ReadAllText($path) -replace "(?<!`r)`n", "`r`n"))
+        }
+        @((Write-BddSuiteGeneratedFile -Folder $folder -File $files -Check).Stale) | Should -BeNullOrEmpty
+        (Write-BddSuiteGeneratedFile -Folder $folder -File $files).Written.Count | Should -Be 0
+    }
+
     It 'generate refuses what it cannot do, and says what it wrote' {
         $broken = Invoke-BddSuiteGenerate -Config (Join-Path $script:corpusRoot 'generate/invalid/bddsuite.tests.yaml')
         $broken.Code | Should -Be 2

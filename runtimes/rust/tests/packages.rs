@@ -236,9 +236,9 @@ fn the_crate_carries_the_repositorys_license() {
     // A packaged crate holds only its own folder (docs/packages, DEC-P11).
     let root = std::fs::read_to_string(common::repo().join("LICENSE")).unwrap();
     let own = std::fs::read_to_string(common::repo().join("runtimes").join("rust").join("LICENSE")).unwrap();
-    assert_eq!(own.replace("
-", "
-"), root.replace("
-", "
-"), "runtimes/rust/LICENSE differs from the repository's: copy it again");
+    assert_eq!(
+        own.replace("\r\n", "\n"),
+        root.replace("\r\n", "\n"),
+        "runtimes/rust/LICENSE differs from the repository's: copy it again"
+    );
 }

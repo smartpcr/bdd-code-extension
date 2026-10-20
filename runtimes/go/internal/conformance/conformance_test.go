@@ -327,11 +327,7 @@ func TestTheModuleCarriesTheRepositorysLicense(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.ReplaceAll(string(module), "
-", "
-") != strings.ReplaceAll(string(root), "
-", "
-") {
+	if strings.ReplaceAll(string(module), "\r\n", "\n") != strings.ReplaceAll(string(root), "\r\n", "\n") {
 		t.Error("runtimes/go/LICENSE differs from the repository's LICENSE: copy it again")
 	}
 }

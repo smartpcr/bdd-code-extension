@@ -379,9 +379,13 @@ function Write-BddSuiteGeneratedFile {
     $wanted = @{}
     foreach ($one in $File) { $wanted[$one.Name] = $one.Text }
     $utf8 = [Text.UTF8Encoding]::new($false)
+    # Line ends do not count: a Windows checkout with core.autocrlf (GitHub's
+    # Windows runners have it) turns the committed LF into CRLF, and the file is
+    # still the one the generator writes.
+    $same = { param([string]$A, [string]$B) ($A -replace "`r`n", "`n") -ceq ($B -replace "`r`n", "`n") }
     foreach ($name in @($wanted.Keys | Sort-Object)) {
         $target = Join-Path $Folder $name
-        if ((Test-Path -LiteralPath $target) -and ([IO.File]::ReadAllText($target) -ceq $wanted[$name])) { continue }
+        if ((Test-Path -LiteralPath $target) -and (& $same ([IO.File]::ReadAllText($target)) $wanted[$name])) { continue }
         if ($Check) { $outcome.Stale.Add($name) } else { [IO.File]::WriteAllText($target, $wanted[$name], $utf8); $outcome.Written.Add($name) }
     }
     if (Test-Path -LiteralPath $Folder) {
