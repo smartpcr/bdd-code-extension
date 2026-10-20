@@ -134,7 +134,10 @@ scenario('E9', 'the list names every case and row exactly', check => {
       // node:test lists nothing; a dry run reports every test without running one.
       listed = test([every(config)], { env: { BDD_SUITE_DRY_RUN: '1' } }).rows.filter(r => r.classname).map(r => `${r.classname} > ${r.name}`);
     }
-    check(JSON.stringify(listed.sort()) === JSON.stringify(planned), `${config}: ${listed.length} listed, ${planned.length} planned`);
+    const extra = listed.filter(name => !planned.includes(name));
+    const missing = planned.filter(name => !listed.includes(name));
+    check(JSON.stringify(listed.sort()) === JSON.stringify(planned),
+      `${config}: ${listed.length} listed, ${planned.length} planned; listed, not planned: ${JSON.stringify(extra.slice(0, 6))}; planned, not listed: ${JSON.stringify(missing.slice(0, 6))}`);
   }
 });
 
