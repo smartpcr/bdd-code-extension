@@ -7,6 +7,10 @@
   `--name`, `--progress` and its run observer, `bdd-suite:core`, and a step
   that throws anything, an `Error` or not, failing without ending the run
   (docs/packages, stage K4).
+* **TypeScript:** `npx suiterun` runs on Linux and macOS, where an installed
+  package's bin is a symbolic link; it used to exit 0 having done nothing.
+  The `node:test` JUnit reporter names each case after its own file's
+  `describe` when files run at once.
 * **PowerShell:** the Pester generator's `-Check` no longer calls a generated
   file stale for its line ends, which a Windows checkout with `core.autocrlf`
   changes.

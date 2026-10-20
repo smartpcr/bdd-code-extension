@@ -18,6 +18,7 @@
 //
 // A consumer's own suiterun calls main(argv, streams, extensions): each
 // extension's options are taken like the core's valued flags (extension.ts).
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { coreActions } from './actions/core.js';
 import { compose, Composite, Extension, ExtensionError } from './extension.js';
@@ -179,7 +180,14 @@ export async function main(argv: readonly string[], streams: Streams = processSt
   return report.code;
 }
 
-/* c8 ignore next 3 -- the program entry, run by the conformance tests as a child process */
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// By the real path: an installed package's bin is a symbolic link on Linux and
+// macOS (node_modules/.bin/suiterun), and node names the link in argv but the
+// file it leads to in import.meta.url.
+/* c8 ignore start -- the program entry, run by the conformance tests and E5 as a child process */
+const entry = process.argv[1];
+const self = fileURLToPath(import.meta.url);
+const real = (file: string) => { try { return realpathSync(file); } catch { return file; } };
+if (entry && (entry === self || real(entry) === self)) {
   process.exitCode = await main(process.argv.slice(2));
 }
+/* c8 ignore stop */
