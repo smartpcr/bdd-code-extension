@@ -1,7 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
 Status: **stages T0 to T7 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
-[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md), [T7](../evidence/test-providers-t7.md)); stages T8-T10 not started. The design, its
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md), [T7](../evidence/test-providers-t7.md)); stage T8 built, its CI not yet run ([T8](../evidence/test-providers-t8.md)); stages T9-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -500,10 +500,10 @@ E9, E10, E12 for PowerShell. Size: 2.
 Result: D15. Entry: the providers to be covered. Exit evidence: CI green on a
 pushed branch for every job (pushed only when the user asks). Size: 1.
 
-- [ ] T8.1 CI jobs for E1–E3 per runtime.
-- [ ] T8.2 CI jobs for each provider's sample project with report and trace artifacts.
-- [ ] T8.3 READMEs: runtime sections and repository overview.
-- [ ] T8.4 CHANGELOG and release notes (DEC-T04 behaviour change).
+- [ ] T8.1 CI jobs for E1–E3 per runtime. (Built 2026-10-19; CI not run: needs a pushed branch.)
+- [ ] T8.2 CI jobs for each provider's sample project with report and trace artifacts. (Built 2026-10-19; CI not run: needs a pushed branch.)
+- [x] T8.3 READMEs: runtime sections and repository overview. (For the user's review.)
+- [x] T8.4 CHANGELOG and release notes (DEC-T04 behaviour change).
 
 ### Stage T9: lab acceptance (P1, remote)
 

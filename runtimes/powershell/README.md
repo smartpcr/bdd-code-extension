@@ -17,6 +17,8 @@ Requirements: PowerShell 7.2 or later (tested on 7.6.7), the
 | --- | --- |
 | `BddSuite/BddSuite.psd1`, `BddSuite.psm1` | The module: loads the parts below and adds the extension API. |
 | `BddSuite/Runner.ps1` | `Invoke-BddSuite`, the generic runner. |
+| `BddSuite/Session.ps1` | The suite session a test framework drives (spec/session.md), the run context and the Pester glue; the runner runs every file through it. |
+| `BddSuite/Generate.ps1` | `suiterun generate`: the test plan and the Pester tests (below). |
 | `BddSuite/SuiteModel.psm1` | Meta-step expansion, imports, parameters, tables and outlines. |
 | `BddSuite/SuiteLint.psm1` | The lint: structure (E1xx), semantics (E2xx), dataflow (E3xx); the catalog loader (`imports`). |
 | `BddSuite/StepExecution.psm1` | One step, bounded by cancelling it in a second runspace; the action registry lives here. |
@@ -25,7 +27,7 @@ Requirements: PowerShell 7.2 or later (tested on 7.6.7), the
 | `BddSuite/Cli.ps1` | `Invoke-BddSuiteCli`, the `suiterun` command line every program has (below). |
 | `suiterun.ps1` | That command line as a script, with the core alone; a workspace's own `suiterun.ps1` adds its extensions. |
 | `Invoke-BddSuite.ps1` | The older entry: `Invoke-BddSuite`'s own parameters as a script, which sets the exit code. |
-| `tests/` | `BddSuite.Tests.ps1` (the runtime's own tests), `Cli.Tests.ps1` (the command line) and `Conformance.Tests.ps1` (the corpus). |
+| `tests/` | `BddSuite.Tests.ps1` (the runtime's own tests), `Cli.Tests.ps1` (the command line), `Session.Tests.ps1` (the session's rules and E1), `Generate.Tests.ps1` (the generator, golden files in `golden/pester`) and `Conformance.Tests.ps1` (the corpus, with the generate entries). |
 | `example/` | An example extension and its workspace (E3). |
 | `HANDOVER.md` | What of os-context's runner stayed there, and what its wrapper must do (D10). |
 
@@ -71,6 +73,66 @@ directory.
 **The catalog** may import others (DEC-S10): `imports` are read depth first in
 the order listed, each relative to the file that names it; a name declared
 twice is refused naming both files, and an import cycle is refused.
+
+## Run suites with your test framework
+
+`suiterun.ps1 generate` (or `Invoke-BddSuiteGenerate`) turns a project's suites
+into Pester 5 tests: one `<Id>.Bdd.Tests.ps1` per suite, a `Describe` named
+after it, and one `It` per case and examples row, tagged with the case's tags
+(docs/test-providers, D14).
+
+**1. A config**, `bddsuite.tests.yaml`, in the folder the tests go to
+(spec/test-plan.md):
+
+```yaml
+suites: [ "../suites/*.yml" ]
+schemaRoot: ../schema
+provider: pester
+extensions: [ ../My.Extension.psm1 ]           # module paths, relative to this file
+contextKeys: [ store ]                         # what the extensions add, for linting before they load
+offlineActions: [ "core.*", "wait", "shop.*" ] # a suite using anything else is guarded
+```
+
+**2. Generate:**
+
+```text
+pwsh -File runtimes/powershell/suiterun.ps1 generate --config tests/bddsuite.tests.yaml [--check] [--plan]
+```
+
+The files are written beside the config (or to `output.folder`, or `--out`)
+and are meant to be committed: `--check` exits 1 naming each stale one, for
+CI. A suite that does not lint clean stops generation with its findings
+(exit 2). Only files the generator wrote are ever removed.
+
+**3. Run** with BddSuite imported (the generated files import it by name only
+when it is not loaded already):
+
+```powershell
+Import-Module ./runtimes/powershell/BddSuite/BddSuite.psd1
+$config = New-PesterConfiguration
+$config.Run.Path = 'tests'
+$config.TestResult.Enabled = $true
+$config.TestResult.OutputFormat = 'NUnit3'   # NUnit 2.5 shows a failed teardown as a success
+Invoke-Pester -Configuration $config         # also -FullNameFilter 'orders.places an order', -TagFilter smoke
+Reset-BddSuiteTestContext                    # the run context outlives one run otherwise
+```
+
+The run context, built once per `Invoke-Pester` run for each schema root and
+extension list, comes from the environment under the extensions' prefix
+(`BDD_SUITE_` by default): `BDD_SUITE_TAGS`, `BDD_SUITE_OPTION_<NAME>`
+(`zoneName` is `BDD_SUITE_OPTION_ZONE_NAME`), `BDD_SUITE_PARAM_<NAME>`,
+`BDD_SUITE_DRY_RUN=1`, `BDD_SUITE_TRACE_FILE` and `BDD_SUITE_RECORD_PATH`.
+Guarded suites skip (`Set-ItResult -Skipped`) with "guarded suite: set
+BDD_SUITE_ALLOW_GUARDED=1 to run it" unless that variable is `1`. A failed
+suite teardown fails the `Describe`'s `AfterAll` (in NUnit3, the fixture with
+`site="TearDown"`), never a case that passed.
+
+The session the generated code drives (`Open-BddSuiteSession`,
+`Invoke-BddSuiteSetup`, `Invoke-BddSuiteBeforeEach`, `Invoke-BddSuiteCase`,
+`Invoke-BddSuiteAfterEach`, `Invoke-BddSuiteTeardown`, `New-BddSuiteRunContext`)
+is exported for other hosts too; `Invoke-BddSuite` runs every file through it.
+The contract is `../../spec/session.md`. A working project, with a driver
+script: `../../samples/workspace/tests/powershell`.
 
 ## The suiterun command line
 

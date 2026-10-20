@@ -242,6 +242,30 @@ half done. A run has no timeout of its own; the suite's limits apply. A run
 whose runner is missing fails at once with its path, before asking anything,
 and the *Suite Authoring* output channel logs each step a run waits on.
 
+## Running suites with your test framework
+
+Outside the editor, a suite can also run as ordinary tests of the framework a
+language's developers already use, so `dotnet test`, `go test`, `cargo test`,
+`npm test` or `Invoke-Pester` runs it, with that framework's filters, reports
+and test explorer. A `bddsuite.tests.yaml` beside the test project names the
+suites; `suiterun generate` (or the build, in C# and Rust) writes one test per
+case and examples row, each running through the same session as `suiterun run`
+(`spec/session.md`), so both give the same results.
+
+| Language | Frameworks | How it runs |
+| --- | --- | --- |
+| C# | MSTest 4, NUnit 4, xUnit v3 | the `Bdd.Suite.Testing` package generates at build; [runtimes/csharp](runtimes/csharp/README.md) |
+| Go | `go test` | `go generate` writes `*_bdd_test.go`; [runtimes/go](runtimes/go/README.md) |
+| Rust | `cargo test` | `build.rs` generates for a `harness = false` target; [runtimes/rust](runtimes/rust/README.md) |
+| TypeScript | `node:test`, Vitest, Jest | `suiterun generate` writes `*.bdd.test.ts`; [runtimes/typescript](runtimes/typescript/README.md) |
+| PowerShell | Pester 5 | `suiterun.ps1 generate` writes `*.Bdd.Tests.ps1`; [runtimes/powershell](runtimes/powershell/README.md) |
+
+A suite that uses an action the config does not list as offline is
+**guarded**: its tests skip unless `BDD_SUITE_ALLOW_GUARDED=1`, so a test run
+in CI never reaches a lab by accident. Options, parameters, tags and the trace
+file come from `BDD_SUITE_*` environment variables. Working projects for every
+framework are under `samples/workspace/tests/`.
+
 ## Settings
 
 | Setting | Default | What it does |
@@ -363,4 +387,6 @@ In the source repository (not in the package): `docs/design.md`,
 `docs/evidence/`. The plan to make this repository self-contained (the core
 format spec, the conformance corpus and the five language runtimes moving
 here, extended by import) is `docs/self-contained/design.md` and
-`docs/self-contained/implementation.md`.
+`docs/self-contained/implementation.md`. Running suites with each language's
+test framework is `docs/test-providers/design.md` and
+`docs/test-providers/implementation.md`.

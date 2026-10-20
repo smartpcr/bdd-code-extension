@@ -13,6 +13,13 @@
 # The extension builds and its demo and integration suite run on Windows, where
 # it is developed and used; both are self-contained (the integration suite runs
 # against samples/workspace, whose bindings it builds from runtimes/).
+#
+# Each runtime's job runs its unit tests and the whole corpus, which includes
+# the suite session (E1), the whole-file run rebuilt on it (E2) and the test
+# plan (E3) of docs/test-providers. Each provider job runs the corpus and the
+# sample suites through that language's test frameworks and its scenarios
+# (E4 to E12), and keeps every framework report and trace as an artifact:
+# Windows for C# and PowerShell, Linux for Go, Rust and TypeScript.
 name: CI
 
 on:
@@ -88,7 +95,7 @@ jobs:
           }
 
   runtime-typescript:
-    name: TypeScript runtime (unit, corpus, extension example)
+    name: TypeScript runtime (unit, corpus with E1-E3, extension example)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -109,7 +116,7 @@ jobs:
         run: npm test
 
   runtime-go:
-    name: Go runtime (unit, corpus, extension example)
+    name: Go runtime (unit, corpus with E1-E3, extension example)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -125,11 +132,11 @@ jobs:
 
       - run: go vet ./...
 
-      - name: Unit tests, the whole corpus, the extension example
-        run: go test ./...
+      - name: Unit tests, the whole corpus, the extension example (with the race detector, since sessions share a trace)
+        run: go test -race ./...
 
   runtime-rust:
-    name: Rust runtime (unit, corpus, extension example)
+    name: Rust runtime (unit, corpus with E1-E3, extension example)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -144,11 +151,14 @@ jobs:
         with:
           workspaces: runtimes/rust
 
-      - name: Unit tests, the whole corpus, the extension example
-        run: cargo test
+      - name: Unit tests, the whole corpus, the extension example, and the testing feature's harness
+        run: cargo test --features testing
+
+      - name: The crate without the testing feature
+        run: cargo build
 
   runtime-csharp:
-    name: C# runtime (unit, corpus, extension example)
+    name: C# runtime on Linux (unit, corpus with E1-E3, generator, extension example)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -167,7 +177,7 @@ jobs:
         run: dotnet test Bdd.Suite.sln --no-build --nologo
 
   runtime-powershell:
-    name: PowerShell runtime (unit, corpus, extension example)
+    name: PowerShell runtime (unit, corpus with E1-E3, extension example)
     # Windows: where this runtime is developed and verified.
     runs-on: windows-latest
     timeout-minutes: 30
@@ -188,6 +198,221 @@ jobs:
           $config.Run.Exit = $true
           $config.Output.Verbosity = 'Normal'
           Invoke-Pester -Configuration $config
+
+  providers-csharp:
+    name: C# providers (MSTest, NUnit, xUnit) on the corpus and the sample suites
+    # E4, E9-E12 and the corpus through each framework (docs/test-providers).
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - run: npm ci
+
+      - name: The runtime (its suiterun prints the plans) and the sample's binding (the reference run)
+        run: |
+          dotnet build runtimes/csharp/Bdd.Suite.sln --nologo
+          dotnet build samples/workspace/test/e2e/bindings/dotnet/Suite.sln --nologo
+
+      - name: The corpus and the sample suites through each framework
+        shell: pwsh
+        run: |
+          foreach ($provider in 'mstest', 'nunit', 'xunit') {
+            node samples/workspace/tests/harness/corpus.mjs --provider $provider --out "out/providers/$provider"
+            if ($LASTEXITCODE) { throw "the corpus differs under $provider" }
+          }
+
+      - name: Filters, listing, guarded suites, parallel runs, generation (E4, E9-E12)
+        shell: pwsh
+        run: |
+          foreach ($provider in 'mstest', 'nunit', 'xunit') {
+            node samples/workspace/tests/csharp/scenarios.mjs --provider $provider
+            if ($LASTEXITCODE) { throw "a scenario failed under $provider" }
+          }
+
+      - name: Keep the reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-reports-csharp
+          path: out/providers
+          if-no-files-found: warn
+
+  providers-go:
+    name: Go provider (go test) on the corpus and the sample suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: samples/workspace/tests/go/go.mod
+          cache-dependency-path: |
+            runtimes/go/go.sum
+            samples/workspace/tests/go/go.sum
+            samples/workspace/test/e2e/bindings/go/go.sum
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: The committed generated tests are current
+        working-directory: samples/workspace/tests/go
+        run: |
+          for pkg in shop corpus; do (cd "$pkg" && go tool suiterun generate --config bddsuite.tests.yaml --check); done
+
+      - name: The corpus and the sample suites through go test (E5)
+        run: node samples/workspace/tests/harness/corpus.mjs --provider go --out out/providers/go
+
+      - name: Filters, listing, guarded suites, parallel runs, generation (E5, E9-E12)
+        run: node samples/workspace/tests/go/scenarios.mjs
+
+      - name: Keep the reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-reports-go
+          path: out/providers
+          if-no-files-found: warn
+
+  providers-rust:
+    name: Rust provider (cargo test harness) on the corpus and the sample suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            samples/workspace/tests/rust
+            samples/workspace/test/e2e/bindings/rust
+            runtimes/rust
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: The corpus and the sample suites through cargo test (E6)
+        run: node samples/workspace/tests/harness/corpus.mjs --provider rust --out out/providers/rust
+
+      - name: Listing, filters, guarded suites, parallel runs, generation (E6, E9-E12)
+        run: node samples/workspace/tests/rust/scenarios.mjs
+
+      - name: Keep the reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-reports-rust
+          path: out/providers
+          if-no-files-found: warn
+
+  providers-typescript:
+    name: TypeScript providers (node:test, Vitest, Jest) on the corpus and the sample suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            runtimes/typescript/package-lock.json
+            samples/workspace/test/e2e/bindings/typescript/package-lock.json
+            samples/workspace/tests/typescript/package-lock.json
+
+      - run: npm ci
+
+      - name: The runtime, the sample's binding and the test package
+        run: |
+          (cd runtimes/typescript && npm ci && npm run build)
+          (cd samples/workspace/test/e2e/bindings/typescript && npm ci && npm run build)
+          (cd samples/workspace/tests/typescript && npm ci)
+
+      - name: The committed generated tests are current
+        working-directory: samples/workspace/tests/typescript
+        run: npm run generate:check
+
+      - name: The corpus and the sample suites through each framework (E7)
+        run: |
+          for provider in node vitest jest; do
+            node samples/workspace/tests/harness/corpus.mjs --provider "$provider" --out "out/providers/$provider"
+          done
+
+      - name: Filters, listing, guarded suites, parallel runs, generation (E7, E9-E12)
+        run: |
+          for provider in node vitest jest; do
+            node samples/workspace/tests/typescript/scenarios.mjs --provider "$provider"
+          done
+
+      - name: Keep the reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-reports-typescript
+          path: out/providers
+          if-no-files-found: warn
+
+  providers-powershell:
+    name: PowerShell provider (Pester) on the corpus and the sample suites
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Pester 5 and the YAML module
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
+
+      - run: npm ci
+
+      - name: The committed generated tests are current
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File samples/workspace/tests/powershell/generate.ps1 -Check
+          if ($LASTEXITCODE) { throw 'a generated Pester file is stale' }
+
+      - name: The corpus and the sample suites through Pester (E8)
+        run: node samples/workspace/tests/harness/corpus.mjs --provider pester --out out/providers/pester
+
+      - name: Filters, discovery, guarded suites, generation (E8, E9, E10, E12)
+        run: node samples/workspace/tests/powershell/scenarios.mjs
+
+      - name: Keep the reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-reports-powershell
+          path: out/providers
+          if-no-files-found: warn
 
   integration:
     name: Extension integration suite against samples/workspace
@@ -275,7 +500,8 @@ jobs:
 
   release:
     name: Release v${{ needs.version.outputs.version }}
-    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, divergence, integration, version]
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
+      providers-rust, providers-typescript, providers-powershell, divergence, integration, version]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     concurrency:

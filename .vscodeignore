@@ -18,3 +18,5 @@ spec/**
 conformance/**
 runtimes/**
 samples/**
+spikes/**
+CHANGELOG.md

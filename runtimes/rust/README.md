@@ -1,0 +1,76 @@
+# The Rust runtime
+
+The crate `suiterun`: the suite model, lint, the run (`exec`, `session`),
+reports and the `suiterun` command line, extensible by an outside crate
+(`extension::Extension`). It is held to the conformance corpus in
+`../../conformance/` like every runtime.
+
+## Run suites with your test framework
+
+With the `testing` feature, a test crate runs its suites under `cargo test`:
+one trial per case and examples row, named `<SuiteId>::<case name>`, and one
+`<SuiteId>::teardown` trial per suite (docs/test-providers, D10 and DEC-T11).
+
+**1. A config**, `bddsuite.tests.yaml`, beside the crate's `Cargo.toml` or in
+a folder of it (spec/test-plan.md):
+
+```yaml
+suites: [ "../suites/*.yml" ]
+schemaRoot: ../schema
+provider: rust
+contextKeys: [ store ]                         # what the extensions add, for linting before they load
+offlineActions: [ "core.*", "wait", "shop.*" ] # a suite using anything else is guarded
+```
+
+**2. The crate:**
+
+```toml
+[dev-dependencies]
+suiterun = { path = "...", features = ["testing"] }
+[build-dependencies]
+suiterun = { path = "...", features = ["testing"] }
+
+[[test]]
+name = "suites"
+harness = false
+```
+
+```rust
+// build.rs: generates at every build into $OUT_DIR; a suite that does not
+// lint clean stops the build with its findings.
+fn main() { suiterun::testing::build("bddsuite.tests.yaml", "suites.rs"); }
+
+// tests/suites.rs
+fn main() -> std::process::ExitCode {
+    suiterun::testing::main(vec![std::sync::Arc::new(my_actions::Shop)], include!(concat!(env!("OUT_DIR"), "/suites.rs")))
+}
+```
+
+Nothing generated is committed: Cargo runs `build.rs` again when the config, a
+suite folder or the schema changes, so the tests cannot go stale.
+`suiterun generate --config bddsuite.tests.yaml --plan` prints the test plan.
+
+**3. Run:**
+
+```text
+cargo test --test suites                                     # every suite
+cargo test --test suites -- --exact 'Orders::places an order' # one case: setup and teardown run once around it
+cargo test --test suites -- --list                           # every trial
+cargo test --test suites -- --format json                    # works on stable for this target
+```
+
+The run context comes from the environment, under the extensions' prefix
+(`BDD_SUITE_` by default): `BDD_SUITE_TAGS` (cases it does not select are
+ignored with "tag filter"), `BDD_SUITE_OPTION_<FLAG>`, `BDD_SUITE_PARAM_<NAME>`,
+`BDD_SUITE_DRY_RUN=1`, `BDD_SUITE_TRACE_FILE` and `BDD_SUITE_RECORD_PATH`.
+
+**Guarded suites** are ignored with "guarded suite: set
+BDD_SUITE_ALLOW_GUARDED=1 to run it" unless that variable is `1`. **A failed
+suite teardown** fails the `<SuiteId>::teardown` trial; when that trial is
+filtered out, the last case that ran does the teardown, prints the failure and
+the harness exits 101. A suite's cases run in order and never overlap, while
+different suites run on parallel threads. The harness pins `libtest-mimic` at
+`=0.8.2`: it relies on that version handing trials to its threads in order.
+
+A working crate: `../../samples/workspace/tests/rust`. The contract the
+harness drives is `../../spec/session.md`.

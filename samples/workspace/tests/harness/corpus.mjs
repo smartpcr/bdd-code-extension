@@ -2,7 +2,11 @@
 // test framework's generated tests, and compares what the framework reports
 // with what the suite format requires (docs/test-providers, DEC-T12, T2.10).
 //
-//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest|pester [--only <suite id>] [--keep]
+//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest|pester
+//        [--only <suite id>] [--keep] [--out <folder>]
+//
+// --keep leaves the reports and traces in the temporary folder; --out writes
+// them to the folder given and leaves them there (CI keeps it as an artifact).
 //
 // For each execute entry of conformance/run-manifest.yaml (except those pending
 // for the provider's runtime) it runs that suite's generated tests alone, with
@@ -37,6 +41,7 @@ const option = name => {
 const providerName = option('--provider') ?? 'mstest';
 const only = option('--only');
 const keep = args.includes('--keep');
+const out = option('--out');
 
 function run(command, argv, { cwd = repo, env = {}, allowFailure = true } = {}) {
   const started = Date.now();
@@ -123,8 +128,9 @@ const go = {
       { cwd: path.join(workspace, 'test', 'e2e', 'bindings', 'go') });
   },
   /** One TestSuite_<id> with go test -json; its subtests' results, and its own output as the run-level messages. */
-  runSuite(pkg, id, env) {
+  runSuite(pkg, id, env, scratch) {
     const result = run('go', ['test', '-count=1', '-json', '-run', `^TestSuite_${id}$`, `./${pkg}`], { cwd: goModule, env });
+    fs.writeFileSync(path.join(scratch, `go.${pkg}.${id}.json`), result.stdout);
     const events = result.stdout.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line));
     const parent = `TestSuite_${id}`;
     const rows = events.filter(e => e.Test?.startsWith(parent + '/') && ['pass', 'fail', 'skip'].includes(e.Action))
@@ -173,12 +179,13 @@ const rust = {
    * are each trial's last event, named without the suite part; stderr is the
    * run-level message, where a teardown run by the last case reports.
    */
-  runSuite(target, id, env) {
+  runSuite(target, id, env, scratch) {
     const prefix = `${id}::`;
     const others = [...new Set(rustList(target).map(name => name.slice(0, name.indexOf('::') + 2)))]
       .filter(other => other !== prefix && other.includes(prefix));
     const result = run('cargo', ['test', '-q', '--test', target, '--', '--format', 'json', prefix, ...others.flatMap(other => ['--skip', other])],
       { cwd: rustCrate, env });
+    fs.writeFileSync(path.join(scratch, `rust.${target}.${id}.json`), result.stdout);
     const rows = result.stdout.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line))
       .filter(event => event.type === 'test' && ['ok', 'failed', 'ignored'].includes(event.event) && event.name.startsWith(prefix))
       .map(event => ({ name: event.name.slice(prefix.length), outcome: event.event }));
@@ -327,7 +334,8 @@ const adapters = {
 const adapter = adapters[providerName];
 if (!adapter) throw new Error(`no adapter for provider ${providerName}`);
 
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `corpus-${providerName}-`));
+const scratch = out ? path.resolve(out) : fs.mkdtempSync(path.join(os.tmpdir(), `corpus-${providerName}-`));
+fs.mkdirSync(scratch, { recursive: true });
 const failures = [];
 const lines = trace => (trace ?? []).map(e => [e.phase, e.case ?? '', e.step ?? '', e.action ?? '', e.status, e.reason ?? ''].join(' | '));
 const sortRows = rows => rows.map(r => `${r.name} => ${r.outcome}`).sort();
@@ -429,7 +437,7 @@ for (const suite of samplePlan.values()) {
   if (!same) failures.push(`sample ${suite.file}:\n      ${sortRows(caseRows).join('\n      ')}\n    suiterun says:\n      ${sortRows(wanted).join('\n      ')}`);
 }
 
-if (!keep) fs.rmSync(scratch, { recursive: true, force: true });
+if (!keep && !out) fs.rmSync(scratch, { recursive: true, force: true });
 console.log(`\n${providerName}: ${checked} corpus entries and ${samples} sample suites checked; ${failures.length} differ.`);
 if (failures.length) {
   console.log(failures.join('\n\n'));
