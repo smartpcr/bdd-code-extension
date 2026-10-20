@@ -8,7 +8,7 @@ the conformance corpus in `../../conformance/` like every runtime.
 ## Install
 
 ```text
-npm install --save-dev @bdd-suite/runtime@0.7.0
+npm install --save-dev @bdd-suite/runtime@0.7.1
 ```
 
 The package is not on the npm registry yet: until it is, install the tarball a

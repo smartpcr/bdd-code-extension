@@ -8,8 +8,8 @@ held to the conformance corpus in `../../conformance/` like every runtime.
 ## Install
 
 ```text
-go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.0
-go get -tool github.com/smartpcr/bdd-code-extension/runtimes/go/cmd/suiterun@v0.7.0
+go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.1
+go get -tool github.com/smartpcr/bdd-code-extension/runtimes/go/cmd/suiterun@v0.7.1
 ```
 
 The module's versions are tagged `runtimes/go/v<version>`, the release's version

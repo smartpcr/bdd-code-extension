@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.1
+
+* **TypeScript:** `@bdd-suite/runtime` as a package, attached to the GitHub
+  release as `bdd-suite-runtime-<version>.tgz` (`npm install <its URL>`), with
+  `--name`, `--progress` and its run observer, `bdd-suite:core`, and a step
+  that throws anything, an `Error` or not, failing without ending the run
+  (docs/packages, stage K4).
+* **PowerShell:** the Pester generator's `-Check` no longer calls a generated
+  file stale for its line ends, which a Windows checkout with `core.autocrlf`
+  changes.
+
 ## 0.7.0
 
 ### The runtimes as packages

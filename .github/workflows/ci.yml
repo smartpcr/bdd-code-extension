@@ -553,7 +553,7 @@ jobs:
   # GitHub release with the .vsix. Both happen before the release and the Go
   # tag exist, so a release never names a package that is not there (DEC-P10).
   packages:
-    name: The C# packages and the Rust crate, packed and checked (E1)
+    name: The C# packages, the Rust crate and the npm package, packed and checked (E1)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -562,6 +562,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
 
       - name: Pack, and check every package against packaging/
         shell: pwsh
@@ -574,7 +578,13 @@ jobs:
           if ($LASTEXITCODE) { throw 'cargo package failed' }
           Pop-Location
           Copy-Item runtimes/rust/target/package/suiterun-*.crate out/packages/
-          foreach ($package in Get-ChildItem out/packages -Include '*.nupkg', '*.crate' -Recurse) {
+          Push-Location runtimes/typescript
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE) { throw 'npm ci failed' }
+          npm pack --pack-destination ../../out/packages
+          if ($LASTEXITCODE) { throw 'npm pack failed' }
+          Pop-Location
+          foreach ($package in Get-ChildItem out/packages -Include '*.nupkg', '*.crate', '*.tgz' -Recurse) {
             pwsh -NoProfile -File scripts/Test-PackageContents.ps1 -Package $package.FullName
             if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
           }
@@ -666,8 +676,8 @@ jobs:
             echo "| Go module ${tick}github.com/${GITHUB_REPOSITORY}/runtimes/go${tick} | the tag ${tick}runtimes/go/$TAG${tick}: ${tick}go get github.com/${GITHUB_REPOSITORY}/runtimes/go@$TAG${tick} | $TAG |"
             echo "| C# ${tick}Bdd.Suite${tick}, ${tick}Bdd.Suite.Testing${tick} | GitHub Packages, ${tick}https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json${tick} (a token with read:packages), and this release's assets | $rs |"
             echo "| Rust crate ${tick}suiterun${tick} | this release's asset ${tick}suiterun-$rs.crate${tick}, or a git dependency on this tag | $rs |"
-            echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | $ts (lint API $api) |"
-            echo "| PowerShell module ${tick}BddSuite${tick} | $ps |"
+            echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | this release's asset ${tick}bdd-suite-runtime-$ts.tgz${tick}: ${tick}npm install <its URL>${tick} | $ts (lint API $api) |"
+            echo "| PowerShell module ${tick}BddSuite${tick} | this tag, ${tick}runtimes/powershell/BddSuite${tick} | $ps |"
             echo
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"

@@ -9,6 +9,6 @@
     "test": "node --test --test-reporter=spec \"tests/*.bdd.test.ts\""
   },
   "devDependencies": {
-    "@bdd-suite/runtime": "0.7.0"
+    "@bdd-suite/runtime": "0.7.1"
   }
 }

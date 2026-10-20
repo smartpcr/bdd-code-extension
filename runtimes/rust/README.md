@@ -9,15 +9,15 @@ reports and the `suiterun` command line, extensible by an outside crate
 
 ```toml
 [dependencies]
-suiterun = { git = "https://github.com/smartpcr/bdd-code-extension", tag = "v0.7.0", features = ["testing"] }   # "testing" only for suites as cargo test tests
+suiterun = { git = "https://github.com/smartpcr/bdd-code-extension", tag = "v0.7.1", features = ["testing"] }   # "testing" only for suites as cargo test tests
 
 [build-dependencies]
-suiterun = { git = "https://github.com/smartpcr/bdd-code-extension", tag = "v0.7.0", features = ["testing"] }   # build.rs generates the suite list
+suiterun = { git = "https://github.com/smartpcr/bdd-code-extension", tag = "v0.7.1", features = ["testing"] }   # build.rs generates the suite list
 ```
 
 The crate is not on crates.io yet: Cargo finds `suiterun` inside the repository
 at the release tag, and each GitHub release carries `suiterun-<version>.crate`
-too. Once it is on crates.io, `version = "0.7.0"` replaces `git` and `tag`.
+too. Once it is on crates.io, `version = "0.7.1"` replaces `git` and `tag`.
 
 The crate carries the release's version, the VS Code extension's, so every
 runtime of one release agrees. A workspace adds its own actions in a type that
