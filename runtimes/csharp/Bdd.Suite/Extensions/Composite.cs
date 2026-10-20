@@ -32,7 +32,7 @@ public sealed partial class Composite
     public static readonly IReadOnlyList<string> CoreFlags =
     [
         "--path", "--tags", "--results", "--trace-file", "--schema-root", "--binding", "--format", "--param",
-        "--json", "--strict", "--dry-run", "--binding-check",
+        "--json", "--strict", "--dry-run", "--binding-check", "--name", "--progress",
     ];
 
     [GeneratedRegex("^--[a-z][a-z0-9-]*$")]

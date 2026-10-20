@@ -41,9 +41,10 @@ public sealed class ConformanceTests(Xunit.Abstractions.ITestOutputHelper output
         Assert.True(unknown.Count == 0,
             $"the manifest holds entries of kinds no test here runs: {string.Join(", ", unknown)}");
         // The counts after the move (conformance/rename.json): the lifecycle and
-        // E214 entries went back to the product that owns those rules.
-        Assert.Equal(41, runnable.Count(entry => string.Equals(entry.Text("kind"), "validate", StringComparison.Ordinal)));
-        Assert.Equal(14, runnable.Count(entry => string.Equals(entry.Text("kind"), "execute", StringComparison.Ordinal)));
+        // E214 entries went back to the product that owns those rules; then
+        // docs/packages K0 added core-import (validate) and six execute entries.
+        Assert.Equal(42, runnable.Count(entry => string.Equals(entry.Text("kind"), "validate", StringComparison.Ordinal)));
+        Assert.Equal(20, runnable.Count(entry => string.Equals(entry.Text("kind"), "execute", StringComparison.Ordinal)));
     }
 
     [Fact]

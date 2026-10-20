@@ -17,9 +17,33 @@ namespace Bdd.Suite.Execution;
 public sealed class RunOptions
 {
     public IReadOnlyList<string> Tags { get; init; } = [];
+
+    /// <summary>Case-name globs; see SuiteExpansion.NameMatches.</summary>
+    public IReadOnlyList<string> Names { get; init; } = [];
+
+    /// <summary>Told of each selected case and each trace entry as the run goes
+    /// (spec/progress.md). It never changes what the run does or what the trace
+    /// holds.</summary>
+    public IRunObserver? Observer { get; init; }
+
     public IReadOnlyList<KeyValuePair<string, string>> Params { get; init; } = [];
     public bool DryRun { get; init; }
     public string RecordPath { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Told when a selected case starts and finishes, and of each trace entry as it
+/// is recorded, so a long run can say what it is doing while it does it
+/// (spec/progress.md). An observer sees the run; it cannot change it, and
+/// nothing it does reaches the trace.
+/// </summary>
+public interface IRunObserver
+{
+    void CaseStarted(string suite, string caseName);
+
+    void CaseFinished(string suite, CaseResult result);
+
+    void Entry(TraceEntry entry);
 }
 
 /// <summary>What one case did.</summary>
@@ -239,8 +263,11 @@ public static class Executor
             {
                 produced = handler(request);
             }
-            catch (Exception thrown) when (thrown is ActionException or ExpressionException or CompareException
-                                               or IOException or InvalidOperationException)
+            // Every exception, not only the ones this runtime raises: one escaping
+            // this thread would end the process, losing every result and every
+            // cleanup still to come; RunStep reports whatever is rethrown as the
+            // step's failure (spec/progress.md, "The action worker").
+            catch (Exception thrown)
             {
                 failure = thrown;
             }
@@ -498,31 +525,58 @@ public static class Executor
         var context = RunContext.ForRun(options, extensions ?? RunExtensions.CoreOnly, trace);
         var session = SuiteSession.Open(path, suite, schema, context);
         var result = new SuiteResult { Name = session.Name };
-        session.Setup();
-        for (var index = 0; index < session.Cases.Count; index++)
+        // A dry run traces nothing, so its observer hears nothing either.
+        var observer = options.DryRun ? null : options.Observer;
+        if (observer is not null)
         {
-            session.BeforeEach(index);
-            session.RunCase(index);
-            result.Cases.Add(session.AfterEach(index));
+            trace.Added += observer.Entry;
         }
-
-        // A teardown that fails is its own entry rather than a change to the last
-        // case's result, because a teardown is not a test and the case it would
-        // be charged to did nothing wrong. It does fail the run: a suite whose
-        // teardown could not undo what it did has not finished cleanly.
-        var teardown = session.Teardown();
-        if (teardown.Failed)
+        try
         {
-            result.Cases.Add(new CaseResult
+            session.Setup();
+            for (var index = 0; index < session.Cases.Count; index++)
             {
-                Name = "teardown",
-                Status = Status.Failed,
-                Reason = Reason.Hook,
-                Message = teardown.Message,
-                DurationSec = teardown.DurationSec,
-            });
+                // Only the cases this run selected are reported (spec/progress.md).
+                var observed = observer is not null && session.IsSelected(session.Cases[index]);
+                if (observed)
+                {
+                    observer!.CaseStarted(session.Name, session.Cases[index]);
+                }
+                session.BeforeEach(index);
+                session.RunCase(index);
+                var finished = session.AfterEach(index);
+                result.Cases.Add(finished);
+                if (observed)
+                {
+                    observer!.CaseFinished(session.Name, finished);
+                }
+            }
+
+            // A teardown that fails is its own entry rather than a change to the last
+            // case's result, because a teardown is not a test and the case it would
+            // be charged to did nothing wrong. It does fail the run: a suite whose
+            // teardown could not undo what it did has not finished cleanly.
+            var teardown = session.Teardown();
+            if (teardown.Failed)
+            {
+                result.Cases.Add(new CaseResult
+                {
+                    Name = "teardown",
+                    Status = Status.Failed,
+                    Reason = Reason.Hook,
+                    Message = teardown.Message,
+                    DurationSec = teardown.DurationSec,
+                });
+            }
+            return result;
         }
-        return result;
+        finally
+        {
+            if (observer is not null)
+            {
+                trace.Added -= observer.Entry;
+            }
+        }
     }
 
     /// <summary>Whether a run failed, which is what decides between exit 0 and

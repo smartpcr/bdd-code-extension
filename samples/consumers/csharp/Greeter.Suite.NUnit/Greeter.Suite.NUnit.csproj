@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The greeter's suites as NUnit tests. Bdd.Suite.Testing's build targets, which
+    NuGet imports, generate one test class per suite on every build from
+    ../bddsuite.tests.yaml; the provider is detected from the references below.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Bdd.Suite.Testing" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <ProjectReference Include="..\Greeter.Suite\Greeter.Suite.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <BddSuiteConfig Include="..\bddsuite.tests.yaml" />
+  </ItemGroup>
+</Project>

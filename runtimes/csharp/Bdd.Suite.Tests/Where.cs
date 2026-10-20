@@ -56,10 +56,12 @@ internal static class Where
     /// beyond timeoutSec and defaults, so the corpus declares the ones its suites
     /// and expression table read, with the values of expressions/context.yaml.
     /// These four names are the corpus's, not the runtime's. It also implements
-    /// fixture.append, the one fixture action the execute corpus runs
-    /// (execute/capture-isolation.yml): it changes the list it is given in place,
-    /// as an extension action may, so a case that shared that list with the
-    /// suite bag would show it.
+    /// fixture.append (execute/capture-isolation.yml): it changes the list it is
+    /// given in place, as an extension action may, so a case that shared that
+    /// list with the suite bag would show it; and fixture.throw
+    /// (execute/worker-throws.yml), which throws an exception of a type this
+    /// runtime does not name, so only a worker that catches everything turns it
+    /// into a failed step (spec/progress.md).
     /// </summary>
     public static Extension CorpusExtension { get; } = new()
     {
@@ -76,6 +78,8 @@ internal static class Where
                 list.Add(request.Step.Value("item"));
                 return list;
             }),
+            new ActionRegistration("fixture.throw", request =>
+                throw new FixtureThrownException(request.Step.Text("message"))),
         ],
         OnStart = _ => new RunState
         {
@@ -96,3 +100,6 @@ internal static class Where
     public static RunExtensions CorpusRun() =>
         new(CorpusComposite, CorpusComposite.Start(new Dictionary<string, string>()));
 }
+
+/// <summary>What fixture.throw throws: a type no part of the runtime knows.</summary>
+public sealed class FixtureThrownException(string message) : Exception(message);

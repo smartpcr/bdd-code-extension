@@ -1,0 +1,13 @@
+Bdd.Suite.Testing.nuspec
+README.md
+build/Bdd.Suite.Testing.targets
+lib/net10.0/Bdd.Suite.Testing.dll
+tools/net10.0/Bdd.Suite.dll
+tools/net10.0/Humanizer.dll
+tools/net10.0/Json.More.dll
+tools/net10.0/JsonPointer.Net.dll
+tools/net10.0/JsonSchema.Net.dll
+tools/net10.0/suiterun.deps.json
+tools/net10.0/suiterun.dll
+tools/net10.0/suiterun.runtimeconfig.json
+tools/net10.0/YamlDotNet.dll

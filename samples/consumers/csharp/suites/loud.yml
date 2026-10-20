@@ -1,0 +1,16 @@
+suite: loud
+description: A suite that uses an action the config does not list as offline, so its tests skip unless the run opts in.
+tags: [greeter]
+
+tests:
+  - name: shouts-hello
+    steps:
+      - when: the world is greeted loudly
+        action: greet.shout
+        name: World
+        captureAs: greeting
+      - then: the greeting is loud
+        action: core.noop
+        asserts:
+          - var: greeting.text
+            equals: HELLO, WORLD!

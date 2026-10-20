@@ -129,9 +129,48 @@ public sealed class SuiteSchema
         };
     }
 
+    /// <summary>The import name of the core this runtime carries: the
+    /// spec/core.catalog.yaml it was built with, embedded (spec/README.md;
+    /// docs/packages DEC-P07).</summary>
+    public const string CoreImport = "bdd-suite:core";
+
+    /// <summary>The embedded core catalog's text.</summary>
+    public static string CoreCatalogText()
+    {
+        using var stream = typeof(SuiteSchema).Assembly.GetManifestResourceStream("Bdd.Suite.core.catalog.yaml")
+            ?? throw new IOException("This build of Bdd.Suite carries no core catalog.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>The core's action entries read through bdd-suite:core, each one's
+    /// bindings cut to the importing catalog's own list when it has one.</summary>
+    private static IEnumerable<OrderedMap> CoreEntries(List<object?>? importerBindings)
+    {
+        var core = SuiteDocument.Load(CoreCatalogText()).Value as OrderedMap
+            ?? throw new IOException("The embedded core catalog does not hold a YAML mapping.");
+        var keep = importerBindings?.OfType<string>().ToHashSet(StringComparer.Ordinal);
+        foreach (var entry in core.List("actions") ?? [])
+        {
+            if (entry is not OrderedMap held)
+            {
+                continue;
+            }
+            if (keep is null || held.List("bindings") is not { } bindings)
+            {
+                yield return held;
+                continue;
+            }
+            var cut = held.Clone();
+            cut.Set("bindings", bindings.Where(binding => binding is string name && keep.Contains(name)).ToList());
+            yield return cut;
+        }
+    }
+
     /// <summary>Every action entry of a catalog and of the catalogs it imports,
     /// each with the file that declares it: imports first, depth first in listed
-    /// order, then the catalog's own.</summary>
+    /// order, then the catalog's own. The import bdd-suite:core is the embedded
+    /// core.</summary>
     private static List<(OrderedMap Entry, string File)> CatalogEntries(string file, List<string> visiting)
     {
         var key = Path.GetFullPath(file);
@@ -157,6 +196,11 @@ public sealed class SuiteSchema
         {
             if (raw is not string name || name.Length == 0)
             {
+                continue;
+            }
+            if (name == CoreImport)
+            {
+                out_.AddRange(CoreEntries(catalog.List("bindings")).Select(entry => (entry, CoreImport)));
                 continue;
             }
             var imported = Path.GetFullPath(Path.Combine(directory, name));

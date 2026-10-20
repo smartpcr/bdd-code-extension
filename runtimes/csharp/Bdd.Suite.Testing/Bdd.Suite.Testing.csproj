@@ -6,16 +6,51 @@
     a test class drives it (SuiteTests). It depends on no test framework: each
     provider's verdicts (fail, skip) are in the code the generator writes.
 
-    A test project references this project and imports build/Bdd.Suite.Testing.targets,
-    which runs `suiterun generate` before every compile.
+    A test project references the package, whose build/Bdd.Suite.Testing.targets
+    NuGet imports and which runs `suiterun generate` before every compile; the
+    package carries that generator under tools/ (docs/packages, D7, DEC-P01). In
+    this repository a project references this project and imports the targets
+    by path, and the targets build the generator from Bdd.Suite.Cli instead.
+
+    build/ only, not buildTransitive/: a project that merely references one that
+    references this package must not start generating tests.
   -->
   <PropertyGroup>
     <RootNamespace>Bdd.Suite.Testing</RootNamespace>
     <AssemblyName>Bdd.Suite.Testing</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Bdd.Suite.Testing</PackageId>
+    <Description>Runs BDD YAML suites as MSTest 4, NUnit 4 or xUnit v3 tests: every build generates one test class per suite and one test per case from bddsuite.tests.yaml, so dotnet test, its filters and an IDE's test explorer work on them.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);BddSuiteGeneratorInPackage</TargetsForTfmSpecificContentInPackage>
+    <!-- The generator is content, not a library of this package. -->
+    <NoWarn>$(NoWarn);NU5100</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Bdd.Suite\Bdd.Suite.csproj" />
+    <!-- Built first, so the generator exists to be packed; nothing of it is referenced. -->
+    <ProjectReference Include="..\Bdd.Suite.Cli\Bdd.Suite.Cli.csproj" ReferenceOutputAssembly="false" Private="false" PrivateAssets="all" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="build\Bdd.Suite.Testing.targets" Pack="true" PackagePath="build\" />
+  </ItemGroup>
+
+  <!-- suiterun, framework-dependent and without an app host, under
+       tools/<framework>/, where the targets run it with `dotnet`. -->
+  <Target Name="BddSuiteGeneratorInPackage">
+    <PropertyGroup>
+      <_BddSuiteGeneratorDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'generator'))</_BddSuiteGeneratorDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(_BddSuiteGeneratorDir)" />
+    <MSBuild Projects="..\Bdd.Suite.Cli\Bdd.Suite.Cli.csproj" Targets="Publish"
+             Properties="Configuration=$(Configuration);PublishDir=$(_BddSuiteGeneratorDir);UseAppHost=false;SelfContained=false" />
+    <ItemGroup>
+      <_BddSuiteGeneratorFile Include="$(_BddSuiteGeneratorDir)**\*" Exclude="$(_BddSuiteGeneratorDir)**\*.pdb" />
+      <TfmSpecificPackageFile Include="@(_BddSuiteGeneratorFile)" PackagePath="tools\$(TargetFramework)\%(RecursiveDir)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

@@ -14,8 +14,16 @@ namespace Bdd.Suite.Tests;
 /// A report says which cases passed; only a trace says in which order the phases
 /// ran, which step a guard skipped and which row of a table failed.
 /// </summary>
+[Collection(ProgressWriterCollection.Name)]
 public sealed class ExecuteCorpusTests(Xunit.Abstractions.ITestOutputHelper output)
 {
+    /// <summary>Progress lines with what the contract leaves free masked: the
+    /// failure text and the durations (spec/progress.md).</summary>
+    private static List<string> Masked(IEnumerable<string> lines) => lines
+        .Select(line => System.Text.RegularExpressions.Regex.Replace(line, @"^(    failure: ).*$", "$1*"))
+        .Select(line => System.Text.RegularExpressions.Regex.Replace(line, @"\(\d+s\)", "(*s)"))
+        .ToList();
+
     /// <summary>One trace as one comparable line per entry.</summary>
     private static List<string> AsLines(object? trace) =>
         (trace as List<object?> ?? [])
@@ -48,10 +56,23 @@ public sealed class ExecuteCorpusTests(Xunit.Abstractions.ITestOutputHelper outp
                 }
                 var stem = Path.GetFileNameWithoutExtension(name);
                 var tracePath = Path.Combine(scratch, stem + ".trace.json");
+                var schemaRoot = entry.Text("schemaRoot");
                 var line = new List<string>
                 {
-                    "run", "--schema-root", corpus.SchemaRoot, "--path", corpus.Path(name), "--trace-file", tracePath,
+                    "run", "--schema-root", schemaRoot.Length > 0 ? corpus.Path(schemaRoot) : corpus.SchemaRoot,
+                    "--path", corpus.Path(name), "--trace-file", tracePath,
                 };
+                var names = entry.Text("names");
+                if (names.Length > 0)
+                {
+                    line.Add("--name");
+                    line.Add(names);
+                }
+                var transcript = entry.Text("progress");
+                if (transcript.Length > 0)
+                {
+                    line.Add("--progress");
+                }
                 var tags = entry.Text("tags");
                 if (tags.Length > 0)
                 {
@@ -70,10 +91,36 @@ public sealed class ExecuteCorpusTests(Xunit.Abstractions.ITestOutputHelper outp
                 // Exactly what a consumer's own suiterun does: the runtime with
                 // the corpus extension (its context keys).
                 var options = CommandLine.Parse(line, Where.CorpusComposite);
+                var progress = new StringWriter();
+                var standard = Runner.ProgressWriter;
+                Runner.ProgressWriter = progress;
                 var started = Stopwatch.StartNew();
-                var report = Runner.Execute(options, Where.CorpusComposite);
+                Report report;
+                try
+                {
+                    report = Runner.Execute(options, Where.CorpusComposite);
+                }
+                finally
+                {
+                    Runner.ProgressWriter = standard;
+                }
                 var seconds = started.Elapsed.TotalSeconds;
                 checked_++;
+
+                var printed = progress.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(text => text.TrimEnd('\r'));
+                if (transcript.Length > 0)
+                {
+                    var wanted = File.ReadAllLines(corpus.Path(transcript));
+                    var got = Masked(printed);
+                    if (!got.SequenceEqual(wanted))
+                    {
+                        failures.Add($"{name} progress differs.\nPrinted:\n  {string.Join("\n  ", got)}\nExpected:\n  {string.Join("\n  ", wanted)}");
+                    }
+                }
+                else if (printed.Any())
+                {
+                    failures.Add($"{name} printed progress lines without --progress");
+                }
 
                 var expectation = corpus.Json(entry.Text("expectation"));
                 var expectedCode = expectation.Value("exitCode") as long? ?? 0L;
@@ -116,7 +163,7 @@ public sealed class ExecuteCorpusTests(Xunit.Abstractions.ITestOutputHelper outp
         }
 
         Corpus.ReportPending(output, "execute", pending);
-        Assert.Equal(14, checked_);
+        Assert.Equal(20, checked_);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");
     }

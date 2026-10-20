@@ -1,0 +1,29 @@
+suite: greeting
+description: The greeter says hello, and the core works beside it.
+tags: [greeter]
+
+tests:
+  - name: says-hello
+    tags: [smoke]
+    steps:
+      - when: the world is greeted
+        action: greet.say
+        name: World
+        captureAs: greeting
+      - then: the greeting is the expected one
+        action: core.noop
+        asserts:
+          - var: greeting.text
+            equals: Hello, World!
+
+  - name: the-core-still-works
+    steps:
+      - when: a value is set
+        action: core.set
+        value: { count: 2 }
+        captureAs: held
+      - then: it reads back
+        action: core.noop
+        asserts:
+          - var: held.count
+            equals: 2

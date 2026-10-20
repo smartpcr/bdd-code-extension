@@ -39,6 +39,16 @@ public sealed class Options
     public Verb Verb { get; set; }
     public string Path { get; set; } = string.Empty;
     public List<string> Tags { get; } = [];
+
+    /// <summary>Case-name globs (`*`, `?`) from `--name`: a case is selected when
+    /// its name matches any of them and the tag filter selects it. Empty selects
+    /// every case (spec/README.md, docs/packages DEC-P05).</summary>
+    public List<string> Names { get; } = [];
+
+    /// <summary>`--progress`: live lines while a run goes, in the shape
+    /// spec/progress.md gives.</summary>
+    public bool Progress { get; set; }
+
     public string Results { get; set; } = string.Empty;
     public string TraceFile { get; set; } = string.Empty;
     public ReportFormat Format { get; set; } = ReportFormat.NUnit3;
@@ -106,9 +116,9 @@ public static class CommandLine
     /// <summary>The text a refusal prints beside its own message.</summary>
     public const string Usage = """
         suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-        suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                         [--dry-run] [--param name=value] [--trace-file f.json]
-        suiterun list    --path <glob> [--tags a,b]
+        suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                         [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
+        suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
         suiterun actions [--json]
         suiterun generate --config <bddsuite.tests.yaml> [--config <another>] [--provider <name>]
                          [--out <folder>] [--packages a;b] [--plan | --check]
@@ -198,6 +208,19 @@ public static class CommandLine
                             options.Tags.Add(trimmed);
                         }
                     }
+                    break;
+                case "--name":
+                    foreach (var pattern in Value(name).Split(','))
+                    {
+                        var trimmed = pattern.Trim();
+                        if (trimmed.Length > 0)
+                        {
+                            options.Names.Add(trimmed);
+                        }
+                    }
+                    break;
+                case "--progress":
+                    options.Progress = true;
                     break;
                 case "--results":
                     options.Results = Value(name);

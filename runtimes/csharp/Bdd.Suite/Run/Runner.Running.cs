@@ -11,6 +11,10 @@ namespace Bdd.Suite.Run;
 
 public static partial class Runner
 {
+    /// <summary>Where `--progress` writes its live lines: standard output
+    /// (spec/progress.md). A test may point it elsewhere.</summary>
+    public static TextWriter ProgressWriter { get; set; } = Console.Out;
+
     /// <summary>`list`: the cases a run would select, and nothing else.</summary>
     public static Report List(Options options)
     {
@@ -22,7 +26,8 @@ public static partial class Runner
                 var suite = LoadSuite(path);
                 foreach (var held in SuiteExpansion.Cases(suite))
                 {
-                    if (!SuiteExpansion.TagsMatch(SuiteExpansion.CaseTags(suite, held), options.Tags))
+                    if (!SuiteExpansion.TagsMatch(SuiteExpansion.CaseTags(suite, held), options.Tags)
+                        || !SuiteExpansion.NameMatches(held.Text("name"), options.Names))
                     {
                         continue;
                     }
@@ -63,9 +68,13 @@ public static partial class Runner
             var files = SelectedFiles(options);
 
             var trace = new Trace();
+            // Live lines while the run goes, for runs that take hours (spec/progress.md).
+            var progress = options.Progress ? new ProgressPrinter(ProgressWriter) : null;
             var settings = new RunOptions
             {
                 Tags = options.Tags,
+                Names = options.Names,
+                Observer = progress,
                 Params = options.Params,
                 DryRun = options.DryRun,
                 RecordPath = Environment.GetEnvironmentVariable(composite.EnvPrefix + "RECORD_PATH") ?? string.Empty,
@@ -97,6 +106,7 @@ public static partial class Runner
             }
 
             var failed = Executor.Failed(suites);
+            progress?.Summary();
 
             if (options.TraceFile.Length > 0)
             {

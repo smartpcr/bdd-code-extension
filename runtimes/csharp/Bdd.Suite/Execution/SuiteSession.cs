@@ -87,7 +87,8 @@ public sealed class SuiteSession
         _cases = SuiteExpansion.Cases(suite);
         Cases = _cases.Select(held => held.Text("name")).ToList();
         _selected = _cases
-            .Select(held => SuiteExpansion.TagsMatch(SuiteExpansion.CaseTags(suite, held), context.Options.Tags))
+            .Select(held => SuiteExpansion.TagsMatch(SuiteExpansion.CaseTags(suite, held), context.Options.Tags)
+                && SuiteExpansion.NameMatches(held.Text("name"), context.Options.Names))
             .ToArray();
         _states = new CaseState?[_cases.Count];
         // The suite bag: filled once before the first selected case and read by

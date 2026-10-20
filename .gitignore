@@ -14,3 +14,9 @@ spikes/**/results/
 spikes/**/TestResults/
 spikes/**/*.trx
 spikes/**/events.log
+
+# docs/packages: local package feeds (scripts/local-feeds.ps1) and the
+# consumer samples' build output.
+/artifacts/
+samples/consumers/**/artifacts/
+samples/consumers/**/TestResults/

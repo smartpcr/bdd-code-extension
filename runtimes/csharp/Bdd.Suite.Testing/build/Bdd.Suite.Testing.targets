@@ -2,17 +2,25 @@
 
   <!--
     Generates a test project's tests from its suites before every compile
-    (docs/test-providers, DEC-T10). Import it after the SDK:
+    (docs/test-providers, DEC-T10). From the package, NuGet imports it and the
+    generator is the suiterun under the package's tools/ (docs/packages,
+    DEC-P01, DEC-P04):
+
+      <PackageReference Include="Bdd.Suite.Testing" />
+
+    From a checkout of this repository, import it after the SDK and reference
+    the project; the generator is then built from Bdd.Suite.Cli beside it:
 
       <Import Project="<runtimes/csharp>/Bdd.Suite.Testing/build/Bdd.Suite.Testing.targets" />
-
-    and reference <runtimes/csharp>/Bdd.Suite.Testing/Bdd.Suite.Testing.csproj.
+      <ProjectReference Include="<runtimes/csharp>/Bdd.Suite.Testing/Bdd.Suite.Testing.csproj" />
 
     Inputs:
       BddSuiteConfig   the bddsuite.tests.yaml files; by default the one beside
                        the project. Several are allowed (one run hook for all).
       BddSuiteProvider optional; else the configs' provider, else detected from
                        the PackageReference items (MSTest, NUnit, xunit.v3).
+      BddSuiteCliProject optional; a Bdd.Suite.Cli project to build the generator
+                       from. Set by default only in a checkout, where one exists.
 
     The generated files go to $(IntermediateOutputPath)BddSuite\ and are never
     committed. The generator runs on every build, including an IDE's
@@ -25,23 +33,29 @@
   -->
 
   <PropertyGroup>
-    <BddSuiteRoot>$(MSBuildThisFileDirectory)..\..\</BddSuiteRoot>
-    <BddSuiteCliProject>$(BddSuiteRoot)Bdd.Suite.Cli\Bdd.Suite.Cli.csproj</BddSuiteCliProject>
+    <!-- In a checkout, Bdd.Suite.Cli is two folders up; in the package, nothing is. -->
+    <BddSuiteCliProject Condition="'$(BddSuiteCliProject)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\Bdd.Suite.Cli\Bdd.Suite.Cli.csproj')">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\..\Bdd.Suite.Cli\Bdd.Suite.Cli.csproj'))</BddSuiteCliProject>
+    <BddSuitePackagedGenerator>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\tools\net10.0\suiterun.dll'))</BddSuitePackagedGenerator>
   </PropertyGroup>
 
   <ItemGroup Condition="'@(BddSuiteConfig)' == ''">
     <BddSuiteConfig Include="$(MSBuildProjectDirectory)\bddsuite.tests.yaml" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(BddSuiteCliProject)' != ''">
     <!-- Built first, so the generator exists; nothing of it is referenced. -->
     <ProjectReference Include="$(BddSuiteCliProject)" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
   <Target Name="BddSuiteGenerate">
-    <MSBuild Projects="$(BddSuiteCliProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+    <MSBuild Condition="'$(BddSuiteCliProject)' != ''" Projects="$(BddSuiteCliProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
       <Output TaskParameter="TargetOutputs" PropertyName="BddSuiteCliDll" />
     </MSBuild>
+    <PropertyGroup Condition="'$(BddSuiteCliProject)' == ''">
+      <BddSuiteCliDll>$(BddSuitePackagedGenerator)</BddSuiteCliDll>
+    </PropertyGroup>
+    <Error Condition="'$(BddSuiteCliProject)' == '' and !Exists('$(BddSuiteCliDll)')"
+           Text="Bdd.Suite.Testing: the generator $(BddSuiteCliDll) is missing; restore the package again." />
     <PropertyGroup>
       <!-- Here rather than at the top: IntermediateOutputPath is set by the SDK after this file is read. -->
       <BddSuiteOutput>$(IntermediateOutputPath)BddSuite\</BddSuiteOutput>

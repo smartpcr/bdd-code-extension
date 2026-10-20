@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The greeter's own suiterun: the runtime's command line with its extension. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>suiterun</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Bdd.Suite" />
+    <ProjectReference Include="..\Greeter.Suite\Greeter.Suite.csproj" />
+  </ItemGroup>
+</Project>

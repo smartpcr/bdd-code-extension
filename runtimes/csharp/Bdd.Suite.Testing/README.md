@@ -1,7 +1,6 @@
 # Bdd.Suite.Testing: suites as MSTest, NUnit or xUnit tests
 
-A C# test project that references this library and imports its targets gets
-one test class per suite, generated at every build from the project's
+A C# test project that references this package gets one test class per suite, generated at every build from the project's
 `bddsuite.tests.yaml` (docs/test-providers; spec/test-plan.md). The tests run
 the suite through the runtime's session (spec/session.md), so `dotnet test`
 reports what `suiterun run` reports, case for case. The providers are MSTest 4,
@@ -11,14 +10,30 @@ NUnit 4 and xUnit v3; the library itself depends on none of them.
 
 ```xml
 <ItemGroup>
+  <PackageReference Include="Bdd.Suite.Testing" Version="0.6.10" />
   <!-- One framework: MSTest ... -->
   <PackageReference Include="MSTest.TestFramework" Version="4.3.2" />
   <PackageReference Include="MSTest.TestAdapter" Version="4.3.2" />
   <!-- ... or NUnit + NUnit3TestAdapter 6.x, or xunit.v3 + xunit.runner.visualstudio 3.x -->
-  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
-  <ProjectReference Include="<runtimes/csharp>/Bdd.Suite.Testing/Bdd.Suite.Testing.csproj" />
+  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
   <ProjectReference Include="<your actions project>" />            <!-- the extension -->
 </ItemGroup>
+```
+
+That is all: NuGet imports the package's build targets, which run the
+generator the package carries (`tools/net10.0/suiterun.dll`, on the .NET 10
+runtime the test project already needs) before every compile. Under central
+package management, leave the versions out and set them in
+`Directory.Packages.props`. Keep `Bdd.Suite.Testing` and `Bdd.Suite` at the
+same version: every bdd-suite package of one release carries the release's
+version (the VS Code extension's).
+
+From a checkout of the bdd-code-extension repository instead, reference the
+project and import the targets by path; the targets then build the generator
+from `Bdd.Suite.Cli` beside them:
+
+```xml
+<ProjectReference Include="<runtimes/csharp>/Bdd.Suite.Testing/Bdd.Suite.Testing.csproj" />
 <Import Project="<runtimes/csharp>/Bdd.Suite.Testing/build/Bdd.Suite.Testing.targets" />
 ```
 

@@ -19,6 +19,27 @@
     <!-- The release's version, the VS Code extension's (docs/packages, DEC-P03):
          written by scripts/set-version.mjs, checked by scripts/check-versions.mjs. -->
     <Version>0.6.10</Version>
+  </PropertyGroup>
+
+  <!-- What every package of this runtime says about itself (docs/packages, D7,
+       DEC-P11). Only Bdd.Suite and Bdd.Suite.Testing are packed; every other
+       project here stays out. The SDK's SourceLink maps the symbols to GitHub. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Authors>bdd-code-extension contributors</Authors>
+    <Copyright>Copyright (c) bdd-code-extension contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/smartpcr/bdd-code-extension</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/smartpcr/bdd-code-extension</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>bdd;yaml;suite;testing;mstest;nunit;xunit</PackageTags>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages\</PackageOutputPath>
     <!-- The repository's own artifact directories are elsewhere; these keep the
          build output of a test tool out of everything that scans the tree. -->
     <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>

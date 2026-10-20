@@ -1,0 +1,7 @@
+# The greeter's suites as tests, for each of the three test projects beside it
+# (spec/test-plan.md). greet.shout is not offline, so loud.yml is guarded.
+suites: [ "suites/*.yml" ]
+schemaRoot: schema
+extensions: [ Greeter.Suite.GreeterExtension ]
+offlineActions: [ "core.*", "wait", "greet.say" ]
+output: { namespace: Greeter.Suite.Tests }

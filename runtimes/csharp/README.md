@@ -1,5 +1,37 @@
 # The C# runtime
 
+## Install
+
+```xml
+<PackageReference Include="Bdd.Suite" Version="0.6.10" />          <!-- your extension and your suiterun -->
+<PackageReference Include="Bdd.Suite.Testing" Version="0.6.10" />  <!-- your suites as tests -->
+```
+
+`Bdd.Suite` is the runtime and its extension API. A workspace adds its own
+actions in a class that implements `IExtension`, and builds its own `suiterun`
+from it in one line:
+
+```csharp
+// Program.cs of an Exe project whose AssemblyName is suiterun
+return Bdd.Suite.Run.Runner.Run(args, Console.Out, Console.Error, new MyCompany.Actions.OrdersExtension());
+```
+
+Its catalog imports the core this package carries by name, with no copy of the
+spec (`imports: [ "bdd-suite:core" ]`); the core's actions are cut to the
+catalog's own `bindings` list. Besides `lint`, `run`, `list` and `actions`,
+`run` and `list` take `--name glob[,glob]` (cases whose names match, with the tag
+filter) and `run` takes `--progress` (live `StartGroup`/`EndGroup`/`Summary`
+lines for long runs; spec/progress.md). An action that throws anything fails its
+step; the run goes on.
+
+Every bdd-suite package of one release carries the release's version, the VS
+Code extension's, so keep both packages at the same one. A working consumer that
+uses only these packages, under central package management, with its own
+extension, `suiterun` and MSTest, NUnit and xUnit projects:
+[samples/consumers/csharp](https://github.com/smartpcr/bdd-code-extension/tree/main/samples/consumers/csharp).
+
+## What is here
+
 `Bdd.Suite` (the suite model, lint, the run and the session, reports and the
 extension API), `Bdd.Suite.Cli` (`suiterun`) and `Bdd.Suite.Testing` (the test
 framework providers). It is held to the conformance corpus in

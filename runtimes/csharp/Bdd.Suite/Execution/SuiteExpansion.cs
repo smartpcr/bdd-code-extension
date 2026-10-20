@@ -435,6 +435,12 @@ public static class SuiteExpansion
     public static bool TagsMatch(IReadOnlyList<string> caseTags, IReadOnlyList<string> filter) =>
         filter.Count == 0 || caseTags.Any(tag => filter.Contains(tag, StringComparer.Ordinal));
 
+    /// <summary>Whether a case name matches any `--name` glob; an empty filter
+    /// matches every case. The same glob a `--path` takes (`*`, `?`, the whole
+    /// name), so `*apply*` means one thing everywhere.</summary>
+    public static bool NameMatches(string caseName, IReadOnlyList<string> patterns) =>
+        patterns.Count == 0 || patterns.Any(pattern => Paths.RepositoryPaths.MatchesGlob(pattern, caseName));
+
     /// <summary>Every tag that applies to a case: its own and the suite's.</summary>
     public static List<string> CaseTags(OrderedMap suite, OrderedMap held)
     {

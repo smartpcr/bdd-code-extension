@@ -54,7 +54,8 @@ public sealed class ValidateCorpusTests(Xunit.Abstractions.ITestOutputHelper out
             // An entry may name an overlay: a small catalog merged over the
             // shipped one, so a rule the catalog drives can be proved without
             // changing the catalog every binding reads.
-            var effective = shipped;
+            var root = entry.Text("schemaRoot");
+            var effective = root.Length > 0 ? SuiteSchema.Load(corpus.Path(root)) : shipped;
             var overlayName = entry.Text("catalogOverlay");
             if (overlayName.Length > 0)
             {
@@ -91,7 +92,7 @@ public sealed class ValidateCorpusTests(Xunit.Abstractions.ITestOutputHelper out
         }
 
         Corpus.ReportPending(output, "validate", pending);
-        Assert.Equal(41, checked_);
+        Assert.Equal(42, checked_);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");
     }

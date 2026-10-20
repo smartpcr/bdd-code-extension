@@ -244,6 +244,16 @@ jobs:
             if ($LASTEXITCODE) { throw "a scenario failed under $provider" }
           }
 
+      # docs/packages, E1 and E2: Bdd.Suite and Bdd.Suite.Testing packed into a
+      # local feed with exactly their listed contents, and a consumer that
+      # references only those packages builds its suiterun and runs its suites
+      # under MSTest, NUnit and xUnit.
+      - name: The C# packages, and a consumer of them alone (E1, E2)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File samples/consumers/csharp/run-e2.ps1
+          if ($LASTEXITCODE) { throw 'the C# consumer failed on the packages' }
+
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4

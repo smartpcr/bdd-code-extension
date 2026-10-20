@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stage K0 built 2026-10-20 and run locally, its CI not yet run ([K0](../evidence/packages-k0.md)); K1 to K9 not started.** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 and K1 built 2026-10-20 and run locally, their CI not yet run ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md)); K2 to K9 not started.** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -138,16 +138,18 @@ Priority orders the work; it never weakens a completion condition.
   (authors, license expression MIT, repository URL, README, SourceLink,
   `ContinuousIntegrationBuild`, `Deterministic`, symbols). `Bdd.Suite`: version
   ranges on its two dependencies. `Bdd.Suite.Testing`: packs the published
-  `suiterun` of `Bdd.Suite.Cli` (framework-dependent, `net10.0`) under
-  `tools/net10.0/`, and `build/` plus `buildTransitive/Bdd.Suite.Testing.targets`.
-  The targets resolve the generator as `$(BddSuiteCliDll)` from
-  `$(MSBuildThisFileDirectory)../tools/...` unless `BddSuiteCliProject` is set;
-  this repository's samples set it. `Bdd.Suite.Cli`, `Bdd.Suite.Tests` and
+  `suiterun` of `Bdd.Suite.Cli` (framework-dependent, `net10.0`, no app
+  host) under `tools/net10.0/`, and `build/Bdd.Suite.Testing.targets` (not
+  `buildTransitive/`: a project that only references one that references the
+  package must not start generating tests). The targets run the generator from
+  the package's `tools/` unless `BddSuiteCliProject` is set; in a checkout they
+  set it themselves when `Bdd.Suite.Cli` sits two folders up, so this
+  repository's samples change nothing. `Bdd.Suite.Cli`, `Bdd.Suite.Tests` and
   `Bdd.Suite.Example` are `IsPackable=false`. An expected-contents list per
   package.
 * **Files.** `runtimes/csharp/Directory.Build.props`, the three csproj,
   `Bdd.Suite.Testing/build/*.targets`, `packaging/*.files.txt`,
-  `samples/workspace/tests/csharp/*/` (set `BddSuiteCliProject`).
+  `scripts/Test-PackageContents.ps1`.
 * **Depends on.** D2 (so the first package has the flags), D14.
 * **Done when.** E1 (C#) and E2 pass; the samples' providers pass unchanged.
 * **Proved by.** E1, E2.
@@ -368,21 +370,21 @@ its unit test proves it fails on a mismatch.
 Result: D2, D7, D15 (C#). Entry: K0. Exit evidence: C# corpus with the new
 entries; E1 (C#) and E2 from a local feed.
 
-- [ ] K1.1 `--name` in `CommandLine`, `Composite`, `SuiteExpansion.NameMatches`, `RunOptions.Names`, `SuiteSession`, `list`.
-- [ ] K1.2 `IRunObserver`, `Trace.Added`, `ProgressPrinter` on standard output, `--progress`.
-- [ ] K1.3 The worker catch-all.
-- [ ] K1.4 Embedded core; `bdd-suite:core` in the catalog loader with narrowing.
-- [ ] K1.5 update2's patch tests ported into `Bdd.Suite.Tests`; coverage as before.
-- [ ] K1.6 The C# corpus passes with D1's entries; its pending list emptied.
-- [ ] K1.7 Package metadata, SourceLink, symbols in `Directory.Build.props`; `IsPackable` per project.
-- [ ] K1.8 Dependency ranges in `Bdd.Suite`.
-- [ ] K1.9 `Bdd.Suite.Testing` packs `suiterun` under `tools/` and the targets under `build/` and `buildTransitive/`.
-- [ ] K1.10 Targets find the generator in the package unless `BddSuiteCliProject` is set; the samples set it; their providers still pass.
-- [ ] K1.11 Expected-contents lists and the pack check (E1, C#).
-- [ ] K1.12 `samples/consumers/csharp`: extension, binding program, MSTest project, central package management, `nuget.config`.
-- [ ] K1.13 The local NuGet feed script; E2 with MSTest.
-- [ ] K1.14 E2 with NUnit 4 and xUnit v3 (one project each).
-- [ ] K1.15 The C# README's package section (draft for D17).
+- [x] K1.1 `--name` in `CommandLine`, `Composite`, `SuiteExpansion.NameMatches`, `RunOptions.Names`, `SuiteSession`, `list`.
+- [x] K1.2 `IRunObserver`, `Trace.Added`, `ProgressPrinter` on standard output, `--progress`.
+- [x] K1.3 The worker catch-all.
+- [x] K1.4 Embedded core; `bdd-suite:core` in the catalog loader with narrowing.
+- [x] K1.5 update2's patch tests ported into `Bdd.Suite.Tests`; coverage as before.
+- [x] K1.6 The C# corpus passes with D1's entries; its pending list emptied.
+- [x] K1.7 Package metadata, SourceLink, symbols in `Directory.Build.props`; `IsPackable` per project.
+- [x] K1.8 Dependency ranges in `Bdd.Suite`.
+- [x] K1.9 `Bdd.Suite.Testing` packs `suiterun` under `tools/` and the targets under `build/` (not `buildTransitive/`; see D7).
+- [x] K1.10 Targets find the generator in the package unless `BddSuiteCliProject` is set, which they set themselves in a checkout; the samples' providers still pass.
+- [x] K1.11 Expected-contents lists and the pack check (E1, C#).
+- [x] K1.12 `samples/consumers/csharp`: extension, binding program, MSTest project, central package management, `nuget.config`.
+- [x] K1.13 The local NuGet feed script; E2 with MSTest.
+- [x] K1.14 E2 with NUnit 4 and xUnit v3 (one project each).
+- [x] K1.15 The C# README's package section (draft for D17).
 
 ### Stage K2: Go (P1)
 

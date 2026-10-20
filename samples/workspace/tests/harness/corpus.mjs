@@ -9,7 +9,10 @@
 // them to the folder given and leaves them there (CI keeps it as an artifact).
 //
 // For each execute entry of conformance/run-manifest.yaml (except those pending
-// for the provider's runtime) it runs that suite's generated tests alone, with
+// for the provider's runtime, and those that prove a command-line flag: an entry
+// with names or progress is about suiterun --name and --progress, while a test
+// framework selects cases with its own filter and traces only the cases it runs,
+// spec/session.md rule 8) it runs that suite's generated tests alone, with
 // the entry's tags and parameters in the environment, and checks:
 //   * the trace the run context wrote equals the entry's expected trace;
 //   * each case's framework outcome matches its expected status (passed,
@@ -387,6 +390,10 @@ let checked = 0;
 for (const entry of manifest.entries.filter(e => e.kind === 'execute')) {
   if ((entry.pendingIn ?? []).includes(adapter.runtime)) {
     console.log(`  pending   ${entry.suite}`);
+    continue;
+  }
+  if (entry.names || entry.progress) {
+    console.log(`  command line only   ${entry.suite}`);
     continue;
   }
   const suite = corpusPlan.get(`../../../../../conformance/${entry.suite}`);

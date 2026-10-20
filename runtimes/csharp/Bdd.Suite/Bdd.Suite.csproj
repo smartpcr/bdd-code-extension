@@ -12,16 +12,24 @@
   <PropertyGroup>
     <RootNamespace>Bdd.Suite</RootNamespace>
     <AssemblyName>Bdd.Suite</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Bdd.Suite</PackageId>
+    <Description>The C# runtime of the BDD suite format: lint, run and list YAML suites, the session a test framework drives, reports, the embedded core actions, and the extension API through which a consumer adds its own actions and builds its own suiterun.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- YamlDotNet for the parse: its nodes carry Start.Line and Start.Column,
          which is what a diagnostic position is. It is also the library
          powershell-yaml wraps, so the PowerShell binding and this one read a
          file the same way. -->
-    <PackageReference Include="YamlDotNet" Version="16.2.1" />
+    <PackageReference Include="YamlDotNet" Version="[16.2.1, 17.0.0)" />
     <!-- JsonSchema.Net for the structural pass against the committed schema. -->
-    <PackageReference Include="JsonSchema.Net" Version="7.4.0" />
+    <PackageReference Include="JsonSchema.Net" Version="[7.4.0, 8.0.0)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +38,13 @@
          internal because nothing outside this assembly should call them. The
          example extension gets no such access: it reaches only public types. -->
     <InternalsVisibleTo Include="Bdd.Suite.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The core this runtime implements, embedded, so a catalog can import it as
+         bdd-suite:core with no copy of the spec (spec/README.md; docs/packages,
+         DEC-P07). -->
+    <EmbeddedResource Include="..\..\..\spec\core.catalog.yaml" LogicalName="Bdd.Suite.core.catalog.yaml" Link="Schema\core.catalog.yaml" />
   </ItemGroup>
 
 </Project>

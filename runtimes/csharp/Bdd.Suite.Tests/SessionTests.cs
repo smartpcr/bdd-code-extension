@@ -28,6 +28,7 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
     private static RunOptions OptionsOf(OrderedMap entry) => new()
     {
         Tags = entry.Text("tags").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+        Names = entry.Text("names").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
         Params = entry.Map("params") is { } given
             ? given.Keys.Select(key => new KeyValuePair<string, string>(key, Value.Text(given.Value(key)))).ToList()
             : [],
@@ -35,11 +36,12 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
 
     /// <summary>Drive one file as a framework does: the class hook's setup, then
     /// each case in the given order, then the class hook's teardown.</summary>
-    private static (List<string> Trace, List<CaseResult> Results) Drive(string path, RunOptions options, bool reversed)
+    private static (List<string> Trace, List<CaseResult> Results) Drive(string path, RunOptions options, bool reversed,
+        SuiteSchema? schema = null)
     {
         var suite = SuiteDocument.Load(File.ReadAllText(path)).Value as OrderedMap ?? throw new IOException(path);
         var context = RunContext.ForRun(options, Where.CorpusRun(), new Trace());
-        var session = SuiteSession.Open(path, suite, CorpusSchema, context);
+        var session = SuiteSession.Open(path, suite, schema ?? CorpusSchema, context);
         session.Setup();
         var order = Enumerable.Range(0, session.Cases.Count).ToList();
         if (reversed)
@@ -92,13 +94,14 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
             var name = entry.Text("suite");
             var expected = corpus.Json(entry.Text("expectation")).List("trace") ?? [];
             var options = OptionsOf(entry);
+            var schema = entry.Text("schemaRoot") is { Length: > 0 } root ? SuiteSchema.Load(corpus.Path(root)) : CorpusSchema;
 
-            var (inOrder, results) = Drive(corpus.Path(name), options, reversed: false);
+            var (inOrder, results) = Drive(corpus.Path(name), options, reversed: false, schema);
             if (!inOrder.SequenceEqual(Lines(expected)))
             {
                 failures.Add($"{name} (file order):\n  {string.Join("\n  ", inOrder)}");
             }
-            var (reversedTrace, _) = Drive(corpus.Path(name), options, reversed: true);
+            var (reversedTrace, _) = Drive(corpus.Path(name), options, reversed: true, schema);
             if (!reversedTrace.SequenceEqual(CasesReversed(expected)))
             {
                 failures.Add($"{name} (reversed):\n  {string.Join("\n  ", reversedTrace)}");
@@ -106,7 +109,7 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
 
             // The same results the whole-file run reports, case by case.
             var suite = corpus.Yaml(name);
-            var whole = Executor.RunFile(corpus.Path(name), suite, CorpusSchema, options, new Trace(), Where.CorpusRun());
+            var whole = Executor.RunFile(corpus.Path(name), suite, schema, options, new Trace(), Where.CorpusRun());
             var wholeCases = whole.Cases.Where(held => held.Name != "teardown")
                 .Select(held => $"{held.Name}|{held.Status}|{held.Message}").ToList();
             var sessionCases = results.Select(held => $"{held.Name}|{held.Status}|{held.Message}").ToList();
@@ -116,7 +119,7 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
             }
             checked_++;
         }
-        Assert.Equal(14, checked_);
+        Assert.Equal(20, checked_);
         Assert.True(failures.Count == 0, string.Join('\n', failures));
     }
 

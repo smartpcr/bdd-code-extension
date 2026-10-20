@@ -99,13 +99,20 @@ public sealed class Trace
         }
     }
 
+    /// <summary>Called with each entry as it is recorded, for a run observer
+    /// (spec/progress.md). It sees the entry; it does not change what is recorded.</summary>
+    public Action<TraceEntry>? Added { get; set; }
+
     /// <summary>Record one thing the run did. An empty name is no name.</summary>
     public void Add(string phase, string caseName, string step, string action, string status, string reason)
     {
+        var entry = new TraceEntry(phase, caseName, step, action, status, reason);
         lock (_gate)
         {
-            _entries.Add(new TraceEntry(phase, caseName, step, action, status, reason));
+            _entries.Add(entry);
         }
+        // Outside the lock, so a slow observer never holds the trace.
+        Added?.Invoke(entry);
     }
 
     /// <summary>An array even when the run did one thing, and empty rather than
