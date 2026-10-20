@@ -117,7 +117,10 @@ scenario('E12', 'generate -Check fails until generate runs; a lint error stops g
   const suite = path.join(here, '..', 'suites', 'order-placement.yml');
   const original = fs.readFileSync(suite, 'utf8');
   const folder = path.join(here, 'shop');
-  const snapshot = () => [suite, ...fs.readdirSync(folder).sort().map(f => path.join(folder, f))].map(f => `${f}\n${fs.readFileSync(f, 'utf8')}`).join('\n');
+  // Line ends aside: a Windows checkout with core.autocrlf holds CRLF, and a
+  // file the generator wrote again holds LF, with the same text.
+  const snapshot = () => [suite, ...fs.readdirSync(folder).sort().map(f => path.join(folder, f))]
+    .map(f => `${f}\n${fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n')}`).join('\n');
   const before = snapshot();
   const names = () => test(['shop/OrderPlacement.Bdd.Tests.ps1'], { env: { BDD_SUITE_ALLOW_GUARDED: '1' } }).cases.map(c => c.name);
   try {
