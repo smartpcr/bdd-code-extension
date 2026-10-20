@@ -1,0 +1,5 @@
+# The conformance corpus's execute suites as node:test, Vitest and Jest tests.
+suites: [ "../../../../../conformance/execute/*.yml" ]
+schemaRoot: ../../../../../conformance/schema
+extensions: [ "./corpus-extension.mjs#corpusExtension" ]
+contextKeys: [ cluster, target, labId, apiUrl ]

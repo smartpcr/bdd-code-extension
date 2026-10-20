@@ -1,0 +1,27 @@
+{
+  "name": "@bdd-suite-sample/suite-tests",
+  "version": "0.1.0",
+  "description": "The sample workspace's suites, and the conformance corpus, as node:test, Vitest and Jest tests (docs/test-providers, D12). The generated *.bdd.test.ts files are committed; npm run generate writes them again and generate:check fails when one is stale.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "generate": "node generate.mjs",
+    "generate:check": "node generate.mjs --check",
+    "test:node": "node --test --test-reporter=spec --test-reporter-destination=stdout \"node/**/*.bdd.test.ts\"",
+    "test:vitest": "vitest run",
+    "list:vitest": "vitest list --staticParse=false",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "pretest": "npm run generate",
+    "test": "npm run test:node && npm run test:vitest && npm run test:jest"
+  },
+  "devDependencies": {
+    "@bdd-suite-sample/shop-suiterun": "file:../../test/e2e/bindings/typescript",
+    "@bdd-suite/runtime": "file:../../../../runtimes/typescript",
+    "jest": "30.5.2",
+    "jest-junit": "17.0.0",
+    "vitest": "5.0.4"
+  }
+}

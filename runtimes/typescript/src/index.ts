@@ -24,6 +24,14 @@ export { error, warning } from './diag.js';
 export { at, START } from './model.js';
 export { listOf, textOf } from './walk.js';
 export { compose, start, CORE_ROOTS, DEFAULT_ENV_PREFIX, ExtensionError } from './extension.js';
+// The session (spec/session.md) a test framework drives a suite through, and
+// the run context it runs in (docs/test-providers, D11).
+export {
+  createRunContext, flushTrace, GUARDED_MESSAGE, openLinted, openSession, optionVariable, runContextFromEnv, Session, SuiteRefusedError,
+} from './session.js';
+export type { RunContext, TeardownResult } from './session.js';
+export { runFile, coreOnly } from './exec.js';
+export type { CaseResult, RunOptions, RunExtensions, SuiteResult } from './exec.js';
 
 /** One finding, with exactly the fields of diagnostic.schema.json. */
 export interface Diagnostic {

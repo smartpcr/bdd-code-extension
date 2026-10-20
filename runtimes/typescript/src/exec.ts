@@ -18,8 +18,9 @@ import {
   stepLimit, tagsMatch,
 } from './suite.js';
 import { diskReader, Reader } from './reader.js';
-import { Phase, Status, Trace } from './trace.js';
+import { Phase, Reason, Status, Trace } from './trace.js';
 import { isList, isMap, toJson, Value, ValueMap } from './value.js';
+import { createRunContext, openSession } from './session.js';
 import { listOf, textOf } from './walk.js';
 
 export const DEFAULT_CASE_SEC = 600;
@@ -53,10 +54,14 @@ export interface RunOptions {
 export interface CaseResult {
   name: string;
   status: Status;
+  /** The trace's reason, when the case did not pass. */
+  reason?: Reason;
   message: string;
   /** Each step's result as a JSON line, for the report's output. */
   output: string;
   durationSec: number;
+  /** Whether afterEach failed, which a framework reports by failing the test (spec/session.md, rule 4). */
+  afterEachFailed?: boolean;
 }
 
 export interface SuiteResult {
@@ -69,7 +74,8 @@ export function allNames(composite: Composite = compose([], coreActions)): strin
   return [...composite.actions.keys()].sort();
 }
 
-interface Context {
+/** The bag one case reads and writes, and the run it belongs to. */
+export interface Context {
   scope: ValueMap;
   recordPath: string;
   run: RunExtensions;
@@ -240,7 +246,7 @@ async function runStep(step: ValueMap, ctx: Context, schema: Schema, deadline: n
 }
 
 /** A hook's steps inside the hook's own window; a failure is the hook's. */
-async function runHook(steps: ValueMap[], ctx: Context, schema: Schema, limitSec: number, label: string, phase: Phase, caseName: string, trace: Trace): Promise<void> {
+export async function runHook(steps: ValueMap[], ctx: Context, schema: Schema, limitSec: number, label: string, phase: Phase, caseName: string, trace: Trace): Promise<void> {
   if (!steps.length) return;
   const deadline = Date.now() + Math.max(1, limitSec) * SECOND;
   const collected = new Map<string, Value[]>();
@@ -253,23 +259,18 @@ async function runHook(steps: ValueMap[], ctx: Context, schema: Schema, limitSec
   }
 }
 
-const limitOf = (m: ValueMap, key: string, fallback: number) => {
+export const limitOf = (m: ValueMap, key: string, fallback: number): number => {
   const v = m.get(key);
   return typeof v === 'bigint' ? Number(v) : fallback;
 };
 
-function cloneScope(scope: ValueMap): ValueMap {
-  const copy = new Map(scope);
-  for (const bag of ['capture', 'var']) {
-    const held = scope.get(bag);
-    if (isMap(held)) copy.set(bag, new Map(held));
-  }
-  return copy;
-}
-
-async function runCase(c: ValueMap, phases: Record<string, ValueMap[]>, hooks: Record<string, ValueMap[]>, ctx: Context, schema: Schema, suite: ValueMap,
-  caseName: string, caseLimit: number, trace: Trace, output: string[]): Promise<void> {
-  await runHook(hooks.beforeEach!, ctx, schema, limitOf(suite, 'beforeEachTimeoutSec', DEFAULT_HOOK_SEC), 'beforeEach', 'before-each', caseName, trace);
+/**
+ * One case's own phases: its setup, its steps and its case-level asserts,
+ * stopping at the first failure. beforeEach has already run; the cleanup and
+ * afterEach run after this whatever it throws.
+ */
+export async function runCaseBody(c: ValueMap, phases: Record<string, ValueMap[]>, ctx: Context, schema: Schema, caseName: string, caseLimit: number,
+  trace: Trace, output: string[]): Promise<void> {
   await runHook(phases.setup!, ctx, schema, limitOf(c, 'setupTimeoutSec', DEFAULT_HOOK_SEC), 'case setup', 'case-setup', caseName, trace);
   const deadline = Date.now() + Math.max(1, caseLimit) * SECOND;
   const collected = new Map<string, Value[]>();
@@ -280,101 +281,25 @@ async function runCase(c: ValueMap, phases: Record<string, ValueMap[]>, hooks: R
   for (const one of listOf(c, 'asserts') ?? []) if (one !== null) checkAssertion(one, ctx);
 }
 
-const baseName = (file: string) => file.replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '');
-
-/** Runs one suite file and records every step and case in the trace. */
+/**
+ * Runs one suite file and records every step and case in the trace: the
+ * session's operations in order (session.ts), so a whole-file run and a test
+ * framework's run of the file give the same results and trace.
+ */
 export async function runFile(file: string, suite: ValueMap, schema: Schema, options: RunOptions, trace: Trace, run: RunExtensions = coreOnly()): Promise<SuiteResult> {
-  const name = textOf(suite, 'suite') || baseName(file);
-  const library: Library = readLibraries(suite, file, options.reader ?? diskReader);
-  const definitions = metaDefinitions(suite, library);
-  const hooks = expandedHooks(suite, definitions);
-  const result: SuiteResult = { name, cases: [] };
-  const all = cases(suite);
-  const selected = all.filter(c => tagsMatch(caseTags(suite, c), options.tags)).length;
-  const live = !options.dryRun && selected > 0;
-  let suiteScope: ValueMap = new Map<string, Value>([['capture', new Map()], ['var', new Map()]]);
-  let suiteSetupError = '';
-  if (live && hooks.setup!.length) {
-    const ctx: Context = { scope: cloneScope(suiteScope), recordPath: options.recordPath, run, signal: options.signal };
-    try {
-      await runHook(hooks.setup!, ctx, schema, limitOf(suite, 'setupTimeoutSec', DEFAULT_HOOK_SEC), 'suite setup', 'suite-setup', '', trace);
-    } catch (e) {
-      suiteSetupError = (e as Error).message;
-    }
-    suiteScope = ctx.scope;
+  const session = openSession(file, suite, schema, createRunContext(run, options, trace));
+  const result: SuiteResult = { name: session.name, cases: [] };
+  await session.setup();
+  for (let index = 0; index < session.cases.length; index++) {
+    await session.beforeEach(index);
+    await session.runCase(index);
+    result.cases.push(await session.afterEach(index));
   }
-  for (const c of all) {
-    const caseName = textOf(c, 'name');
-    if (!tagsMatch(caseTags(suite, c), options.tags)) {
-      trace.add('case', caseName, '', '', 'skipped', 'tag');
-      result.cases.push({ name: caseName, status: 'skipped', message: 'tag filter', output: '', durationSec: 0 });
-      continue;
-    }
-    if (suiteSetupError) {
-      trace.add('case', caseName, '', '', 'error', 'suite-setup');
-      result.cases.push({ name: caseName, status: 'error', message: `Suite setup failed: ${suiteSetupError}`, output: '', durationSec: 0 });
-      continue;
-    }
-    if (options.dryRun) {
-      result.cases.push({ name: caseName, status: 'skipped', message: 'Validated only; live execution pending.', output: '', durationSec: 0 });
-      continue;
-    }
-    const started = Date.now();
-    const phases = expandedCase(c, definitions);
-    const scope = cloneScope(suiteScope);
-    scope.set('param', resolveParams(library, suite, c, options.params, options.env, run.composite.envPrefix));
-    if (c.has('__row')) scope.set('row', c.get('__row')!);
-    const defaults = new Map(library.defaults);
-    const declared = suite.get('defaults');
-    if (isMap(declared)) for (const [k, v] of declared) defaults.set(k, v);
-    for (const [k, v] of defaults) scope.set(k, v);
-    scope.set('defaults', defaults);
-    scope.set('timeoutSec', BigInt(limitOf(c, 'timeoutSec', DEFAULT_CASE_SEC)));
-    // The extensions' context keys: a value given for this run wins over the suite's defaults;
-    // a key with neither reads as ''.
-    for (const [k, v] of run.started.context) scope.set(k, v);
-    for (const k of run.composite.contextKeys) if (!scope.has(k)) scope.set(k, '');
-    resolveVars(library, suite, c, scope, run.composite.roots);
-    const ctx: Context = { scope, recordPath: options.recordPath, run, signal: options.signal };
-    let status: Status = 'passed';
-    let message = '';
-    let reason: '' | ActionError['reason'] = '';
-    const output: string[] = [];
-    const caseLimit = run.composite.caseLimitSec(suite, limitOf(c, 'timeoutSec', DEFAULT_CASE_SEC));
-    try {
-      await runCase(c, phases, hooks, ctx, schema, suite, caseName, caseLimit, trace, output);
-    } catch (e) {
-      status = 'failed';
-      message = (e as Error).message;
-      reason = e instanceof ActionError ? e.reason : 'action';
-    }
-    if (phases.cleanup!.length) {
-      try {
-        await runHook(phases.cleanup!, ctx, schema, limitOf(c, 'cleanupTimeoutSec', DEFAULT_CLEANUP_SEC), 'cleanup', 'case-cleanup', caseName, trace);
-      } catch (e) {
-        status = 'failed';
-        reason = 'cleanup';
-        message = `${message} Cleanup failed: ${(e as Error).message}`;
-      }
-    }
-    try {
-      await runHook(hooks.afterEach!, ctx, schema, limitOf(suite, 'afterEachTimeoutSec', DEFAULT_HOOK_SEC), 'afterEach', 'after-each', caseName, trace);
-    } catch (e) {
-      status = 'failed';
-      reason = 'hook';
-      message = `${message} afterEach failed: ${(e as Error).message}`;
-    }
-    trace.add('case', caseName, '', '', status, reason);
-    result.cases.push({ name: caseName, status, message: message.trim(), output: output.map(l => `${l}\n`).join(''), durationSec: (Date.now() - started) / SECOND });
-  }
-  if (live && hooks.teardown!.length) {
-    const ctx: Context = { scope: suiteScope, recordPath: options.recordPath, run, signal: options.signal };
-    const started = Date.now();
-    try {
-      await runHook(hooks.teardown!, ctx, schema, limitOf(suite, 'teardownTimeoutSec', DEFAULT_HOOK_SEC), 'suite teardown', 'suite-teardown', '', trace);
-    } catch (e) {
-      result.cases.push({ name: 'teardown', status: 'failed', message: (e as Error).message, output: '', durationSec: (Date.now() - started) / SECOND });
-    }
+  // A teardown that fails is its own entry rather than a change to the last
+  // case's result: a teardown is not a test, but the run did not end cleanly.
+  const teardown = await session.teardown();
+  if (teardown.failed) {
+    result.cases.push({ name: 'teardown', status: 'failed', reason: 'hook', message: teardown.message, output: '', durationSec: teardown.durationSec, afterEachFailed: false });
   }
   return result;
 }

@@ -30,6 +30,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./cli": "./dist/cli.js",
-    "./extension": "./dist/extension.js"
+    "./extension": "./dist/extension.js",
+    "./testing": "./dist/testing/index.js",
+    "./testing/node-reporter": "./dist/testing/node-reporter.js"
   }
 }

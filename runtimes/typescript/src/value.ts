@@ -131,5 +131,12 @@ export function toJson(v: Value | undefined, indent?: number): string {
   return json(v, 0);
 }
 
+/** A copy sharing nothing with the original: every map and list copied, all the way down. */
+export function deepClone(v: Value): Value {
+  if (isMap(v)) return new Map([...v].map(([k, item]) => [k, deepClone(item)]));
+  if (isList(v)) return v.map(deepClone);
+  return v;
+}
+
 /** A map built from entries, for tests and small literals. */
 export const mapOf = (entries: Record<string, Value>): ValueMap => new Map(Object.entries(entries));

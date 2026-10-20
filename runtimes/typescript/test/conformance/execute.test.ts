@@ -29,7 +29,7 @@ test('B7.5-1 every execute entry: the trace, the exit code, inside maxSeconds', 
   assert.equal(all.length, 14);
   // pendingIn: entries this runtime does not meet yet are reported as pending, never as passed.
   const pending = all.filter(e => (e.pendingIn ?? []).includes('typescript')).map(e => e.suite);
-  assert.deepEqual(pending, ['execute/capture-isolation.yml']);
+  assert.equal(pending.length, 0, `pending: ${pending.join(', ')}`);
   const entries = all.filter(e => !pending.includes(e.suite));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-execute-'));
   const wrong: string[] = [];

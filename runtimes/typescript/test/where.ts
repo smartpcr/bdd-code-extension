@@ -5,6 +5,7 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coreActions } from '../src/actions/core.js';
+import { action, failed } from '../src/actions/registry.js';
 import { compose, Extension } from '../src/extension.js';
 
 /** The package folder: dist-test/test is where this file runs from. */
@@ -19,10 +20,18 @@ export const coreCatalog = path.join(repo, 'spec', 'core.catalog.yaml');
 /**
  * The corpus's context keys (conformance/README.md): the core defines none
  * beyond timeoutSec and defaults, so the corpus declares the ones its suites
- * and expression table read, with the values of expressions/context.yaml.
+ * and expression table read, with the values of expressions/context.yaml. It
+ * also implements fixture.append, which changes the list it is given in place
+ * (execute/capture-isolation.yml).
  */
 export const corpusExtension: Extension = {
   name: 'the corpus',
+  actions: [action('fixture.append', async request => {
+    const list = request.step.get('list');
+    if (!Array.isArray(list)) throw failed('fixture.append: list must be a list');
+    list.push(request.step.get('item') ?? null);
+    return list;
+  })],
   contextKeys: ['cluster', 'target', 'labId', 'apiUrl'],
   start: () => ({ context: { cluster: 'HOST-CL01', target: 'HOST-N1', labId: 'lab1', apiUrl: 'http://api/api/v1' } }),
 };

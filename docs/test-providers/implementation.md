@@ -1,7 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **stages T0 to T5 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
-[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md)); stages T6-T10 not started. The design, its
+Status: **stages T0 to T6 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md)); stages T7-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -472,15 +472,15 @@ E9–E12 for Rust. Size: 2.5–3.
 Result: D11, D12. Entry: T0 (T1 as reference). Exit evidence: E1, E2, E3,
 E7, E9–E12 for TypeScript. Size: 2.5–3.
 
-- [ ] T6.1 `createRunContext` and environment options.
-- [ ] T6.2 `openSession` operations with recorded failures and a case lock.
-- [ ] T6.3 Deep copy; `runFile` rebuilt; exports; E1 and E2 for TypeScript (100% coverage); `fixture.append` in the corpus extension, and typescript removed from `capture-isolation`'s `pendingIn`.
-- [ ] T6.4 Plan and `suiterun generate --plan`; E3 for TypeScript; the runtime's corpus test runs the manifest's `generate` list, and typescript is removed from its `pendingIn`.
-- [ ] T6.5 Testing adapter taking the framework's hook functions.
-- [ ] T6.6 `node:test` template and a reporter that records suite-level failures (the built-in JUnit reporter drops them); sample project; E7 for `node:test`.
-- [ ] T6.7 Vitest template; per-worker context; sample project; E7 for Vitest.
-- [ ] T6.8 Jest template with guarded and tag-filtered cases declared `it.skip` at load time (Jest has no runtime skip); sample project; E7 for Jest.
-- [ ] T6.9 `--check`; E9, E10, E11, E12 for TypeScript.
+- [x] T6.1 `createRunContext` and environment options.
+- [x] T6.2 `openSession` operations with recorded failures and a case lock.
+- [x] T6.3 Deep copy; `runFile` rebuilt; exports; E1 and E2 for TypeScript (100% coverage); `fixture.append` in the corpus extension, and typescript removed from `capture-isolation`'s `pendingIn`.
+- [x] T6.4 Plan and `suiterun generate --plan`; E3 for TypeScript; the runtime's corpus test runs the manifest's `generate` list, and typescript is removed from its `pendingIn`.
+- [x] T6.5 Testing adapter taking the framework's hook functions.
+- [x] T6.6 `node:test` template and a reporter that records suite-level failures (the built-in JUnit reporter drops them); sample project; E7 for `node:test`.
+- [x] T6.7 Vitest template; per-worker context; sample project; E7 for Vitest.
+- [x] T6.8 Jest template with guarded and tag-filtered cases declared `it.skip` at load time (Jest has no runtime skip); sample project; E7 for Jest.
+- [x] T6.9 `--check`; E9, E10, E11, E12 for TypeScript.
 
 ### Stage T7: PowerShell (P1)
 

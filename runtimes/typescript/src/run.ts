@@ -17,6 +17,9 @@ import { Trace } from './trace.js';
 import { isMap, ValueMap } from './value.js';
 import { textOf } from './walk.js';
 import { validateFile } from './validate/index.js';
+import { loadConfig } from './generate/config.js';
+import { buildPlan, Plan, planJson } from './generate/plan.js';
+import { detectProvider, render, TYPESCRIPT_PROVIDERS, TypeScriptProvider, write as writeGenerated } from './generate/template.js';
 
 export interface Report {
   /** 0 passed, 1 a case failed, 2 refused. */
@@ -156,8 +159,59 @@ export async function actionsVerb(options: Options, composite: Composite = coreO
   return { code: 0, out: options.json ? JSON.stringify(names, null, 2) : names.join('\n'), errors: '' };
 }
 
+/**
+ * generate: builds each config's test plan and writes the TypeScript tests
+ * (spec/test-plan.md). With --plan it prints the one config's plan; with
+ * --check it writes nothing and exits 1 naming each stale file. A suite that
+ * does not lint clean refuses the whole run (exit 2), writing nothing.
+ */
+export async function generateVerb(options: Options, cwd = process.cwd()): Promise<Report> {
+  const plans: Plan[] = [];
+  const findings: string[] = [];
+  try {
+    for (const file of options.configs) {
+      const built = buildPlan(loadConfig(path.resolve(cwd, file)));
+      if (built.plan) plans.push(built.plan);
+      else findings.push(...built.findings.map(human));
+    }
+  } catch (e) {
+    return refused((e as Error).message);
+  }
+  if (findings.length) return refused([...findings, 'Nothing was generated: every suite has to lint clean first.'].join('\n'));
+  if (options.plan) {
+    if (plans.length !== 1) return refused('--plan prints one config\'s plan; give one --config.');
+    return { code: 0, out: planJson(plans[0]!), errors: '' };
+  }
+  const first = plans[0]!.config;
+  const folder = path.resolve(cwd, options.out || path.resolve(first.folder, first.output.folder ?? '.'));
+  // The plan is the same whatever the provider; the code is not.
+  const provider = options.provider || first.provider || detectProvider(folder);
+  if (!(TYPESCRIPT_PROVIDERS as readonly string[]).includes(provider)) {
+    return refused(`${provider} is not a TypeScript provider; the TypeScript runtime generates for ${TYPESCRIPT_PROVIDERS.join(', ')}.`);
+  }
+  let outcome;
+  let files;
+  try {
+    files = render(plans, folder, provider as TypeScriptProvider);
+    outcome = writeGenerated(folder, files, options.check);
+  } catch (e) {
+    return refused((e as Error).message);
+  }
+  if (options.check) {
+    if (!outcome.stale.length) return { code: 0, out: `${files.length} generated file(s) are up to date.`, errors: '' };
+    return { code: 1, out: [...outcome.stale.map(n => `stale: ${n}`), 'Run suiterun generate to write them again.'].join('\n'), errors: '' };
+  }
+  const tests = plans.reduce((n, p) => n + p.suites.reduce((m, s) => m + s.cases.length, 0), 0);
+  const suites = plans.reduce((n, p) => n + p.suites.length, 0);
+  return {
+    code: 0, errors: '',
+    out: [...outcome.written.map(n => `wrote ${n}`), ...outcome.removed.map(n => `removed ${n}`), `${provider}: ${suites} suite(s), ${tests} test(s) in ${folder}`].join('\n'),
+  };
+}
+
 export async function execute(options: Options, composite: Composite = coreOnly()): Promise<Report> {
   switch (options.verb) {
+    case 'generate': return generateVerb(options);
     case 'lint': return lintVerb(options, process.cwd(), diskReader, composite);
     case 'run': return runVerb(options, { composite });
     case 'list': return listVerb(options);

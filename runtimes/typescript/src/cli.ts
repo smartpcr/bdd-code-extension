@@ -9,6 +9,8 @@
 //                    [any option an extension declares, with its value]
 //   suiterun list    --path <glob> [--tags a,b]
 //   suiterun actions [--json]
+//   suiterun generate --config <file> [--config <file>...] [--plan] [--check]
+//                     [--provider node|vitest|jest] [--out <dir>]
 //
 // The arguments are read by hand, not by a library: the exit code is part of
 // the contract, and an unknown argument has to be 2 with this usage text, not
@@ -21,7 +23,7 @@ import { coreActions } from './actions/core.js';
 import { compose, Composite, Extension, ExtensionError } from './extension.js';
 import { execute } from './run.js';
 
-export type Verb = 'lint' | 'run' | 'list' | 'actions';
+export type Verb = 'lint' | 'run' | 'list' | 'actions' | 'generate';
 export type ReportFormat = 'nunit3' | 'junit';
 
 /** Every selected case passed, or validation found nothing. */
@@ -47,13 +49,21 @@ export interface Options {
   schemaRoot: string;
   /** The value given for each option an extension declares, by flag. */
   extensionOptions: Map<string, string>;
+  /** generate: the test configs (spec/test-plan.md), whether to print the plan or only check, the provider and the output folder. */
+  configs: string[];
+  plan: boolean;
+  check: boolean;
+  provider: string;
+  out: string;
 }
 
 export const USAGE = `suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
 suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
                  [--dry-run] [--param name=value] [--trace-file f.json]
 suiterun list    --path <glob> [--tags a,b]
-suiterun actions [--json]`;
+suiterun actions [--json]
+suiterun generate --config <file> [--config <file>...] [--plan] [--check]
+                  [--provider node|vitest|jest] [--out <dir>]`;
 
 /** The usage text, with every option the extensions declare. */
 export const usage = (composite?: Composite): string => (composite?.options.length
@@ -63,9 +73,11 @@ export const usage = (composite?: Composite): string => (composite?.options.leng
 /** Why a command line cannot be read; the message is what the tool prints. */
 export class UsageError extends Error {}
 
-const VERBS: readonly Verb[] = ['lint', 'run', 'list', 'actions'];
+const VERBS: readonly Verb[] = ['lint', 'run', 'list', 'actions', 'generate'];
 const SWITCHES = new Set(['--json', '--strict', '--dry-run', '--binding-check']);
-const VALUED = new Set(['--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param']);
+const VALUED = new Set(['--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--config', '--provider', '--out']);
+/** generate takes these and no other; no other verb takes them. */
+const GENERATE_FLAGS = new Set(['--config', '--plan', '--check', '--provider', '--out']);
 
 /** One command line, or a UsageError saying why it cannot be read; an extension's option is a valued flag like the core's. */
 export function parse(argv: readonly string[], composite?: Composite): Options {
@@ -73,7 +85,8 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
   const extensionFlags = new Set(composite?.options.map(o => o.flag) ?? []);
   const options: Options = {
     verb: 'actions', path: '', tags: [], results: '', traceFile: '', format: 'nunit3', params: [], binding: 'typescript',
-    json: false, strict: false, dryRun: false, bindingCheck: false, schemaRoot: '', extensionOptions: new Map(),
+    json: false, strict: false, dryRun: false, bindingCheck: false, schemaRoot: '', extensionOptions: new Map(), configs: [], plan: false, check: false,
+    provider: '', out: '',
   };
   const first = argv[0];
   if (first === undefined) throw new UsageError(`a verb is needed.\n${USAGE}`);
@@ -82,6 +95,11 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
 
   for (let i = 1; i < argv.length; i++) {
     const name = argv[i]!;
+    if ((options.verb === 'generate') !== GENERATE_FLAGS.has(name)) throw new UsageError(`${options.verb} does not take ${name}.\n${USAGE}`);
+    if (name === '--plan' || name === '--check') {
+      options[name === '--plan' ? 'plan' : 'check'] = true;
+      continue;
+    }
     if (SWITCHES.has(name)) {
       if (name === '--json') options.json = true;
       else if (name === '--strict') options.strict = true;
@@ -105,6 +123,9 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
       case '--trace-file': options.traceFile = value; break;
       case '--schema-root': options.schemaRoot = value; break;
       case '--binding': options.binding = value; break;
+      case '--config': options.configs.push(value); break;
+      case '--provider': options.provider = value; break;
+      case '--out': options.out = value; break;
       case '--format':
         if (value !== 'nunit3' && value !== 'junit') throw new UsageError(`--format is nunit3 or junit, not ${value}.\n${USAGE}`);
         options.format = value;
@@ -116,8 +137,10 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
       }
     }
   }
-  // Every verb but actions reads suite files, so it has to be told which.
-  if (options.verb !== 'actions' && !options.path) throw new UsageError(`${options.verb} needs --path.\n${USAGE}`);
+  // Every verb but actions and generate reads suite files, so it has to be told which; generate reads configs.
+  if (options.verb === 'generate') {
+    if (!options.configs.length) throw new UsageError(`generate needs --config.\n${USAGE}`);
+  } else if (options.verb !== 'actions' && !options.path) throw new UsageError(`${options.verb} needs --path.\n${USAGE}`);
   return options;
 }
 

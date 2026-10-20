@@ -2,7 +2,7 @@
 // test framework's generated tests, and compares what the framework reports
 // with what the suite format requires (docs/test-providers, DEC-T12, T2.10).
 //
-//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust [--only <suite id>] [--keep]
+//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest [--only <suite id>] [--keep]
 //
 // For each execute entry of conformance/run-manifest.yaml (except those pending
 // for the provider's runtime) it runs that suite's generated tests alone, with
@@ -193,9 +193,73 @@ const rust = {
     runInfos.some(info => info.text.includes(`${id}::teardown failed`)),
 };
 
+/** A JUnit file's test cases: name, classname, and passed, failed or skipped. */
+function junitRows(file) {
+  const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  return [...text.matchAll(/<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g)].map(m => {
+    const attr = name => decode(m[1].match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? '');
+    const body = m[3] ?? '';
+    return { name: attr('name'), classname: attr('classname'), outcome: /<(failure|error)\b/.test(body) ? 'failed' : /<skipped\b/.test(body) ? 'skipped' : 'passed' };
+  });
+}
+
+// TypeScript: one package (samples/workspace/tests/typescript) whose
+// generate.mjs writes each framework's tests into <framework>/{shop,corpus}.
+// Each adapter runs one generated file and reads its JUnit report.
+const tsRoot = path.join(workspace, 'tests', 'typescript');
+const typescriptAdapter = (name, runFile) => ({
+  name,
+  runtime: 'typescript',
+  corpusConfig: path.join(tsRoot, 'shared', 'corpus.tests.yaml'),
+  sampleConfig: path.join(tsRoot, 'shared', 'shop.tests.yaml'),
+  corpusScope: `${name}/corpus`,
+  sampleScope: `${name}/shop`,
+  build() {
+    run('node', ['generate.mjs'], { cwd: tsRoot, allowFailure: false });
+  },
+  plan(config) {
+    return planIds(run('node', [path.join(repo, 'runtimes', 'typescript', 'dist', 'cli.js'), 'generate', '--config', config, '--plan'], { allowFailure: false }).stdout);
+  },
+  reference(file, schemaRoot) {
+    return run('node', [path.join(workspace, 'test', 'e2e', 'bindings', 'typescript', 'dist', 'cli.js'), 'run', '--schema-root', schemaRoot, '--path', file], { cwd: workspace });
+  },
+  /** One generated file; rows are its cases, plus any row the framework writes for the describe itself. */
+  runSuite(scope, id, env, scratch, suite) {
+    const junit = path.join(scratch, `${name}.${scope.replace('/', '.')}.${id}.xml`);
+    const result = runFile(`${scope}/${id}.bdd.test.ts`, junit, env);
+    const rows = junitRows(junit).map(row => this.normalise(row, suite.name));
+    return { rows, runInfos: [{ outcome: 'output', text: result.stdout + result.stderr }], output: result.stdout + result.stderr, seconds: result.seconds };
+  },
+  testName: n => n,
+  outcomeOf: status => ({ passed: 'passed', failed: 'failed', error: 'failed', skipped: 'skipped' })[status],
+  isTeardownRow: (scope, id, row) => row.teardown,
+  teardownFailed: (scope, id, rows) => rows.some(row => row.teardown && row.outcome === 'failed'),
+});
+
 const adapters = {
   go,
   rust,
+  /** node:test with the runtime's JUnit reporter, which keeps the describe's own failure as a test case named after it. */
+  node: {
+    ...typescriptAdapter('node', (file, junit, env) => run('node', ['--test', '--test-reporter=@bdd-suite/runtime/testing/node-reporter', `--test-reporter-destination=${junit}`, file],
+      { cwd: tsRoot, env })),
+    normalise: (row, suiteName) => ({ ...row, teardown: row.classname === '' && row.name === suiteName }),
+  },
+  /** Vitest names a test "<describe> > <test>"; a failed afterAll is a test case named after the describe. */
+  vitest: {
+    // The config's JUnit reporter takes its file from JUNIT_FILE (a command line --outputFile does not override it).
+    ...typescriptAdapter('vitest', (file, junit, env) => run('node', ['node_modules/vitest/vitest.mjs', 'run', file],
+      { cwd: tsRoot, env: { ...env, JUNIT_FILE: junit } })),
+    normalise: (row, suiteName) => (row.name === suiteName
+      ? { ...row, teardown: true }
+      : { ...row, name: row.name.startsWith(`${suiteName} > `) ? row.name.slice(suiteName.length + 3) : row.name, teardown: false }),
+  },
+  /** jest-junit writes a failed afterAll as its own made-up test case (T0). */
+  jest: {
+    ...typescriptAdapter('jest', (file, junit, env) => run('node', ['--experimental-vm-modules', 'node_modules/jest/bin/jest.js', file],
+      { cwd: tsRoot, env: { ...env, JUNIT_FILE: junit } })),
+    normalise: row => ({ ...row, teardown: row.name.includes('Test execution failure') }),
+  },
   nunit: {
     ...csharp,
     name: 'nunit',
@@ -280,7 +344,7 @@ for (const entry of manifest.entries.filter(e => e.kind === 'execute')) {
   const traceFile = path.join(scratch, `${suite.id}.trace.json`);
   const env = { BDD_SUITE_TRACE_FILE: traceFile, BDD_SUITE_TAGS: entry.tags ?? '' };
   for (const [name, value] of Object.entries(entry.params ?? {})) env[`BDD_SUITE_PARAM_${name.toUpperCase()}`] = String(value);
-  const { rows, runInfos, output } = adapter.runSuite(adapter.corpusScope, suite.id, env, scratch);
+  const { rows, runInfos, output } = adapter.runSuite(adapter.corpusScope, suite.id, env, scratch, suite);
   const problems = [];
 
   const produced = fs.existsSync(traceFile) ? JSON.parse(fs.readFileSync(traceFile, 'utf8')) : null;
@@ -319,7 +383,7 @@ for (const suite of samplePlan.values()) {
     .filter(m => m[2] !== 'teardown')
     .map(m => ({ name: adapter.testName(m[2].trim()), outcome: adapter.outcomeOf(m[1]) }));
   // The reference runs guarded suites (suiterun always may); so does this run.
-  const { rows } = adapter.runSuite(adapter.sampleScope, suite.id, { BDD_SUITE_ALLOW_GUARDED: '1' }, scratch);
+  const { rows } = adapter.runSuite(adapter.sampleScope, suite.id, { BDD_SUITE_ALLOW_GUARDED: '1' }, scratch, suite);
   const caseRows = rows.filter(row => !adapter.isTeardownRow(adapter.sampleScope, suite.id, row));
   const same = sortRows(caseRows).join('\n') === sortRows(wanted).join('\n');
   samples++;
