@@ -5,10 +5,9 @@
 //! cargo build    # target/debug/suiterun(.exe)
 //! ```
 
-mod actions;
-mod extension;
-
 use std::sync::Arc;
+
+use shop_suiterun::extension;
 
 fn main() {
     let arguments: Vec<String> = std::env::args().skip(1).collect();

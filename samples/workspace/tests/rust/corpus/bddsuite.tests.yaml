@@ -1,0 +1,6 @@
+# The conformance corpus's execute suites as cargo test tests.
+suites: [ "../../../../../conformance/execute/*.yml" ]
+schemaRoot: ../../../../../conformance/schema
+provider: rust
+extensions: [ shop_suite_tests::CorpusExtension ]
+contextKeys: [ cluster, target, labId, apiUrl ]

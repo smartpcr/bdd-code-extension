@@ -2,7 +2,7 @@
 // test framework's generated tests, and compares what the framework reports
 // with what the suite format requires (docs/test-providers, DEC-T12, T2.10).
 //
-//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go [--only <suite id>] [--keep]
+//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust [--only <suite id>] [--keep]
 //
 // For each execute entry of conformance/run-manifest.yaml (except those pending
 // for the provider's runtime) it runs that suite's generated tests alone, with
@@ -139,8 +139,63 @@ const go = {
   teardownFailed: (pkg, id, rows, runInfos) => runInfos.some(info => info.text.includes('The suite teardown of')),
 };
 
+const rustCrate = path.join(workspace, 'tests', 'rust');
+/** The trial names of one harness target, from its --list. */
+const rustTrials = new Map();
+function rustList(target) {
+  if (!rustTrials.has(target)) {
+    const listed = run('cargo', ['test', '-q', '--test', target, '--', '--list'], { cwd: rustCrate, allowFailure: false });
+    rustTrials.set(target, listed.stdout.split('\n').filter(line => line.endsWith(': test')).map(line => line.slice(0, -': test'.length)));
+  }
+  return rustTrials.get(target);
+}
+const rust = {
+  name: 'rust',
+  runtime: 'rust',
+  corpusConfig: path.join(rustCrate, 'corpus', 'bddsuite.tests.yaml'),
+  sampleConfig: path.join(rustCrate, 'shop', 'bddsuite.tests.yaml'),
+  corpusScope: 'corpus',
+  sampleScope: 'shop',
+  build() {
+    run('cargo', ['test', '--no-run'], { cwd: rustCrate, allowFailure: false });
+  },
+  plan(config) {
+    return planIds(run('cargo', ['run', '-q', '--', 'generate', '--config', config, '--plan'],
+      { cwd: path.join(repo, 'runtimes', 'rust'), allowFailure: false }).stdout);
+  },
+  reference(file, schemaRoot) {
+    return run('cargo', ['run', '-q', '--', 'run', '--schema-root', schemaRoot, '--path', file],
+      { cwd: path.join(workspace, 'test', 'e2e', 'bindings', 'rust') });
+  },
+  /**
+   * One suite's trials with cargo test's JSON output: the filter <id>:: and a
+   * --skip for every other suite whose trials it would also match. The rows
+   * are each trial's last event, named without the suite part; stderr is the
+   * run-level message, where a teardown run by the last case reports.
+   */
+  runSuite(target, id, env) {
+    const prefix = `${id}::`;
+    const others = [...new Set(rustList(target).map(name => name.slice(0, name.indexOf('::') + 2)))]
+      .filter(other => other !== prefix && other.includes(prefix));
+    const result = run('cargo', ['test', '-q', '--test', target, '--', '--format', 'json', prefix, ...others.flatMap(other => ['--skip', other])],
+      { cwd: rustCrate, env });
+    const rows = result.stdout.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line))
+      .filter(event => event.type === 'test' && ['ok', 'failed', 'ignored'].includes(event.event) && event.name.startsWith(prefix))
+      .map(event => ({ name: event.name.slice(prefix.length), outcome: event.event }));
+    return { rows, runInfos: [{ outcome: 'stderr', text: result.stderr }], output: result.stdout + result.stderr, seconds: result.seconds };
+  },
+  testName: name => name,
+  outcomeOf: status => ({ passed: 'ok', failed: 'failed', error: 'failed', skipped: 'ignored' })[status],
+  /** Every suite has a last <id>::teardown trial (teardown_2 when a case has that name). */
+  isTeardownRow: (scope, id, row) => /^teardown(_\d+)?$/.test(row.name),
+  teardownFailed: (scope, id, rows, runInfos) =>
+    rows.some(row => /^teardown(_\d+)?$/.test(row.name) && row.outcome === 'failed') ||
+    runInfos.some(info => info.text.includes(`${id}::teardown failed`)),
+};
+
 const adapters = {
   go,
+  rust,
   nunit: {
     ...csharp,
     name: 'nunit',
@@ -243,7 +298,9 @@ for (const entry of manifest.entries.filter(e => e.kind === 'execute')) {
   const teardownFailed = expected.trace.some(e => e.phase === 'suite-teardown' && e.status === 'failed');
   const reported = adapter.teardownFailed(adapter.corpusScope, suite.id, rows, runInfos);
   if (teardownFailed && !reported) problems.push('the failed teardown is not reported');
-  if (!teardownFailed && (reported || teardownRows.length > 0)) problems.push('a teardown failure is reported that did not happen');
+  // A provider may list a teardown row whatever happened (Rust's teardown trial); only a failed one reports a failure.
+  const failedTeardownRow = teardownRows.some(row => row.outcome === adapter.outcomeOf('failed'));
+  if (!teardownFailed && (reported || failedTeardownRow)) problems.push('a teardown failure is reported that did not happen');
 
   checked++;
   console.log(`  ${problems.length ? 'DIFFERS' : 'matches'}   ${entry.suite} (${caseRows.length} case(s)${reported ? ', teardown failure reported' : ''})`);

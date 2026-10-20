@@ -333,14 +333,14 @@ generate:
     expected: generate/plan.expected.json
     exitCode: 0
     description: 'Names that sanitise alike in a suite and across suites, a reserved identifier, leading digits, no word at all, a non-ASCII letter, colliding outline rows, a library left out, an excluded folder, and a suite guarded through an imported meta step and a polled step.'
-    pendingIn: [powershell, rust, typescript]
+    pendingIn: [powershell, typescript]
 
   - config: generate/invalid/bddsuite.tests.yaml
     exitCode: 2
     diagnostics:
       - { file: suites/b-broken.yml, code: E104, line: 8, column: 17 }
     description: 'A suite that does not lint clean stops the whole plan, though the file before it is fine: exit 2, the finding, nothing written.'
-    pendingIn: [powershell, rust, typescript]
+    pendingIn: [powershell, typescript]
 
 tables:
   # Two tables that are the specification rather than a description of one.

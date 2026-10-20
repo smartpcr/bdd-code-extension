@@ -1,6 +1,6 @@
 # The sample workspace's Rust binding: its shop actions (src/actions.rs), its
-# extension (src/extension.rs) and its suiterun (src/main.rs), built on the
-# Rust runtime of this repository by path.
+# extension (src/extension.rs), the library that holds both (src/lib.rs) and its
+# suiterun (src/main.rs), built on the Rust runtime of this repository by path.
 [package]
 name = "shop-suiterun"
 version = "0.1.0"
@@ -9,6 +9,10 @@ publish = false
 
 # Its own workspace, so the crate builds standalone wherever it is checked out.
 [workspace]
+
+[lib]
+name = "shop_suiterun"
+path = "src/lib.rs"
 
 [[bin]]
 name = "suiterun"

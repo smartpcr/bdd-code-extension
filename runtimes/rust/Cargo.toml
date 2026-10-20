@@ -15,6 +15,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 jsonschema = "0.56"
 regex = "1"
+# The testing feature's harness (suiterun::testing, DEC-T11). Pinned: the
+# harness relies on this version handing trials to its threads in list order.
+libtest-mimic = { version = "=0.8.2", optional = true }
+
+[features]
+# Suite cases as cargo test tests: build.rs generation and the harness.
+testing = ["dep:libtest-mimic"]
 
 [dev-dependencies]
 

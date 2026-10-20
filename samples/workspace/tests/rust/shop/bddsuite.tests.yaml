@@ -1,0 +1,12 @@
+# The sample workspace's suites as cargo test tests (docs/test-providers, D10;
+# spec/test-plan.md). ../build.rs generates from this file at every build.
+suites:
+  - ../../../test/e2e/suites/*.yml   # not flawed/, which does not lint clean on purpose
+  - ../../suites/*.yml               # the local suites every language's sample shares
+schemaRoot: ../../../test/e2e/schema
+provider: rust
+extensions: [ shop_suiterun::extension::Shop ]
+contextKeys: [ store ]
+# order.place stands in for a lab action: a suite that uses it is guarded and
+# skips unless BDD_SUITE_ALLOW_GUARDED=1 (../../suites/order-placement.yml).
+offlineActions: [ "core.*", "wait", "inventory.*", "cart.*", "customer.*", "shipping.*", "price.*", "stock.*", "audit.*", "shop.*" ]

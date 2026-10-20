@@ -1,7 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **stages T0 to T4 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
-[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md)); stages T5-T10 not started. The design, its
+Status: **stages T0 to T5 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md)); stages T6-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -457,15 +457,15 @@ E9–E12 for Go. Size: 2–2.5.
 Result: D9, D10. Entry: T0 (T1 as reference). Exit evidence: E1, E2, E3, E6,
 E9–E12 for Rust. Size: 2.5–3.
 
-- [ ] T5.1 Public `cli::Options::default`; `RunContext` and environment options.
-- [ ] T5.2 `Session` operations with recorded failures and a case guard.
-- [ ] T5.3 `run_file` rebuilt; E1 and E2 for Rust (its corpus extension has implemented `fixture.append` since T0).
-- [ ] T5.4 Plan and `suiterun generate --plan`; E3 for Rust; the runtime's corpus test runs the manifest's `generate` list, and rust is removed from its `pendingIn`.
-- [ ] T5.5 Feature `testing`: `generate` for `build.rs`.
-- [ ] T5.6 Harness on libtest-mimic `=0.8.2`: trials per case and row, the teardown trial, selection predicted with `is_filtered_out`, teardown by the last case when its trial is filtered out (exit 101 on failure).
-- [ ] T5.7 Harness scheduling: one thread per suite, suites in parallel.
-- [ ] T5.8 `samples/workspace/tests/rust`; E6.
-- [ ] T5.9 E9, E10, E11, E12 for Rust.
+- [x] T5.1 Public `cli::Options::default`; `RunContext` and environment options.
+- [x] T5.2 `Session` operations with recorded failures and a case guard.
+- [x] T5.3 `run_file` rebuilt; E1 and E2 for Rust (its corpus extension has implemented `fixture.append` since T0).
+- [x] T5.4 Plan and `suiterun generate --plan`; E3 for Rust; the runtime's corpus test runs the manifest's `generate` list, and rust is removed from its `pendingIn`.
+- [x] T5.5 Feature `testing`: `generate` for `build.rs`.
+- [x] T5.6 Harness on libtest-mimic `=0.8.2`: trials per case and row, the teardown trial, selection predicted with `is_filtered_out`, teardown by the last case when its trial is filtered out (exit 101 on failure).
+- [x] T5.7 Harness scheduling: one thread per suite, suites in parallel.
+- [x] T5.8 `samples/workspace/tests/rust`; E6.
+- [x] T5.9 E9, E10, E11, E12 for Rust.
 
 ### Stage T6: TypeScript (P1)
 

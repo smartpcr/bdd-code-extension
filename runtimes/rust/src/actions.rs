@@ -122,6 +122,11 @@ fn core_sleep(request: &Request) -> Outcome {
     Ok(json!({ "sleptSec": seconds }))
 }
 
+/// One `core.record` append at a time in this process: suites run on parallel
+/// threads of one test process (`suiterun::testing`), and two markers must
+/// never interleave inside a line.
+static RECORD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Appends one marker to the trace file the run named, and returns it.
 fn core_record(request: &Request) -> Outcome {
     let marker = text_of(&request.step, "marker");
@@ -130,12 +135,14 @@ fn core_record(request: &Request) -> Outcome {
     }
     if let Some(path) = &request.record_path {
         use std::io::Write;
+        let _held = RECORD.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(path)
             .map_err(|failure| ActionError::action(format!("core.record: {path} cannot be written: {failure}")))?;
-        writeln!(file, "{marker}")
+        // The line in one write: writeln! may split it into two.
+        file.write_all(format!("{marker}\n").as_bytes())
             .map_err(|failure| ActionError::action(format!("core.record: {path} cannot be written: {failure}")))?;
     }
     Ok(json!({ "marker": marker }))

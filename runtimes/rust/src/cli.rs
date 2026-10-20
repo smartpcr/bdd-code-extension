@@ -9,6 +9,8 @@
 //!                  [--schema-root dir] [any option an extension declares, with its value]
 //! suiterun list    --path <glob> [--tags a,b]
 //! suiterun actions [--json]
+//! suiterun generate --config <file> [--config <file>...] [--plan] [--check]
+//!                   [--provider rust] [--out <dir>]
 //! ```
 //!
 //! A consumer's own `suiterun` calls [`crate::main_with`] with its extensions:
@@ -36,6 +38,7 @@ pub enum Verb {
     Run,
     List,
     Actions,
+    Generate,
 }
 
 impl fmt::Display for Verb {
@@ -45,6 +48,7 @@ impl fmt::Display for Verb {
             Verb::Run => "run",
             Verb::List => "list",
             Verb::Actions => "actions",
+            Verb::Generate => "generate",
         };
         out.write_str(name)
     }
@@ -79,6 +83,20 @@ pub struct Options {
     pub corpus_root: Option<String>,
     /// The value given for each option an extension declares, by flag.
     pub extension_options: BTreeMap<String, String>,
+    /// `generate`: the test configs (spec/test-plan.md), whether to print the
+    /// plan, whether to only check, the provider and the output folder.
+    pub configs: Vec<String>,
+    pub plan: bool,
+    pub check: bool,
+    pub provider: Option<String>,
+    pub out: Option<String>,
+}
+
+impl Default for Options {
+    /// The options of a plain `run`, for a caller that builds them in code.
+    fn default() -> Self {
+        Options::new(Verb::Run)
+    }
 }
 
 impl Options {
@@ -99,6 +117,11 @@ impl Options {
             schema_root: None,
             corpus_root: None,
             extension_options: BTreeMap::new(),
+            configs: Vec::new(),
+            plan: false,
+            check: false,
+            provider: None,
+            out: None,
         }
     }
 }
@@ -119,7 +142,9 @@ suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding 
 suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
                  [--dry-run] [--param name=value] [--trace-file f.json]
 suiterun list    --path <glob> [--tags a,b]
-suiterun actions [--json]";
+suiterun actions [--json]
+suiterun generate --config <file> [--config <file>...] [--plan] [--check]
+                  [--provider rust] [--out <dir>]";
 
 /// The usage text, for a caller that wants to print it beside its own message.
 pub fn usage() -> &'static str {
@@ -155,6 +180,7 @@ pub fn parse_with<I: IntoIterator<Item = String>>(arguments: I, registry: &Regis
         Some("run") => Verb::Run,
         Some("list") => Verb::List,
         Some("actions") => Verb::Actions,
+        Some("generate") => Verb::Generate,
         Some(other) => return Err(ArgError(format!("there is no verb called {other}.\n{usage}"))),
         None => return Err(ArgError(format!("a verb is needed.\n{usage}"))),
     };
@@ -172,7 +198,17 @@ pub fn parse_with<I: IntoIterator<Item = String>>(arguments: I, registry: &Regis
                 _ => Err(ArgError(format!("{argument} needs a value after it."))),
             }
         };
+        // generate takes its own flags and no other; no other verb takes them.
+        const GENERATE_FLAGS: [&str; 5] = ["--config", "--plan", "--check", "--provider", "--out"];
+        if (verb == Verb::Generate) != GENERATE_FLAGS.contains(&name) {
+            return Err(ArgError(format!("{verb} does not take {name}.\n{usage}")));
+        }
         match name {
+            "--config" => options.configs.push(value("--config")?),
+            "--plan" => options.plan = true,
+            "--check" => options.check = true,
+            "--provider" => options.provider = Some(value("--provider")?),
+            "--out" => options.out = Some(value("--out")?),
             "--path" => options.path = value("--path")?,
             "--tags" => {
                 let raw = value("--tags")?;
@@ -231,7 +267,11 @@ pub fn parse_with<I: IntoIterator<Item = String>>(arguments: I, registry: &Regis
 
     // A verb that reads files needs to be told which. `actions` reads the
     // catalog and nothing else, so it is the one that does not.
-    if options.verb != Verb::Actions && options.path.is_empty() {
+    if options.verb == Verb::Generate {
+        if options.configs.is_empty() {
+            return Err(ArgError(format!("generate needs --config.\n{usage}")));
+        }
+    } else if options.verb != Verb::Actions && options.path.is_empty() {
         return Err(ArgError(format!("{verb} needs --path.\n{usage}")));
     }
     Ok(options)
@@ -251,6 +291,28 @@ mod tests {
         assert_eq!(parse(args("run --path a.yml")).unwrap().verb, Verb::Run);
         assert_eq!(parse(args("list --path a.yml")).unwrap().verb, Verb::List);
         assert_eq!(parse(args("actions")).unwrap().verb, Verb::Actions);
+        assert_eq!(parse(args("generate --config c.yaml")).unwrap().verb, Verb::Generate);
+    }
+
+    #[test]
+    fn generate_takes_its_own_flags_and_no_other_verb_does() {
+        let options = parse(args("generate --config a.yaml --config b.yaml --plan --check --provider rust --out gen")).unwrap();
+        assert_eq!(options.configs, vec!["a.yaml".to_string(), "b.yaml".to_string()]);
+        assert!(options.plan && options.check);
+        assert_eq!(options.provider.as_deref(), Some("rust"));
+        assert_eq!(options.out.as_deref(), Some("gen"));
+        assert!(parse(args("generate --plan")).unwrap_err().0.contains("generate needs --config"));
+        assert!(parse(args("generate --config a.yaml --path x")).unwrap_err().0.contains("generate does not take --path"));
+        assert!(parse(args("run --path a.yml --config c.yaml")).unwrap_err().0.contains("run does not take --config"));
+        assert!(parse(args("lint --path a.yml --plan")).unwrap_err().0.contains("lint does not take --plan"));
+    }
+
+    #[test]
+    fn the_default_options_are_a_plain_run() {
+        let options = Options::default();
+        assert_eq!(options.verb, Verb::Run);
+        assert!(options.path.is_empty() && options.tags.is_empty() && !options.dry_run);
+        assert_eq!(options.binding, "rust");
     }
 
     #[test]
@@ -377,6 +439,7 @@ mod tests {
         assert_eq!(Verb::Run.to_string(), "run");
         assert_eq!(Verb::List.to_string(), "list");
         assert_eq!(Verb::Actions.to_string(), "actions");
+        assert_eq!(Verb::Generate.to_string(), "generate");
         assert!(usage().contains("--binding-check"));
         assert_eq!(ArgError("x".into()).to_string(), "x");
     }

@@ -150,9 +150,9 @@ mod tests {
         vec![SuiteResult {
             name: "s.yml".into(),
             cases: vec![
-                CaseResult { name: "passes".into(), status: Status::Passed, message: String::new(), output: "\"Up\"".into(), duration_sec: 0.5 },
-                CaseResult { name: "fails".into(), status: Status::Failed, message: "expected x equals 'y', got 'z'".into(), output: String::new(), duration_sec: 0.25 },
-                CaseResult { name: "skips".into(), status: Status::Skipped, message: "tag filter".into(), output: String::new(), duration_sec: 0.0 },
+                CaseResult { name: "passes".into(), status: Status::Passed, reason: None, message: String::new(), output: "\"Up\"".into(), duration_sec: 0.5, after_each_failed: false },
+                CaseResult { name: "fails".into(), status: Status::Failed, reason: None, message: "expected x equals 'y', got 'z'".into(), output: String::new(), duration_sec: 0.25, after_each_failed: false },
+                CaseResult { name: "skips".into(), status: Status::Skipped, reason: None, message: "tag filter".into(), output: String::new(), duration_sec: 0.0, after_each_failed: false },
             ],
         }]
     }
@@ -183,7 +183,7 @@ mod tests {
     fn a_run_that_passed_says_so_at_the_top() {
         let suites = vec![SuiteResult {
             name: "s.yml".into(),
-            cases: vec![CaseResult { name: "c".into(), status: Status::Passed, message: String::new(), output: String::new(), duration_sec: 0.0 }],
+            cases: vec![CaseResult { name: "c".into(), status: Status::Passed, reason: None, message: String::new(), output: String::new(), duration_sec: 0.0, after_each_failed: false }],
         }];
         assert!(nunit3(&suites).contains("result=\"Passed\""));
         assert!(junit(&suites).contains("failures=\"0\""));

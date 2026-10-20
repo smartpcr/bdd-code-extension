@@ -1,0 +1,38 @@
+# The sample workspace's suites, and the conformance corpus, as cargo test
+# tests (docs/test-providers, D10). build.rs generates the suite lists into
+# $OUT_DIR at every build; each harness = false target runs one of them:
+#
+#   cargo test                          # every suite
+#   cargo test --test shop -- --list    # one trial per case and row, and a teardown trial per suite
+#   cargo test --test shop -- --exact "OrderPlacement::places an order"
+[package]
+name = "shop-suite-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Its own workspace, so the crate builds standalone wherever it is checked out.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+suiterun = { path = "../../../../runtimes/rust", features = ["testing"] }
+shop-suiterun = { path = "../../test/e2e/bindings/rust" }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[build-dependencies]
+suiterun = { path = "../../../../runtimes/rust", features = ["testing"] }
+
+# The sample workspace's suites, with its extension.
+[[test]]
+name = "shop"
+path = "tests/shop.rs"
+harness = false
+
+# The conformance corpus's execute suites, with the corpus extension.
+[[test]]
+name = "corpus"
+path = "tests/corpus.rs"
+harness = false

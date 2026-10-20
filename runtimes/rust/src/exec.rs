@@ -27,9 +27,11 @@ use crate::suite::{self, text_of};
 use crate::trace::{Phase, Reason, Status, Trace};
 use crate::value as values;
 
-const DEFAULT_CASE_SEC: i64 = 600;
-const DEFAULT_HOOK_SEC: i64 = 300;
-const DEFAULT_CLEANUP_SEC: i64 = 120;
+pub use crate::session::{option_variable, CaseGuard, RunContext, Session, TeardownResult, GUARDED_MESSAGE};
+
+pub(crate) const DEFAULT_CASE_SEC: i64 = 600;
+pub(crate) const DEFAULT_HOOK_SEC: i64 = 300;
+pub(crate) const DEFAULT_CLEANUP_SEC: i64 = 120;
 
 /// How a run was asked to be done.
 #[derive(Debug, Clone, Default)]
@@ -64,9 +66,14 @@ impl<'a> RunExtensions<'a> {
 pub struct CaseResult {
     pub name: String,
     pub status: Status,
+    /// The trace's reason, when the case did not pass.
+    pub reason: Option<Reason>,
     pub message: String,
     pub output: String,
     pub duration_sec: f64,
+    /// Whether afterEach failed, which a test framework reports by failing its
+    /// per-test cleanup (spec/session.md, rule 4).
+    pub after_each_failed: bool,
 }
 
 /// What one suite file did.
@@ -85,10 +92,10 @@ pub struct RunResult {
 }
 
 /// The bag one case reads and writes, and the run it belongs to.
-struct Context<'a> {
-    scope: Value,
-    record_path: Option<String>,
-    run: &'a RunExtensions<'a>,
+pub(crate) struct Context<'a> {
+    pub(crate) scope: Value,
+    pub(crate) record_path: Option<String>,
+    pub(crate) run: &'a RunExtensions<'a>,
 }
 
 impl Context<'_> {
@@ -416,7 +423,7 @@ fn run_step(
 
 /// Run one hook list inside its own window.
 #[allow(clippy::too_many_arguments)]
-fn run_hook(
+pub(crate) fn run_hook(
     steps: &[Value],
     context: &mut Context,
     schema: &Schema,
@@ -446,11 +453,59 @@ fn run_hook(
     Ok(())
 }
 
-fn limit_of(value: &Value, key: &str, fallback: i64) -> i64 {
+pub(crate) fn limit_of(value: &Value, key: &str, fallback: i64) -> i64 {
     value.get(key).and_then(Value::as_i64).unwrap_or(fallback)
 }
 
+/// Run one case's own phases: its setup, its steps and its case-level
+/// asserts, stopping at the first failure. beforeEach has already run, and the
+/// cleanup and afterEach run after this whatever it returns.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_case_body(
+    case: &Value,
+    phases: &BTreeMap<String, Vec<Value>>,
+    context: &mut Context,
+    schema: &Schema,
+    case_name: &str,
+    case_limit: i64,
+    trace: &mut Trace,
+    output: &mut String,
+) -> Result<(), ActionError> {
+    run_hook(
+        phases.get("setup").map(Vec::as_slice).unwrap_or(&[]),
+        context,
+        schema,
+        limit_of(case, "setupTimeoutSec", DEFAULT_HOOK_SEC),
+        "case setup",
+        Phase::CaseSetup,
+        Some(case_name),
+        trace,
+    )?;
+    // The case's own limit starts here, after the hooks, because a hook never
+    // draws on it.
+    let deadline = Instant::now() + Duration::from_secs(case_limit.max(1) as u64);
+    let mut collected: BTreeMap<String, Vec<Value>> = BTreeMap::new();
+    for step in phases.get("steps").map(Vec::as_slice).unwrap_or(&[]) {
+        let produced = run_step(step, context, schema, deadline, Phase::Step, Some(case_name), trace, &mut collected)?;
+        if !produced.is_null() {
+            output.push_str(&serde_json::to_string(&produced).unwrap_or_default());
+            output.push('\n');
+        }
+    }
+    for assertion in case.get("asserts").and_then(Value::as_array).unwrap_or(&Vec::new()) {
+        if !assertion.is_null() {
+            check_assertion(assertion, context)?;
+        }
+    }
+    Ok(())
+}
+
 /// Run one suite file, with the run's extensions.
+///
+/// This is the session's operations called in order (spec/session.md), so a
+/// whole-file run and a test framework's run of the same file produce the same
+/// results and the same trace: setup, then for each case beforeEach, the case
+/// and afterEach, then the teardown. The entries go on `trace`.
 pub fn run_file(
     path: &std::path::Path,
     model: &Value,
@@ -459,285 +514,49 @@ pub fn run_file(
     trace: &mut Trace,
     run: &RunExtensions,
 ) -> Result<SuiteResult, String> {
-    // The name a report carries is the one the file declares, not the file
-    // name: two suites in one directory may be renamed without every stored
-    // report changing, and the declared name is what a person recognises.
-    let name = match model.get("suite").and_then(Value::as_str) {
-        Some(declared) if !declared.is_empty() => declared.to_string(),
-        _ => path
-            .file_stem()
-            .map(|found| found.to_string_lossy().to_string())
-            .unwrap_or_default(),
+    // One context for this file over the run's started extensions: their
+    // states are shared (an Arc each), so what an extension keeps persists
+    // across files as before.
+    let extensions = RunExtensions {
+        registry: run.registry,
+        started: run.started.clone(),
     };
-    let library = suite::read_libraries(model, path)?;
-    let definitions = suite::meta_definitions(model, &library);
-    let hooks = suite::expanded_hooks(model, &definitions)?;
+    let context = RunContext::for_run(options.clone(), extensions);
+    context.record(std::mem::take(trace));
+    let outcome = run_session(path, model, schema, &context);
+    *trace = context.into_trace();
+    outcome
+}
 
+/// Run one suite file through a session, in a run context.
+pub fn run_session(path: &std::path::Path, model: &Value, schema: &Schema, context: &RunContext) -> Result<SuiteResult, String> {
+    let session = Session::open(path, model.clone(), schema, context, false)?;
     let mut result = SuiteResult {
-        name: name.clone(),
+        name: session.name.clone(),
         cases: Vec::new(),
     };
-    let all_cases = suite::cases(model);
-    let selected: Vec<&Value> = all_cases
-        .iter()
-        .filter(|case| {
-            let tags = suite::case_tags(model, case);
-            suite::tags_match(&tags, &options.tags)
-        })
-        .collect();
-
-    // The suite bag: filled once before the first selected case and read by the
-    // teardown after the last. Every case starts from a copy of it.
-    let mut suite_scope = json!({ "capture": {}, "var": {} });
-    let mut suite_setup_error: Option<String> = None;
-    if !options.dry_run && !selected.is_empty() {
-        let steps = hooks.get("setup").cloned().unwrap_or_default();
-        if !steps.is_empty() {
-            let mut context = Context {
-                scope: suite_scope.clone(),
-                record_path: options.record_path.clone(),
-                run,
-            };
-            let outcome = run_hook(
-                &steps,
-                &mut context,
-                schema,
-                limit_of(model, "setupTimeoutSec", DEFAULT_HOOK_SEC),
-                "suite setup",
-                Phase::SuiteSetup,
-                None,
-                trace,
-            );
-            suite_scope = context.scope;
-            if let Err(failure) = outcome {
-                suite_setup_error = Some(failure.message);
-            }
-        }
+    session.setup();
+    for index in 0..session.cases.len() {
+        let mut guard = session.before_each(index)?;
+        session.run_case(&mut guard)?;
+        result.cases.push(session.after_each(guard));
     }
-
-    for case in &all_cases {
-        let case_name = text_of(case, "name");
-        let tags = suite::case_tags(model, case);
-        if !suite::tags_match(&tags, &options.tags) {
-            trace.add(Phase::Case, Some(&case_name), None, None, Status::Skipped, Some(Reason::Tag));
-            result.cases.push(CaseResult {
-                name: case_name,
-                status: Status::Skipped,
-                message: "tag filter".to_string(),
-                output: String::new(),
-                duration_sec: 0.0,
-            });
-            continue;
-        }
-        if let Some(failure) = &suite_setup_error {
-            trace.add(Phase::Case, Some(&case_name), None, None, Status::Error, Some(Reason::SuiteSetup));
-            result.cases.push(CaseResult {
-                name: case_name,
-                status: Status::Error,
-                message: format!("Suite setup failed: {failure}"),
-                output: String::new(),
-                duration_sec: 0.0,
-            });
-            continue;
-        }
-        if options.dry_run {
-            result.cases.push(CaseResult {
-                name: case_name,
-                status: Status::Skipped,
-                message: "Validated only; live execution pending.".to_string(),
-                output: String::new(),
-                duration_sec: 0.0,
-            });
-            continue;
-        }
-
-        let started = Instant::now();
-        let phases = suite::expanded_case(case, &definitions)?;
-        let mut scope = suite_scope.clone();
-        if let Some(map) = scope.as_object_mut() {
-            let params = suite::resolve_params(&library, model, Some(case), &options.params, run.registry.env_prefix());
-            map.insert("param".to_string(), Value::Object(params));
-            if let Some(row) = case.get("__row") {
-                map.insert("row".to_string(), row.clone());
-            }
-            let mut defaults = library.defaults.clone();
-            if let Some(declared) = model.get("defaults").and_then(Value::as_object) {
-                for (key, value) in declared {
-                    defaults.insert(key.clone(), value.clone());
-                }
-            }
-            for (key, value) in &defaults {
-                map.insert(key.clone(), value.clone());
-            }
-            map.insert("defaults".to_string(), Value::Object(defaults));
-            map.insert(
-                "timeoutSec".to_string(),
-                json!(limit_of(case, "timeoutSec", DEFAULT_CASE_SEC)),
-            );
-            // The extensions' context keys: a value given for this run wins
-            // over the suite's defaults; a key with neither reads as "".
-            for (key, value) in run.started.context() {
-                map.insert(key.clone(), value.clone());
-            }
-            for key in run.registry.context_keys() {
-                if !map.contains_key(key) {
-                    map.insert(key.clone(), Value::String(String::new()));
-                }
-            }
-        }
-        suite::resolve_vars(&library, model, Some(case), &mut scope, run.registry.roots())?;
-        let mut context = Context {
-            scope,
-            record_path: options.record_path.clone(),
-            run,
-        };
-
-        let mut status = Status::Passed;
-        let mut message = String::new();
-        let mut reason: Option<Reason> = None;
-        let mut output = String::new();
-
-        // An extension's rule may cap the limit a case declares.
-        let case_limit = run
-            .registry
-            .case_limit_sec(model, limit_of(case, "timeoutSec", DEFAULT_CASE_SEC));
-
-        let outcome = (|| -> Result<(), ActionError> {
-            run_hook(
-                hooks.get("beforeEach").map(Vec::as_slice).unwrap_or(&[]),
-                &mut context,
-                schema,
-                limit_of(model, "beforeEachTimeoutSec", DEFAULT_HOOK_SEC),
-                "beforeEach",
-                Phase::BeforeEach,
-                Some(&case_name),
-                trace,
-            )?;
-            run_hook(
-                phases.get("setup").map(Vec::as_slice).unwrap_or(&[]),
-                &mut context,
-                schema,
-                limit_of(case, "setupTimeoutSec", DEFAULT_HOOK_SEC),
-                "case setup",
-                Phase::CaseSetup,
-                Some(&case_name),
-                trace,
-            )?;
-            // The case's own limit starts here, after the hooks, because a hook
-            // never draws on it.
-            let deadline = Instant::now() + Duration::from_secs(case_limit.max(1) as u64);
-            let mut collected: BTreeMap<String, Vec<Value>> = BTreeMap::new();
-            for step in phases.get("steps").map(Vec::as_slice).unwrap_or(&[]) {
-                let produced = run_step(
-                    step,
-                    &mut context,
-                    schema,
-                    deadline,
-                    Phase::Step,
-                    Some(&case_name),
-                    trace,
-                    &mut collected,
-                )?;
-                if !produced.is_null() {
-                    output.push_str(&serde_json::to_string(&produced).unwrap_or_default());
-                    output.push('\n');
-                }
-            }
-            for assertion in case.get("asserts").and_then(Value::as_array).unwrap_or(&Vec::new()) {
-                if !assertion.is_null() {
-                    check_assertion(assertion, &context)?;
-                }
-            }
-            Ok(())
-        })();
-
-        if let Err(failure) = outcome {
-            status = Status::Failed;
-            message = failure.message;
-            reason = Some(failure.reason);
-        }
-
-        // Cleanup gets its own bounded window even after a case timed out, and
-        // afterEach runs even when the cleanup threw.
-        let cleanup = phases.get("cleanup").cloned().unwrap_or_default();
-        if !cleanup.is_empty() {
-            if let Err(failure) = run_hook(
-                &cleanup,
-                &mut context,
-                schema,
-                limit_of(case, "cleanupTimeoutSec", DEFAULT_CLEANUP_SEC),
-                "cleanup",
-                Phase::CaseCleanup,
-                Some(&case_name),
-                trace,
-            ) {
-                status = Status::Failed;
-                reason = Some(Reason::Cleanup);
-                message = format!("{message} Cleanup failed: {}", failure.message);
-            }
-        }
-        if let Err(failure) = run_hook(
-            hooks.get("afterEach").map(Vec::as_slice).unwrap_or(&[]),
-            &mut context,
-            schema,
-            limit_of(model, "afterEachTimeoutSec", DEFAULT_HOOK_SEC),
-            "afterEach",
-            Phase::AfterEach,
-            Some(&case_name),
-            trace,
-        ) {
-            status = Status::Failed;
-            reason = Some(Reason::Hook);
-            message = format!("{message} afterEach failed: {}", failure.message);
-        }
-
-        trace.add(Phase::Case, Some(&case_name), None, None, status, reason);
-        result.cases.push(CaseResult {
-            name: case_name,
-            status,
-            message: message.trim().to_string(),
-            output,
-            duration_sec: started.elapsed().as_secs_f64(),
-        });
-    }
-
-    // The teardown runs after the last case whether cases passed and whether
-    // the setup did: state a failed setup half-built still has to be undone.
-    //
     // A teardown that fails is its own entry rather than a change to the last
     // case's result, because a teardown is not a test and the case it would be
     // charged to did nothing wrong. It does fail the run: a suite whose teardown
     // could not undo what it did has not finished cleanly.
-    if !options.dry_run && !selected.is_empty() {
-        let steps = hooks.get("teardown").cloned().unwrap_or_default();
-        if !steps.is_empty() {
-            let mut context = Context {
-                scope: suite_scope,
-                record_path: options.record_path.clone(),
-                run,
-            };
-            let started = Instant::now();
-            if let Err(failure) = run_hook(
-                &steps,
-                &mut context,
-                schema,
-                limit_of(model, "teardownTimeoutSec", DEFAULT_HOOK_SEC),
-                "suite teardown",
-                Phase::SuiteTeardown,
-                None,
-                trace,
-            ) {
-                result.cases.push(CaseResult {
-                    name: "teardown".to_string(),
-                    status: Status::Failed,
-                    message: failure.message,
-                    output: String::new(),
-                    duration_sec: started.elapsed().as_secs_f64(),
-                });
-            }
-        }
+    let teardown = session.teardown();
+    if teardown.failed {
+        result.cases.push(CaseResult {
+            name: "teardown".to_string(),
+            status: Status::Failed,
+            reason: Some(Reason::Hook),
+            message: teardown.message,
+            output: String::new(),
+            duration_sec: teardown.duration_sec,
+            after_each_failed: false,
+        });
     }
-
     Ok(result)
 }
 
@@ -853,16 +672,18 @@ mod tests {
         let case = CaseResult {
             name: "c".into(),
             status: Status::Passed,
+            reason: None,
             message: String::new(),
             output: "x".into(),
             duration_sec: 0.0,
+            after_each_failed: false,
         };
         assert_eq!(output_of(&case), "x");
         assert_eq!(to_output(&json!(3)), "3");
         assert!(empty_scope().is_object());
         assert!(!failed(&RunResult { suites: vec![], trace: Trace::default(), any_failures: false }));
         assert!(failed(&RunResult {
-            suites: vec![SuiteResult { name: "s".into(), cases: vec![CaseResult { name: "c".into(), status: Status::Failed, message: String::new(), output: String::new(), duration_sec: 0.0 }] }],
+            suites: vec![SuiteResult { name: "s".into(), cases: vec![CaseResult { name: "c".into(), status: Status::Failed, reason: None, message: String::new(), output: String::new(), duration_sec: 0.0, after_each_failed: false }] }],
             trace: Trace::default(),
             any_failures: true,
         }));

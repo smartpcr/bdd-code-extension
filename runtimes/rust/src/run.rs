@@ -301,6 +301,46 @@ pub fn execute_with(options: &Options, registry: &Registry) -> Report {
         Verb::Run => run(options, registry),
         Verb::List => list(options),
         Verb::Actions => actions_verb(options, registry),
+        Verb::Generate => generate(options),
+    }
+}
+
+/// `generate`: build each config's test plan (spec/test-plan.md). A suite that
+/// does not lint clean refuses the whole run (exit 2) with its findings. With
+/// `--plan` it prints the one config's plan. The Rust test code is written by
+/// the test crate's `build.rs` (`suiterun::testing::build`) at every build, so
+/// it can never be stale and there is nothing for `--check` to compare.
+pub fn generate(options: &Options) -> Report {
+    let mut plans = Vec::new();
+    let mut findings = Vec::new();
+    for path in &options.configs {
+        let config = match crate::generate::load_config(Path::new(path)) {
+            Ok(config) => config,
+            Err(failure) => return Report::refused(failure),
+        };
+        match crate::generate::build(&config) {
+            Err(failure) => return Report::refused(failure),
+            Ok(Err(found)) => findings.extend(found.iter().map(diag::Diagnostic::to_human)),
+            Ok(Ok(plan)) => plans.push(plan),
+        }
+    }
+    if !findings.is_empty() {
+        findings.push("Nothing was generated: every suite has to lint clean first.".to_string());
+        return Report::refused(findings.join("\n"));
+    }
+    if !options.plan {
+        return Report::refused(
+            "the Rust runtime writes its tests from the test crate's build.rs (suiterun::testing::build), \
+             at every build; pass --plan to print a config's plan.",
+        );
+    }
+    if plans.len() != 1 {
+        return Report::refused("--plan prints one config's plan; give one --config.");
+    }
+    Report {
+        out: plans[0].to_json(),
+        errors: String::new(),
+        code: exit::PASSED,
     }
 }
 
