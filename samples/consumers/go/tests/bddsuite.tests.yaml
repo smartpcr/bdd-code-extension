@@ -1,0 +1,8 @@
+# The greeter's suites as go test tests (spec/test-plan.md). greet.shout is not
+# offline, so loud.yml is guarded.
+suites: [ "../suites/*.yml" ]
+schemaRoot: ../schema
+provider: go
+extensions: [ example.com/greeter/greeter.Extension ]
+offlineActions: [ "core.*", "wait", "greet.say" ]
+output: { package: tests }

@@ -244,7 +244,8 @@ func Open(path string, suiteModel *model.Map, loaded *schema.Schema, context *Ru
 	}
 	for _, one := range held.cases {
 		held.Cases = append(held.Cases, walk.Text(one, "name"))
-		held.selected = append(held.selected, suite.TagsMatch(suite.CaseTags(suiteModel, one), context.Options.Tags))
+		held.selected = append(held.selected, suite.TagsMatch(suite.CaseTags(suiteModel, one), context.Options.Tags) &&
+			suite.NameMatches(walk.Text(one, "name"), context.Options.Names))
 	}
 	held.states = make([]*caseState, len(held.cases))
 	// The suite bag: filled once before the first selected case and read by the
@@ -268,7 +269,7 @@ func (held *Session) IndexOf(caseName string) (int, error) {
 	return -1, fmt.Errorf("%s has no case named %q", held.Name, caseName)
 }
 
-// IsSelected says whether the run context's tag filter selects a case.
+// IsSelected says whether the run context's tag and name filters select a case.
 func (held *Session) IsSelected(index int) bool { return held.selected[index] }
 
 func (held *Session) refusedAsGuarded() bool { return held.Guarded && !held.Context.AllowGuarded }

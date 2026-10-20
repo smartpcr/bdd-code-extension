@@ -90,16 +90,34 @@ func (entry Entry) JSON() *model.Map {
 type Trace struct {
 	Entries []Entry
 	gate    sync.Mutex
+	added   func(Entry)
 }
 
 // Add records one thing the run did. An empty name is no name.
 func (recorded *Trace) Add(phase Phase, caseName, step, action string, status Status, reason Reason) {
-	recorded.gate.Lock()
-	defer recorded.gate.Unlock()
-	recorded.Entries = append(recorded.Entries, Entry{
+	entry := Entry{
 		Phase: phase, Case: caseName, Step: step, Action: action,
 		Status: status, Reason: reason,
-	})
+	}
+	recorded.gate.Lock()
+	recorded.Entries = append(recorded.Entries, entry)
+	added := recorded.added
+	recorded.gate.Unlock()
+	// Outside the lock, so a slow observer never holds the trace.
+	if added != nil {
+		added(entry)
+	}
+}
+
+// OnAdded sets what is told of each entry as it is recorded, for a run
+// observer (spec/progress.md), and returns what was set before; nil stops it.
+// It sees the entry; it does not change what is recorded.
+func (recorded *Trace) OnAdded(added func(Entry)) func(Entry) {
+	recorded.gate.Lock()
+	defer recorded.gate.Unlock()
+	previous := recorded.added
+	recorded.added = added
+	return previous
 }
 
 // Snapshot is a copy of the entries so far.

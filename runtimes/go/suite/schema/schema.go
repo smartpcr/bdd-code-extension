@@ -13,6 +13,7 @@
 package schema
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -148,6 +149,58 @@ type catalogEntry struct {
 	file  string
 }
 
+// CoreImport is the import name of the core this runtime carries: the
+// core.catalog.yaml beside this file, a copy of spec/core.catalog.yaml that a
+// test keeps equal to it (spec/README.md; docs/packages, DEC-P07). Go embeds
+// only files inside the module, hence the copy.
+const CoreImport = "bdd-suite:core"
+
+//go:embed core.catalog.yaml
+var coreCatalog string
+
+// CoreCatalogText is the embedded core catalog.
+func CoreCatalogText() string { return coreCatalog }
+
+// coreEntries is the core's action entries read through bdd-suite:core, each
+// one's bindings cut to the importing catalog's own list when it has one.
+func coreEntries(importer *model.Map) ([]catalogEntry, error) {
+	core, err := model.Load(coreCatalog)
+	if err != nil {
+		return nil, fmt.Errorf("the embedded core catalog is not YAML: %w", err)
+	}
+	root, _ := core.Value.(*model.Map)
+	if root == nil {
+		return nil, fmt.Errorf("the embedded core catalog does not hold a mapping")
+	}
+	var keep map[string]bool
+	if importer.Has("bindings") {
+		keep = map[string]bool{}
+		for _, binding := range stringList(importer.Value("bindings")) {
+			keep[binding] = true
+		}
+	}
+	out := []catalogEntry{}
+	list, _ := root.Value("actions").([]any)
+	for _, raw := range list {
+		held, ok := raw.(*model.Map)
+		if !ok {
+			continue
+		}
+		if keep != nil && held.Has("bindings") {
+			cut := []any{}
+			for _, binding := range stringList(held.Value("bindings")) {
+				if keep[binding] {
+					cut = append(cut, binding)
+				}
+			}
+			held = held.Clone()
+			held.Set("bindings", cut)
+		}
+		out = append(out, catalogEntry{entry: held, file: CoreImport})
+	}
+	return out, nil
+}
+
 // catalogEntries is every action entry of a catalog and of the catalogs it
 // imports: imports first, depth first in listed order, each relative to the
 // file that names it; then the catalog's own. visiting is the chain of
@@ -177,6 +230,14 @@ func catalogEntries(file string, visiting []string) ([]catalogEntry, error) {
 	out := []catalogEntry{}
 	chain := append(append([]string(nil), visiting...), key)
 	for _, raw := range stringList(root.Value("imports")) {
+		if raw == CoreImport {
+			found, err := coreEntries(root)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, found...)
+			continue
+		}
 		imported := raw
 		if !filepath.IsAbs(imported) {
 			imported = filepath.Join(filepath.Dir(key), filepath.FromSlash(raw))

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/smartpcr/bdd-code-extension/runtimes/go/internal/paths"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/expr"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/model"
 	"github.com/smartpcr/bdd-code-extension/runtimes/go/suite/value"
@@ -426,6 +427,21 @@ func TagsMatch(caseTags, filter []string) bool {
 	}
 	for _, tag := range caseTags {
 		if containsText(filter, tag) {
+			return true
+		}
+	}
+	return false
+}
+
+// NameMatches says whether a case name matches any --name glob; no glob
+// matches every case. The same glob --path takes (`*`, `?`, the whole name), so
+// `*apply*` means one thing everywhere.
+func NameMatches(caseName string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return true
+	}
+	for _, pattern := range patterns {
+		if paths.MatchesGlob(pattern, caseName) {
 			return true
 		}
 	}

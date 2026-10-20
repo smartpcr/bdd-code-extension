@@ -8,17 +8,20 @@
     repository root (git-ignored). A consumer sample names that folder as a
     package source, so it proves the very files a release would publish.
 
-      nuget   Bdd.Suite and Bdd.Suite.Testing (.nupkg and .snupkg), Release
+      nuget    Bdd.Suite and Bdd.Suite.Testing (.nupkg and .snupkg), Release
+      goproxy  the Go module github.com/smartpcr/bdd-code-extension/runtimes/go at
+               v<version>, in the module proxy's layout, for GOPROXY=file:///...
 
     Each package is checked with Test-PackageContents.ps1 against its list in
-    packaging/. Exits 1 when a pack or a check fails.
+    packaging/ (the Go zip is also made, and so checked, by golang.org/x/mod/zip).
+    Exits 1 when a pack or a check fails.
 
 .EXAMPLE
-    pwsh -File scripts/local-feeds.ps1 -Language csharp
+    pwsh -File scripts/local-feeds.ps1 -Language csharp, go
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('csharp')][string[]]$Language = @('csharp'),
+    [ValidateSet('csharp', 'go')][string[]]$Language = @('csharp', 'go'),
     [string]$Out
 )
 
@@ -40,6 +43,22 @@ foreach ($language in $Language) {
                 if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
             }
             Write-Output "nuget feed: $feed"
+        }
+        'go' {
+            $feed = Join-Path $Out 'goproxy'
+            $version = 'v' + (Get-Content (Join-Path $repo 'package.json') -Raw | ConvertFrom-Json).version
+            $module = Join-Path $feed 'github.com/smartpcr/bdd-code-extension/runtimes/go'
+            Remove-Item $module -Recurse -Force -ErrorAction SilentlyContinue
+            Push-Location (Join-Path $repo 'scripts/go-module-zip')
+            try {
+                go run . -dir (Join-Path $repo 'runtimes/go') -version $version -out $feed
+                if ($LASTEXITCODE) { throw 'the Go module zip failed' }
+            } finally {
+                Pop-Location
+            }
+            & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Test-PackageContents.ps1') -Package (Join-Path $module "@v/$version.zip")
+            if ($LASTEXITCODE) { throw 'the Go module zip does not hold what packaging/runtimes-go.files.txt lists' }
+            Write-Output "goproxy feed: $feed"
         }
     }
 }

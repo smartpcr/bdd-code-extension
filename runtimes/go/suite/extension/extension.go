@@ -37,7 +37,7 @@ var CoreRoots = expr.CoreRoots
 
 // coreFlags is the core's own flags; an extension may not take one.
 var coreFlags = []string{"--path", "--tags", "--results", "--trace-file", "--schema-root", "--binding", "--format",
-	"--param", "--json", "--strict", "--dry-run", "--binding-check"}
+	"--param", "--json", "--strict", "--dry-run", "--binding-check", "--name", "--progress"}
 
 var optionPattern = regexp.MustCompile(`^--[a-z][a-z0-9-]*$`)
 

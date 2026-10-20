@@ -1,7 +1,8 @@
 // Package corpusext is what the conformance corpus needs from a runtime's
 // extension (conformance/README.md): the context keys its suites read, with
-// the values of expressions/context.yaml, and fixture.append
-// (execute/capture-isolation.yml).
+// the values of expressions/context.yaml, fixture.append
+// (execute/capture-isolation.yml), and fixture.throw, which panics with a plain
+// string (execute/worker-throws.yml, spec/progress.md).
 package corpusext
 
 import (
@@ -20,6 +21,9 @@ var Extension = extension.Extension{
 			return nil, &actions.Error{Message: "fixture.append: list must be a list", Reason: trace.Action}
 		}
 		return append(list, request.Step.Value("item")), nil
+	}}, {Name: "fixture.throw", Handler: func(request *actions.Request) (any, error) {
+		message, _ := request.Step.Value("message").(string)
+		panic(message)
 	}}},
 	Start: func(map[string]string) extension.RunState {
 		return extension.RunState{Context: map[string]any{

@@ -3,10 +3,10 @@
 // DEC-Y14 gives every runtime the same verbs:
 //
 //	suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-//	suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-//	                 [--dry-run] [--param name=value] [--trace-file f.json]
+//	suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+//	                 [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
 //	                 [any option an extension declares, with its value]
-//	suiterun list    --path <glob> [--tags a,b]
+//	suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 //	suiterun actions [--json]
 //
 // Parsed by hand rather than with the flag package, because the exit codes are
@@ -58,9 +58,16 @@ const (
 
 // Options is one parsed command line.
 type Options struct {
-	Verb         Verb
-	Path         string
-	Tags         []string
+	Verb Verb
+	Path string
+	Tags []string
+	// Names is the --name globs (`*`, `?`): a case is selected when its name
+	// matches any of them and the tag filter selects it; none selects every
+	// case (spec/README.md, docs/packages DEC-P05).
+	Names []string
+	// Progress is --progress: live lines while a run goes, in the shape
+	// spec/progress.md gives.
+	Progress     bool
 	Results      string
 	TraceFile    string
 	Format       ReportFormat
@@ -86,9 +93,9 @@ type Options struct {
 
 // Usage is the text a refusal prints beside its own message.
 const Usage = `suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                 [--dry-run] [--param name=value] [--trace-file f.json]
-suiterun list    --path <glob> [--tags a,b]
+suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                 [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
+suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 suiterun actions [--json]
 suiterun generate --config <bddsuite.tests.yaml> [--provider go] [--out <folder>] [--plan | --check]`
 
@@ -148,6 +155,15 @@ func Parse(arguments []string, declared ...extension.Option) (Options, error) {
 					options.Tags = append(options.Tags, trimmed)
 				}
 			}
+		case "--name":
+			found, err = value(name)
+			for _, pattern := range strings.Split(found, ",") {
+				if trimmed := strings.TrimSpace(pattern); trimmed != "" {
+					options.Names = append(options.Names, trimmed)
+				}
+			}
+		case "--progress":
+			options.Progress = true
 		case "--results":
 			found, err = value(name)
 			options.Results = found

@@ -105,6 +105,17 @@ func TestE1EveryExecuteEntryThroughTheSessionInFileOrderAndReversed(t *testing.T
 				options.Tags = append(options.Tags, tag)
 			}
 		}
+		for _, pattern := range strings.Split(walk.Text(entry, "names"), ",") {
+			if pattern = strings.TrimSpace(pattern); pattern != "" {
+				options.Names = append(options.Names, pattern)
+			}
+		}
+		loaded := loaded
+		if root := walk.Text(entry, "schemaRoot"); root != "" {
+			if loaded, err = schema.Load(corpus.Path(root)); err != nil {
+				t.Fatal(err)
+			}
+		}
 		if params, ok := walk.AsMap(entry.Value("params")); ok {
 			for _, key := range params.Keys() {
 				options.Params = append(options.Params, [2]string{key, value.Text(params.Value(key))})
@@ -176,7 +187,7 @@ func TestE1EveryExecuteEntryThroughTheSessionInFileOrderAndReversed(t *testing.T
 		}
 		checked++
 	}
-	if checked != 14 {
-		t.Errorf("%d entries checked, not 14", checked)
+	if checked != 20 {
+		t.Errorf("%d entries checked, not 20", checked)
 	}
 }

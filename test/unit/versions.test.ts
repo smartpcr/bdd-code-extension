@@ -21,6 +21,8 @@ const SAMPLES: Record<VersionKind, string> = {
     packages: { '': { name: 'consumer', version: '1.0.0' }, '../runtimes/typescript': { name: '@bdd-suite/runtime', version: '0.1.0' }, 'node_modules/yaml': { version: '2.8.1' } },
   }, null, 2)}\n`,
   'psd1': "@{\n    RootModule        = 'BddSuite.psm1'\n    ModuleVersion     = '0.1.0'\n    PowerShellVersion = '7.2'\n}\n",
+  'go-require': 'module example.com/greeter\n\ngo 1.24\n\nrequire github.com/smartpcr/bdd-code-extension/runtimes/go v0.1.0\n\nrequire gopkg.in/yaml.v3 v3.0.1 // indirect\n',
+  'msbuild-pin': '<Project>\n  <PropertyGroup>\n    <BddSuiteVersion Condition="\'$(BddSuiteVersion)\' == \'\'">0.1.0</BddSuiteVersion>\n  </PropertyGroup>\n</Project>\n',
 };
 
 test('D14 a release version is x.y.z, with an optional pre-release', () => {

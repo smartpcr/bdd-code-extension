@@ -65,6 +65,11 @@ func TestEveryValidateEntry(t *testing.T) {
 		// one, so a rule the catalog drives can be proved without changing the
 		// catalog every binding reads.
 		effective := shipped
+		if root := walk.Text(entry, "schemaRoot"); root != "" {
+			if effective, err = schema.Load(corpus.Path(root)); err != nil {
+				t.Fatalf("%s: %v", suite, err)
+			}
+		}
 		if overlayName := walk.Text(entry, "catalogOverlay"); overlayName != "" {
 			overlay, err := corpus.YAML(overlayName)
 			if err != nil {

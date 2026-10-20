@@ -47,11 +47,26 @@ const (
 
 // Options is how a run was asked to be done.
 type Options struct {
-	Tags   []string
+	Tags []string
+	// Names is the --name globs; see suite.NameMatches.
+	Names  []string
 	Params [][2]string
 	DryRun bool
+	// Observer is told of each selected case and each trace entry as the run
+	// goes (spec/progress.md). It never changes what the run does or what the
+	// trace holds.
+	Observer Observer
 	// RecordPath is <prefix>RECORD_PATH: where core.record appends.
 	RecordPath string
+}
+
+// Observer is told when a selected case starts and finishes, and of each trace
+// entry as it is recorded, so a long run can say what it is doing while it does
+// it (spec/progress.md). An observer sees the run; it cannot change it.
+type Observer interface {
+	CaseStarted(suite, caseName string)
+	CaseFinished(suite string, result CaseResult)
+	Entry(entry trace.Entry)
 }
 
 // RunExtensions is the extensions of one run, composed, and started with the
@@ -257,6 +272,14 @@ func bounded(
 	// on a channel nobody is reading any more.
 	done := make(chan answer, 1)
 	go func() {
+		// A panic is this step's failure, never the end of the process, which
+		// would lose every result and every cleanup still to come
+		// (spec/progress.md, "The action worker").
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				done <- answer{nil, actions.Failed(fmt.Sprintf("%s panicked: %v", name, recovered))}
+			}
+		}()
 		produced, failure := registered.Handler(request)
 		done <- answer{produced, failure}
 	}()
@@ -507,8 +530,22 @@ func RunFile(
 		return SuiteResult{}, err
 	}
 	result := SuiteResult{Name: session.Name}
+	// A dry run traces nothing, so its observer hears nothing either.
+	observer := options.Observer
+	if options.DryRun {
+		observer = nil
+	}
+	if observer != nil {
+		previous := recorded.OnAdded(observer.Entry)
+		defer recorded.OnAdded(previous)
+	}
 	session.Setup()
 	for index := range session.Cases {
+		// Only the cases this run selected are reported (spec/progress.md).
+		observed := observer != nil && session.IsSelected(index)
+		if observed {
+			observer.CaseStarted(session.Name, session.Cases[index])
+		}
 		if err := session.BeforeEach(index); err != nil {
 			return SuiteResult{}, err
 		}
@@ -520,6 +557,9 @@ func RunFile(
 			return SuiteResult{}, err
 		}
 		result.Cases = append(result.Cases, settled)
+		if observed {
+			observer.CaseFinished(session.Name, settled)
+		}
 	}
 
 	// A teardown that fails is its own entry rather than a change to the last

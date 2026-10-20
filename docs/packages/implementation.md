@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 and K1 built 2026-10-20 and run locally, their CI not yet run ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md)); K2 to K9 not started.** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K2 built 2026-10-20 and run locally, their CI not yet run ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md)); K3 to K9 not started.** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -198,10 +198,12 @@ Priority orders the work; it never weakens a completion condition.
 
 * **Result.** The module a consumer `go get`s carries the features, its docs
   render on pkg.go.dev, and a local file proxy proves it before the tag.
-* **How.** Package doc comments for `suite/...`; `README.md`; a script that
-  builds a module zip (`golang.org/x/mod/zip`) for a file `GOPROXY`; a
-  `retract` section kept for future use. The tag is still made by the release
-  job ([D16](#d16)).
+* **How.** Package doc comments (every package had one but `cmd/suiterun`);
+  `README.md`; a `LICENSE` copy in the module (pkg.go.dev shows docs only for a
+  module whose zip holds one); a tool that writes a module version in the
+  proxy's layout (`golang.org/x/mod/zip`) for a file `GOPROXY`; `retract` left
+  for when a version needs it. The tag is still made by the release job
+  ([D16](#d16)).
 * **Files.** `runtimes/go/**`, `scripts/go-module-zip/*`.
 * **Depends on.** D3, D14.
 * **Done when.** E1 (Go), E3.
@@ -391,14 +393,14 @@ entries; E1 (C#) and E2 from a local feed.
 Result: D3, D11, D15 (Go). Entry: K0. Exit evidence: Go corpus with the new
 entries; E1 (Go), E3.
 
-- [ ] K2.1 `--name` and `--progress` in `suite/cli`; `Names` and the observer in `exec`.
-- [ ] K2.2 The progress printer.
-- [ ] K2.3 The worker recovers any panic into a step failure.
-- [ ] K2.4 Embedded core; `bdd-suite:core` in the loader.
-- [ ] K2.5 Unit tests; `go test -race ./...`; the corpus with D1's entries.
-- [ ] K2.6 Package docs and README for pkg.go.dev.
-- [ ] K2.7 The module zip script and a file `GOPROXY`; E1 (Go).
-- [ ] K2.8 `samples/consumers/go`; E3.
+- [x] K2.1 `--name` and `--progress` in `suite/cli`; `Names` and the observer in `exec`.
+- [x] K2.2 The progress printer.
+- [x] K2.3 The worker recovers any panic into a step failure.
+- [x] K2.4 Embedded core; `bdd-suite:core` in the loader.
+- [x] K2.5 Unit tests; `go test -race ./...`; the corpus with D1's entries.
+- [x] K2.6 Package docs and README for pkg.go.dev.
+- [x] K2.7 The module zip script and a file `GOPROXY`; E1 (Go).
+- [x] K2.8 `samples/consumers/go`; E3.
 
 ### Stage K3: Rust (P1)
 

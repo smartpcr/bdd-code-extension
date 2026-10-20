@@ -5,6 +5,36 @@ model, lint, the run (`suite/exec`), reports and the `suiterun` command line
 (`cmd/suiterun`), extensible by an outside package (`suite/extension`). It is
 held to the conformance corpus in `../../conformance/` like every runtime.
 
+## Install
+
+```text
+go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.6.10
+go get -tool github.com/smartpcr/bdd-code-extension/runtimes/go/cmd/suiterun@v0.6.10
+```
+
+The module's versions are tagged `runtimes/go/v<version>`, the release's version
+(the VS Code extension's), so every runtime of one release agrees. A workspace
+adds its own actions as an `extension.Extension` and builds its own `suiterun`
+from it in one line:
+
+```go
+// cmd/suiterun/main.go
+os.Exit(suiterun.Main(os.Args[1:], os.Stdout, os.Stderr, myactions.Extension))
+```
+
+Its catalog imports the core this module carries by name, with no copy of the
+spec (`imports: [ "bdd-suite:core" ]`); the core's actions are cut to the
+catalog's own `bindings` list. Besides `lint`, `run`, `list` and `actions`, `run`
+and `list` take `--name glob[,glob]` (cases whose names match, with the tag
+filter) and `run` takes `--progress` (live `StartGroup`/`EndGroup`/`Summary`
+lines for long runs; spec/progress.md). An action that panics fails its step;
+the run goes on. A library caller gets the same through `exec.Options.Names`
+and an `exec.Observer`.
+
+A working consumer that uses only the module, with its own extension, `suiterun`
+and generated tests:
+[samples/consumers/go](https://github.com/smartpcr/bdd-code-extension/tree/main/samples/consumers/go).
+
 ## Run suites with your test framework
 
 `suiterun generate` turns a project's suites into ordinary `go test` tests:

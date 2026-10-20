@@ -309,3 +309,29 @@ func TestEveryFileUnderValidateAndExecuteIsNamed(t *testing.T) {
 		t.Errorf("files no entry names: %s", strings.Join(stray, ", "))
 	}
 }
+
+// TestTheModuleCarriesTheRepositorysLicense: a module zip holds only the
+// module's folder, and pkg.go.dev shows a module's documentation only when its
+// zip holds a license, so runtimes/go/LICENSE is a copy of the repository's
+// (docs/packages, DEC-P11).
+func TestTheModuleCarriesTheRepositorysLicense(t *testing.T) {
+	corpus, err := Find()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.ReadFile(filepath.Join(corpus.Root, "LICENSE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	module, err := os.ReadFile(filepath.Join(corpus.Root, "runtimes", "go", "LICENSE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ReplaceAll(string(module), "
+", "
+") != strings.ReplaceAll(string(root), "
+", "
+") {
+		t.Error("runtimes/go/LICENSE differs from the repository's LICENSE: copy it again")
+	}
+}

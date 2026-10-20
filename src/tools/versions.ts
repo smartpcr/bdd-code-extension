@@ -5,7 +5,7 @@
 // scripts/check-versions.mjs apply them to the repository.
 
 /** How a file holds the version. */
-export type VersionKind = 'csharp-props' | 'cargo-toml' | 'cargo-lock' | 'npm-package' | 'npm-lock' | 'psd1';
+export type VersionKind = 'csharp-props' | 'cargo-toml' | 'cargo-lock' | 'npm-package' | 'npm-lock' | 'psd1' | 'go-require' | 'msbuild-pin';
 
 export interface VersionFile {
   /** Relative to the repository root, with forward slashes. */
@@ -13,7 +13,8 @@ export interface VersionFile {
   kind: VersionKind;
 }
 
-/** The runtimes' manifests, and every lock file that records a runtime this repository links by path. */
+/** The runtimes' manifests, every lock file that records a runtime this repository links by path, and the
+ * consumer samples' pins, which name the release they are proved against (docs/packages, D15). */
 export const VERSION_FILES: readonly VersionFile[] = [
   { file: 'runtimes/csharp/Directory.Build.props', kind: 'csharp-props' },
   { file: 'runtimes/rust/Cargo.toml', kind: 'cargo-toml' },
@@ -25,6 +26,8 @@ export const VERSION_FILES: readonly VersionFile[] = [
   { file: 'samples/workspace/test/e2e/bindings/typescript/package-lock.json', kind: 'npm-lock' },
   { file: 'samples/workspace/tests/typescript/package-lock.json', kind: 'npm-lock' },
   { file: 'runtimes/powershell/BddSuite/BddSuite.psd1', kind: 'psd1' },
+  { file: 'samples/consumers/csharp/Directory.Packages.props', kind: 'msbuild-pin' },
+  { file: 'samples/consumers/go/go.mod', kind: 'go-require' },
 ];
 
 /** The TypeScript runtime's package name, which the npm lock files record. */
@@ -87,6 +90,10 @@ const RULES: Record<VersionKind, Rule> = {
   'npm-package': pattern(/^(\{[^{]*?"version":\s*")([^"]*)(")/),
   'npm-lock': npmLock,
   'psd1': pattern(/(\bModuleVersion\s*=\s*')([^']*)(')/),
+  // A consumer's require line; the module's versions carry a v.
+  'go-require': pattern(/(github\.com\/smartpcr\/bdd-code-extension\/runtimes\/go v)(\d[^\s]*)()/),
+  // The MSBuild property a C# consumer pins its bdd-suite packages with.
+  'msbuild-pin': pattern(/(<BddSuiteVersion\b[^>]*>)([^<]*)(<\/BddSuiteVersion>)/),
 };
 
 /** Every version a file of this kind holds. A runtime manifest holds one; a lock may hold several. */

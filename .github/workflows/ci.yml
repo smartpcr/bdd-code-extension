@@ -295,6 +295,15 @@ jobs:
       - name: Filters, listing, guarded suites, parallel runs, generation (E5, E9-E12)
         run: node samples/workspace/tests/go/scenarios.mjs
 
+      # docs/packages, E1 and E3: the module written as a version into a local
+      # file GOPROXY with exactly its listed contents, and a consumer that
+      # requires only that version builds its suiterun and runs its tests.
+      - name: The Go module, and a consumer of it alone (E1, E3)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File samples/consumers/go/run-e3.ps1
+          if ($LASTEXITCODE) { throw 'the Go consumer failed on the module' }
+
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4

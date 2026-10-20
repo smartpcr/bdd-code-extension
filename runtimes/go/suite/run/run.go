@@ -178,7 +178,8 @@ func List(options cli.Options) Report {
 			return refused(err.Error())
 		}
 		for _, one := range suite.Cases(held) {
-			if !suite.TagsMatch(suite.CaseTags(held, one), options.Tags) {
+			if !suite.TagsMatch(suite.CaseTags(held, one), options.Tags) ||
+				!suite.NameMatches(walk.Text(one, "name"), options.Names) {
 				continue
 			}
 			lines = append(lines, fmt.Sprintf("%s  %s", filepath.Base(path), walk.Text(one, "name")))
@@ -222,11 +223,20 @@ func Run(options cli.Options, composite *extension.Composite) Report {
 	}
 
 	recorded := &trace.Trace{}
+	// Live lines while the run goes, for runs that take hours (spec/progress.md).
+	var progress *ProgressPrinter
+	if options.Progress {
+		progress = NewProgressPrinter(ProgressWriter)
+	}
 	settings := &exec.Options{
 		Tags:       options.Tags,
+		Names:      options.Names,
 		Params:     options.Params,
 		DryRun:     options.DryRun,
 		RecordPath: os.Getenv(composite.EnvPrefix + "RECORD_PATH"),
+	}
+	if progress != nil {
+		settings.Observer = progress
 	}
 	// Once per run, shared by every file, so an extension's state persists
 	// across files.
@@ -255,6 +265,9 @@ func Run(options cli.Options, composite *extension.Composite) Report {
 
 	result := &exec.RunResult{Suites: suites, Trace: recorded}
 	failed := exec.Failed(result)
+	if progress != nil {
+		progress.Summary()
+	}
 
 	if options.TraceFile != "" {
 		text, err := json.MarshalIndent(recorded.JSON(), "", "  ")
