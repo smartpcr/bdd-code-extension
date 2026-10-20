@@ -356,13 +356,13 @@ jobs:
 
       - name: The corpus and the sample suites through each framework (E7)
         run: |
-          for provider in node vitest jest; do
+          for provider in node vitest jest mocha; do
             node samples/workspace/tests/harness/corpus.mjs --provider "$provider" --out "out/providers/$provider"
           done
 
       - name: Filters, listing, guarded suites, parallel runs, generation (E7, E9-E12)
         run: |
-          for provider in node vitest jest; do
+          for provider in node vitest jest mocha; do
             node samples/workspace/tests/typescript/scenarios.mjs --provider "$provider"
           done
 

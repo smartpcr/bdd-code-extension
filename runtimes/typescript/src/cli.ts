@@ -10,7 +10,7 @@
 //   suiterun list    --path <glob> [--tags a,b]
 //   suiterun actions [--json]
 //   suiterun generate --config <file> [--config <file>...] [--plan] [--check]
-//                     [--provider node|vitest|jest] [--out <dir>]
+//                     [--provider node|vitest|jest|mocha] [--out <dir>]
 //
 // The arguments are read by hand, not by a library: the exit code is part of
 // the contract, and an unknown argument has to be 2 with this usage text, not
@@ -63,7 +63,7 @@ suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|j
 suiterun list    --path <glob> [--tags a,b]
 suiterun actions [--json]
 suiterun generate --config <file> [--config <file>...] [--plan] [--check]
-                  [--provider node|vitest|jest] [--out <dir>]`;
+                  [--provider node|vitest|jest|mocha] [--out <dir>]`;
 
 /** The usage text, with every option the extensions declare. */
 export const usage = (composite?: Composite): string => (composite?.options.length

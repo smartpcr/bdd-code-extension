@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const cli = fs.realpathSync(path.join(here, 'node_modules', '@bdd-suite', 'runtime', 'dist', 'cli.js'));
 const check = process.argv.includes('--check');
 let code = 0;
-for (const provider of ['node', 'vitest', 'jest']) {
+for (const provider of ['node', 'vitest', 'jest', 'mocha']) {
   for (const config of ['shop', 'corpus']) {
     const argv = [cli, 'generate', '--config', `shared/${config}.tests.yaml`, '--provider', provider, '--out', `${provider}/${config}`, ...(check ? ['--check'] : [])];
     const r = spawnSync(process.execPath, argv, { cwd: here, stdio: 'inherit' });

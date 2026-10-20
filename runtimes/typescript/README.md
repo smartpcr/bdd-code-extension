@@ -24,12 +24,12 @@ offlineActions: [ "core.*", "wait", "shop.*" ]  # a suite using anything else is
 **2. Generate**, for example from an npm `pretest` script:
 
 ```text
-npx suiterun generate --config bddsuite.tests.yaml --out tests [--provider node|vitest|jest]
+npx suiterun generate --config bddsuite.tests.yaml --out tests [--provider node|vitest|jest|mocha]
 ```
 
 It writes one `<Id>.bdd.test.ts` per suite and removes only files it wrote.
-Without `--provider` it takes the config's, else Vitest or Jest when the
-nearest `package.json` depends on one, else `node:test`. Commit the files or
+Without `--provider` it takes the config's, else Vitest, Jest or Mocha when
+the nearest `package.json` depends on one, else `node:test`. Commit the files or
 not, as you prefer; when committed, `--check` in CI exits 1 naming each stale
 one. A suite that does not lint clean stops generation with its findings
 (exit 2); `--plan` prints the test plan instead.
@@ -41,10 +41,11 @@ node --test "tests/*.bdd.test.ts"
 node --test --test-reporter=@bdd-suite/runtime/testing/node-reporter --test-reporter-destination=junit.xml "tests/*.bdd.test.ts"
 npx vitest run [-t 'places an order']
 node --experimental-vm-modules node_modules/jest/bin/jest.js [-t 'places an order']
+npx mocha "tests/*.bdd.test.ts" [--grep 'places an order'] [--reporter xunit]
 ```
 
-The generated files carry no types, so Jest runs them as ES modules with no
-transform (`transform: {}`, `extensionsToTreatAsEsm: ['.ts']`). Vitest 5's
+The generated files carry no types, so Mocha loads them as they are and Jest
+runs them as ES modules with no transform (`transform: {}`, `extensionsToTreatAsEsm: ['.ts']`). Vitest 5's
 `vitest list` parses the source by default and cannot see the generated
 tests: use `vitest list --staticParse=false`.
 
@@ -58,15 +59,16 @@ trace file, so start a run with no file there.
 **Skips.** A case the tag filter does not select, every case of a guarded
 suite without `BDD_SUITE_ALLOW_GUARDED=1`, and a dry run's cases are declared
 skipped when the file loads (Jest cannot skip at run time). `node:test` shows
-the reason; Vitest and Jest show the test skipped.
+the reason; Vitest, Jest and Mocha show the test skipped.
 
 **A failed suite teardown** fails the describe's after-all hook, never a case
 that passed. It shows as a test case named after the describe in Vitest's
 JUnit report and in the runtime's `node:test` reporter (node's own JUnit
-reporter drops it), and as jest-junit's "Test execution failure" case.
+reporter drops it), as jest-junit's "Test execution failure" case, and as
+Mocha's `"after all" hook for "<last test>"` failure under the describe.
 
 The library: `import { suite, runContextFromEnv, openSession } from
 '@bdd-suite/runtime/testing'` (the session is also exported from the package
-root). A working project for all three frameworks:
+root). A working project for all four frameworks:
 `../../samples/workspace/tests/typescript`. The contract the generated code
 drives is `../../spec/session.md`.

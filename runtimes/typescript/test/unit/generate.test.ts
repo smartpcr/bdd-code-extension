@@ -117,6 +117,7 @@ test('the provider comes from the nearest package.json, else node:test', () => {
   };
   assert.equal(detectProvider(project({ vitest: '5' })), 'vitest');
   assert.equal(detectProvider(project({ jest: '30' }, false)), 'jest');
+  assert.equal(detectProvider(project({ mocha: '11' })), 'mocha');
   assert.equal(detectProvider(project({})), 'node');
   assert.equal(detectProvider(path.parse(os.tmpdir()).root), 'node', 'no package.json up to the root');
 });

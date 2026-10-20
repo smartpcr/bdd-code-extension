@@ -14,6 +14,7 @@ import { registerImplementLens, registerScaffoldActions, registerScaffoldCommand
 import { watchForUpdate } from './features/selfUpdate';
 import { registerSuiteLanguage } from './features/suiteLanguage';
 import { SuiteTesting } from './features/testing';
+import { registerTestsConfig } from './features/testsConfig';
 import { registerCompletion } from './features/completion';
 import { registerHover } from './features/hover';
 import { FolderIndexer } from './features/indexer';
@@ -83,6 +84,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
   const tree = vscode.window.createTreeView('bddSuite.bindings', { treeDataProvider: coverage });
   const testing = new SuiteTesting(() => api.indexers, (context.storageUri ?? context.globalStorageUri).fsPath, line => log(line), gate);
   context.subscriptions.push(channel, catalogDiagnostics, indexDiagnostics, lintDiagnostics, status, coverage, tree, testing);
+  // bddsuite.tests.yaml is checked whether or not the workspace has a catalog (docs/test-providers, D16).
+  context.subscriptions.push(...registerTestsConfig());
   const api: TestApi = {
     log: [], providerCount: 0, indexers: [], controllers: [], status, coverage, testing, children: liveChildren, lintWorker, ready: Promise.resolve(), rebuild: async () => {},
   };

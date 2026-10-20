@@ -257,7 +257,7 @@ case and examples row, each running through the same session as `suiterun run`
 | C# | MSTest 4, NUnit 4, xUnit v3 | the `Bdd.Suite.Testing` package generates at build; [runtimes/csharp](runtimes/csharp/README.md) |
 | Go | `go test` | `go generate` writes `*_bdd_test.go`; [runtimes/go](runtimes/go/README.md) |
 | Rust | `cargo test` | `build.rs` generates for a `harness = false` target; [runtimes/rust](runtimes/rust/README.md) |
-| TypeScript | `node:test`, Vitest, Jest | `suiterun generate` writes `*.bdd.test.ts`; [runtimes/typescript](runtimes/typescript/README.md) |
+| TypeScript | `node:test`, Vitest, Jest, Mocha | `suiterun generate` writes `*.bdd.test.ts`; [runtimes/typescript](runtimes/typescript/README.md) |
 | PowerShell | Pester 5 | `suiterun.ps1 generate` writes `*.Bdd.Tests.ps1`; [runtimes/powershell](runtimes/powershell/README.md) |
 
 A suite that uses an action the config does not list as offline is

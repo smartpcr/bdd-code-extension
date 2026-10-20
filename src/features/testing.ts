@@ -10,6 +10,7 @@ import { TrustGate } from '../config/trust';
 import {
   aggregate, isLabSuite, ItemResult, mapDryRun, MappedRun, mapTrace, parseNUnit, parseTrace, reportedNames, selectionTags,
 } from '../core/trace';
+import { offlineActionsFor } from '../core/testsConfig';
 import { CaseInfo, SuiteFile } from '../core/types';
 import { MAX_STDERR_BYTES } from '../limits';
 import { LabValues, listCommand, programPath, runCommand } from '../tools/profiles';
@@ -91,6 +92,13 @@ function unlessStopped<T>(question: Promise<T>, token: vscode.CancellationToken)
     const sub = token.onCancellationRequested(() => { sub.dispose(); resolve(undefined); });
     question.then(v => { sub.dispose(); resolve(v); }, e => { sub.dispose(); reject(e); });
   });
+}
+
+/** A file's text: the open editor's (unsaved edits included), else the disk's, else undefined. */
+function readOpenOrDisk(file: string): string | undefined {
+  const open = vscode.workspace.textDocuments.find(d => d.uri.scheme === 'file' && path.resolve(d.uri.fsPath) === path.resolve(file));
+  if (open) return open.getText();
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : undefined;
 }
 
 export class SuiteTesting implements vscode.Disposable {
@@ -235,7 +243,11 @@ export class SuiteTesting implements vscode.Disposable {
     const cases = suite.cases.map((c: CaseInfo) => ({ name: c.name, tags: [...new Set([...suite.tags, ...c.tags])] }));
     const tags = selectionTags(cases, included);
     const testName = binding.selectsOneCase && tags === undefined && included.size === 1 ? [...included][0] : undefined;
-    const lab = isLabSuite(this.actionsOf(ix, suite), settings.offlineActions);
+    // The nearest bddsuite.tests.yaml that selects this suite decides what is offline, as it does for the generated tests
+    // (docs/test-providers, D16); without one, the setting does.
+    const fromConfig = offlineActionsFor(file, ix.layout.root, readOpenOrDisk, process.platform === 'win32');
+    if (fromConfig) this.log(`Run of ${rel}: offline actions from ${path.relative(ix.layout.root, fromConfig.config)}.`);
+    const lab = isLabSuite(this.actionsOf(ix, suite), fromConfig?.offlineActions ?? settings.offlineActions);
     let labValues: LabValues | undefined;
     if (lab) {
       labValues = { apiUrl: settings['lab.apiUrl'] || undefined, labId: settings['lab.labId'] || undefined, connectionFile: settings['lab.connectionFile'] || undefined };

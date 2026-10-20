@@ -91,8 +91,8 @@ Not in scope:
   five runtimes, as Rust's already is.
 * **Replacing `suiterun`.** It stays the reference runner and the VS Code
   extension keeps using it.
-* **Mocha, MSTest 3, xUnit v2, NUnit 3, Pester 4.** Mocha is P2; the older
-  majors are not planned (MSTest 3 cannot keep a passed case passed when a
+* **MSTest 3, xUnit v2, NUnit 3, Pester 4.** These older majors are not
+  planned (MSTest 3 cannot keep a passed case passed when a
   suite teardown fails, T0).
 * **Step-level test results.** A framework reports per case; steps appear in
   the case's output and failure message, as in `suiterun`'s reports today.
@@ -316,6 +316,7 @@ shows differs:
 | Rust | the `<suite>::teardown` trial fails; when that trial is filtered out, the failure is printed to stderr and the harness exits 101 |
 | Vitest | a separate JUnit test case named after the describe |
 | Jest | jest-junit's synthetic test case " Test execution failure ..." (exit 1) |
+| Mocha | the hook failure `"after all" hook for "<last test>"`, under the describe, in the `xunit` report (exit 1); the cases keep their results |
 | `node:test` | only to a reporter: the built-in JUnit reporter drops it, so the provider ships a reporter that records it |
 | Pester | the container's `FailedBlocks` and, in NUnit3 output, the fixture with `site="TearDown"`; the provider writes NUnit3, because NUnit 2.5 output shows everything as Success |
 
@@ -362,7 +363,7 @@ which carries the logic, is checked by the corpus.
 ```yaml
 suites: [ "../suites/**/*.yml" ]      # globs relative to this file
 schemaRoot: ../schema                  # the folder with actions.catalog.yaml and suite.schema.json
-provider: mstest                       # mstest | nunit | xunit | go | rust | node | vitest | jest | pester; auto when omitted (DEC-T10)
+provider: mstest                       # mstest | nunit | xunit | go | rust | node | vitest | jest | mocha | pester; auto when omitted (DEC-T10)
 extensions: [ "MyCompany.Actions.OrdersExtension" ]   # how the language names an extension (type, import path + symbol, module path)
 offlineActions: [ "core.*", "wait", "orders.*" ]     # actions that need no lab (DEC-T09)
 output: { namespace: MyCompany.Suites.Tests }        # language-specific naming
@@ -454,7 +455,7 @@ of skips.
 
 Provider auto-detection when `provider` is omitted: C# from the test
 project's package references (MSTest.TestFramework, NUnit, xunit.v3);
-TypeScript from `package.json` dev dependencies (vitest, jest, else
+TypeScript from `package.json` dev dependencies (vitest, jest, mocha, else
 `node:test`); one choice each in Go, Rust and PowerShell.
 
 **Why.** Each row is how that ecosystem normally generates code. C# and Rust
@@ -655,12 +656,13 @@ configuration.
   overlap (E11); a suite edit followed by `cargo test` reflects the edit.
 * **Cleanup.** `cargo clean -p` the sample.
 
-### <a id="e7"></a>E7. TypeScript: `node:test`, Vitest and Jest run the corpus
+### <a id="e7"></a>E7. TypeScript: `node:test`, Vitest, Jest and Mocha run the corpus
 
-* **Given** `samples/workspace/tests/typescript/{node,vitest,jest}`, Node.js
+* **Given** `samples/workspace/tests/typescript/{node,vitest,jest,mocha}`, Node.js
   24, the generated `*.bdd.test.ts`.
 * **When** each project's `npm test`, with a name filter (`--test-name-pattern`,
-  `-t`), and with Vitest/Jest at their default worker counts.
+  `-t`, `--grep`), and with Vitest/Jest at their default worker counts
+  (Mocha with `--parallel`).
 * **Then** one test per case and row with expected statuses (JUnit reporter);
   traces equal the corpus's; filters run setup and teardown once around the
   selection; teardown failure is reported as a suite-level error; Jest's
@@ -748,14 +750,17 @@ configuration.
 
 ### <a id="e14"></a>E14. The editor knows the config file (P2)
 
-* **Given** D16 built; `samples/workspace/tests/csharp/mstest/bddsuite.tests.yaml`
-  open in VS Code.
+* **Given** D16 built; `samples/workspace/tests/csharp/shared/bddsuite.tests.yaml`
+  open in VS Code (the C# projects share that one config); a scratch suite
+  beside a config of its own, run from the Test Explorer with a fake binding
+  program, so nothing reaches a lab.
 * **When** a key is misspelled, an unknown provider is typed, and completion is
   requested under `provider:`; a guarded action is used in a suite.
 * **Then** the misspelling and the unknown provider are underlined; completion
-  offers the nine providers; the editor's run of a suite treats actions in the
+  offers the ten providers; the editor's run of a suite treats actions in the
   file's `offlineActions` as offline, the same as the generated tests do.
-* **Cleanup.** `git checkout`.
+* **Cleanup.** The config edit is reverted unsaved; the scratch folder is
+  removed.
 
 ## 7. Traceability
 
@@ -768,4 +773,4 @@ configuration.
 | O5 | DEC-T06, DEC-T07, DEC-T10 | D3, D8, D10, D12, D14, D15 | E9, E12 |
 
 D16 (editor support for the config file) and D17 (Mocha) are P2 and serve no
-outcome above; D16 is proved by [E14](#e14).
+outcome above; D16 is proved by [E14](#e14), D17 by [E7](#e7)'s Mocha row.

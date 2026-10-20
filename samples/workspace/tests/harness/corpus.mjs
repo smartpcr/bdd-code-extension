@@ -2,7 +2,7 @@
 // test framework's generated tests, and compares what the framework reports
 // with what the suite format requires (docs/test-providers, DEC-T12, T2.10).
 //
-//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest|pester
+//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest|mocha|pester
 //        [--only <suite id>] [--keep] [--out <folder>]
 //
 // --keep leaves the reports and traces in the temporary folder; --out writes
@@ -59,7 +59,10 @@ function planIds(planText) {
   return new Map(plan.suites.map(suite => [suite.file, suite]));
 }
 
-const decode = text => text.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const decode = text => text.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  // Numeric references (Mocha's xunit reporter writes &#x22;), before &amp; so an escaped & stays one.
+  .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+  .replace(/&amp;/g, '&');
 
 /** Run one generated C# class with dotnet test; its TRX rows and run-level messages. */
 function dotnetSuite(project, filter, trx, env, scratch) {
@@ -304,6 +307,12 @@ const adapters = {
     ...typescriptAdapter('jest', (file, junit, env) => run('node', ['--experimental-vm-modules', 'node_modules/jest/bin/jest.js', file],
       { cwd: tsRoot, env: { ...env, JUNIT_FILE: junit } })),
     normalise: row => ({ ...row, teardown: row.name.includes('Test execution failure') }),
+  },
+  /** Mocha's xunit reporter writes a failed after hook as its own test case, '"after all" hook for "<last test>"'. */
+  mocha: {
+    ...typescriptAdapter('mocha', (file, junit, env) => run('node', ['node_modules/mocha/bin/mocha.js', file, '--reporter', 'xunit', '--reporter-option', `output=${junit}`],
+      { cwd: tsRoot, env })),
+    normalise: row => ({ ...row, teardown: row.name.startsWith('"after all" hook') }),
   },
   nunit: {
     ...csharp,

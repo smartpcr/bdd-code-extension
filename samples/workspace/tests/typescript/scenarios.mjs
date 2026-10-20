@@ -1,5 +1,5 @@
 // The TypeScript scenarios of docs/test-providers/design.md that the corpus
-// harness (../harness/corpus.mjs --provider node|vitest|jest) does not cover,
+// harness (../harness/corpus.mjs --provider node|vitest|jest|mocha) does not cover,
 // for one framework:
 //
 //   E7   a name filter runs setup and teardown once around the one case; the
@@ -15,7 +15,7 @@
 //   E12  generate --check fails until generate runs; a suite that does not
 //        lint stops generation with its finding
 //
-//   node samples/workspace/tests/typescript/scenarios.mjs --provider node|vitest|jest [E7 E9 ...]
+//   node samples/workspace/tests/typescript/scenarios.mjs --provider node|vitest|jest|mocha [E7 E9 ...]
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,7 +26,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../../../..');
 const args = process.argv.slice(2);
 const provider = args[args.indexOf('--provider') + 1];
-if (!['node', 'vitest', 'jest'].includes(provider)) throw new Error('--provider node|vitest|jest');
+if (!['node', 'vitest', 'jest', 'mocha'].includes(provider)) throw new Error('--provider node|vitest|jest|mocha');
 const wanted = args.filter((a, i) => /^E\d+$/.test(a) && args[i - 1] !== '--provider');
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `ts-scenarios-${provider}-`));
 const results = [];
@@ -37,7 +37,7 @@ function run(command, argv, env = {}, cwd = here) {
   return r;
 }
 
-const decode = t => t.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const decode = t => t.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d))).replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 function junitRows(file) {
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   return [...text.matchAll(/<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g)].map(m => {
@@ -63,15 +63,17 @@ function test(files, { env = {}, filter, extra = [] } = {}) {
     ? run('node', ['--test', '--test-reporter=@bdd-suite/runtime/testing/node-reporter', `--test-reporter-destination=${junit}`, ...(filter ? [`--test-name-pattern=${filter}`] : []), ...extra, ...files], environment)
     : provider === 'vitest'
       ? run('node', ['node_modules/vitest/vitest.mjs', 'run', ...(filter ? ['-t', filter] : []), ...extra, ...files], environment)
-      : run('node', ['--experimental-vm-modules', 'node_modules/jest/bin/jest.js', ...(filter ? ['-t', filter] : []), ...extra, ...files], environment);
+      : provider === 'mocha'
+        ? run('node', ['node_modules/mocha/bin/mocha.js', ...(filter ? ['--grep', filter] : []), ...extra, ...files, '--reporter', 'xunit', '--reporter-option', `output=${junit}`], environment)
+        : run('node', ['--experimental-vm-modules', 'node_modules/jest/bin/jest.js', ...(filter ? ['-t', filter] : []), ...extra, ...files], environment);
   const rows = junitRows(junit).map(row => ({ ...row, name: provider === 'vitest' && row.name.includes(' > ') ? row.name.slice(row.name.indexOf(' > ') + 3) : row.name }));
   const markers = fs.existsSync(record) ? fs.readFileSync(record, 'utf8').split('\n').filter(Boolean) : [];
   return { rows, markers, status: r.status, output: r.stdout + r.stderr };
 }
 
 const file = (config, id) => `${provider}/${config}/${id}.bdd.test.ts`;
-/** Every generated file of a config: node --test takes a glob, the others a folder. */
-const every = config => (provider === 'node' ? `node/${config}/*.bdd.test.ts` : `${provider}/${config}`);
+/** Every generated file of a config: node --test and Mocha take a glob, the others a folder. */
+const every = config => (['node', 'mocha'].includes(provider) ? `${provider}/${config}/*.bdd.test.ts` : `${provider}/${config}`);
 const plan = config => JSON.parse(run('node', [path.join(repo, 'runtimes', 'typescript', 'dist', 'cli.js'), 'generate', '--config', path.join(here, 'shared', `${config}.tests.yaml`), '--plan']).stdout);
 
 function scenario(id, title, body) {
@@ -125,6 +127,9 @@ scenario('E9', 'the list names every case and row exactly', check => {
       const out = path.join(scratch, `jest-${config}.json`);
       run('node', ['--experimental-vm-modules', 'node_modules/jest/bin/jest.js', '--json', `--outputFile=${out}`, '-t', 'a filter that matches nothing', `jest/${config}`]);
       listed = JSON.parse(fs.readFileSync(out, 'utf8')).testResults.flatMap(f => f.assertionResults.map(a => [...a.ancestorTitles, a.title].join(' > ')));
+    } else if (provider === 'mocha') {
+      // Mocha's --dry-run reports every test without running a hook or a test.
+      listed = test([every(config)], { extra: ['--dry-run'] }).rows.map(r => `${r.classname} > ${r.name}`);
     } else {
       // node:test lists nothing; a dry run reports every test without running one.
       listed = test([every(config)], { env: { BDD_SUITE_DRY_RUN: '1' } }).rows.filter(r => r.classname).map(r => `${r.classname} > ${r.name}`);
@@ -152,7 +157,7 @@ scenario('E11', 'in the most parallel setting, ten times, no two cases of one su
   // node:test runs each file in its own process at once; Vitest also runs a
   // file's tests concurrently with --sequence.concurrent; Jest uses its
   // default workers.
-  const extra = provider === 'vitest' ? ['--sequence.concurrent'] : [];
+  const extra = provider === 'vitest' ? ['--sequence.concurrent'] : provider === 'mocha' ? ['--parallel'] : [];
   let crossSuite = 0;
   for (let round = 1; round <= 10; round++) {
     const r = test(['a', 'b', 'c'].map(s => file('shop', `Overlap${s.toUpperCase()}`)), { extra });

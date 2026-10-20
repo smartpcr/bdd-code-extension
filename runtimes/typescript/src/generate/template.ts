@@ -1,5 +1,5 @@
 // The TypeScript a plan becomes: one <Id>.bdd.test.ts per suite, for
-// node:test, Vitest or Jest. Each file imports the framework's own functions
+// node:test, Vitest, Jest or Mocha. Each file imports the framework's own functions
 // and passes them to the testing module's adapter (src/testing), so one
 // module serves the three frameworks. Paths are relative to the generated
 // file, so the text does not depend on where the repository is checked out.
@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import { Plan } from './plan.js';
 
 /** The providers this runtime generates for. */
-export const TYPESCRIPT_PROVIDERS = ['node', 'vitest', 'jest'] as const;
+export const TYPESCRIPT_PROVIDERS = ['node', 'vitest', 'jest', 'mocha'] as const;
 export type TypeScriptProvider = (typeof TYPESCRIPT_PROVIDERS)[number];
 
 /** The start of the first line of every file the generator writes, and of no other. */
@@ -39,6 +39,10 @@ const FRAMEWORK: Record<TypeScriptProvider, { imports: string; adapter: string }
   jest: {
     imports: "import { afterAll, beforeAll, describe, it } from '@jest/globals';",
     adapter: '{ describe, it, before: beforeAll, after: afterAll, skip: name => it.skip(name, () => {}) }',
+  },
+  mocha: {
+    imports: "import { after, before, describe, it } from 'mocha';",
+    adapter: '{ describe, it, before, after, skip: name => it.skip(name, () => {}) }',
   },
 };
 
@@ -123,8 +127,8 @@ export function write(folder: string, files: GeneratedFile[], check: boolean): W
 
 /**
  * The provider when the config names none (DEC-T10): from the package.json
- * nearest the output folder, vitest or jest when it depends on one, else
- * node:test.
+ * nearest the output folder, Vitest, Jest or Mocha when it depends on one,
+ * else node:test.
  */
 export function detectProvider(folder: string): TypeScriptProvider {
   const at = path.resolve(folder);
@@ -132,7 +136,7 @@ export function detectProvider(folder: string): TypeScriptProvider {
   if (fs.existsSync(manifest)) {
     const json = JSON.parse(fs.readFileSync(manifest, 'utf8')) as Record<string, Record<string, string> | undefined>;
     const deps = { ...json.dependencies, ...json.devDependencies };
-    return 'vitest' in deps ? 'vitest' : 'jest' in deps ? 'jest' : 'node';
+    return 'vitest' in deps ? 'vitest' : 'jest' in deps ? 'jest' : 'mocha' in deps ? 'mocha' : 'node';
   }
   return path.dirname(at) === at ? 'node' : detectProvider(path.dirname(at));
 }

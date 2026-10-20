@@ -1,0 +1,104 @@
+// spec/tests.config.schema.json, as the editor checks bddsuite.tests.yaml against it
+// (docs/test-providers, D16). A unit test holds this copy equal to the spec's,
+// so the two cannot drift; the spec file is the one to edit.
+export const TESTS_CONFIG_SCHEMA = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/spec/tests.config.schema.json",
+  "title": "Suite test-generation config (bddsuite.tests.yaml)",
+  "description": "One per test project, at its root. suiterun generate reads it to build the test plan (test-plan.md) and write test code for one test framework. Paths are relative to this file and use forward slashes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suites",
+    "schemaRoot"
+  ],
+  "properties": {
+    "suites": {
+      "description": "Globs of the files to consider. A matching file is a suite when its top level has a suite key; any other matching file (a library) is left out.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "exclude": {
+      "description": "Globs of files never considered, even when suites matches them.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "schemaRoot": {
+      "description": "The folder holding the workspace's actions.catalog.yaml and suite.schema.json, which suites are linted against before anything is generated.",
+      "$ref": "#/$defs/path"
+    },
+    "provider": {
+      "description": "The test framework to generate for. Optional where the generator can detect it: C# from the project's package references, TypeScript from package.json; Go, Rust and PowerShell have one each.",
+      "enum": [
+        "mstest",
+        "nunit",
+        "xunit",
+        "go",
+        "rust",
+        "node",
+        "vitest",
+        "jest",
+        "mocha",
+        "pester"
+      ]
+    },
+    "extensions": {
+      "description": "The runtime extensions the generated run hook registers, named the way the language names them: a C# type, a Go import path and exported variable (path.Name), a Rust path to a function returning the extension, a TypeScript module specifier and export (module#name), a PowerShell module path.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "offlineActions": {
+      "description": "Actions a suite may use without being guarded: names, or prefix.* patterns. A suite using any other action is guarded and its tests skip unless BDD_SUITE_ALLOW_GUARDED=1 (session.md, rule 9). Absent: no suite is guarded.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*(\\.\\*)?$"
+      }
+    },
+    "contextKeys": {
+      "description": "The context keys the extensions add (each read as ${key}). The generator lints every suite before any extension is loaded, so it learns them here; without them a suite that reads ${store} would be refused (E301).",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      }
+    },
+    "output": {
+      "description": "Where and under what names the code is written. Every key is optional; each generator documents its defaults.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "The folder generated files go to. C# and Rust ignore it: they generate into the build's intermediate folder.",
+          "$ref": "#/$defs/path"
+        },
+        "namespace": {
+          "description": "C#: the namespace of the generated classes.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "package": {
+          "description": "Go: the package clause of the generated files (the test package's name).",
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": {
+      "description": "A path or glob relative to this file, with forward slashes.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\\\]+$"
+    }
+  }
+} as const;

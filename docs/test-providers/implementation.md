@@ -1,7 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
 Status: **stages T0 to T7 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
-[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md), [T7](../evidence/test-providers-t7.md)); stage T8 built, its CI not yet run ([T8](../evidence/test-providers-t8.md)); stages T9-T10 not started. The design, its
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md), [T7](../evidence/test-providers-t7.md)); stage T8 built, its CI not yet run ([T8](../evidence/test-providers-t8.md)); stage T9 deferred by the user (2026-10-19): no lab is available, so E13 stays open and T9.1 (the os-context worktree) is not started; stage T10 built and locally accepted, its CI not yet run ([T10](../evidence/test-providers-t10.md)). The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -325,14 +325,21 @@ a completion condition.
 * **Result.** The VS Code extension validates and completes the config with
   `spec/tests.config.schema.json`, and reads `offlineActions` from the nearest
   config when present.
-* **Files.** `package.json` (yaml validation contribution), `src/config/*`.
+* **Files.** `src/core/testsConfig.ts` (findings, completion, the nearest
+  config's `offlineActions`), `src/core/testsConfigSchema.ts` (the schema,
+  checked equal to the spec file by a unit test), `src/features/testsConfig.ts`
+  (diagnostics and completion), `src/features/testing.ts` (the run's offline
+  list). The extension checks with its own validator rather than a YAML
+  extension's schema contribution, so it needs no other extension and its
+  findings carry BDD codes.
 * **Depends on.** D1.
 * **Done when.** E14 passes; unit tests at 100%; `npm run install:local`.
 * **Proved by.** E14.
 
 ### <a id="d17"></a>D17. Mocha provider (P2)
 
-* **Result.** Mocha template using D12's adapter; sample project.
+* **Result.** Mocha template using D12's adapter (`--provider mocha`, and
+  detected from a `mocha` dev dependency); `samples/workspace/tests/typescript/mocha`.
 * **Depends on.** D12.
 * **Done when.** E7's checks pass for Mocha.
 * **Proved by.** E7 (Mocha row added).
@@ -512,6 +519,10 @@ os-context jump path available. Exit evidence: E13's records (lab id, run ids,
 per-case comparison with the `suiterun` reference, os-context's cleanup
 evidence). Size: 0.5 plus lab time.
 
+Deferred by the user, 2026-10-19: no lab is available, and the lab-free
+T9.1 waits with the rest. Nothing here is started; E13 stays open, never
+marked passed.
+
 - [ ] T9.1 os-context worktree consuming the runtimes; generated projects for the stage 0 lab suite.
 - [ ] T9.2 `suiterun` reference run; results recorded.
 - [ ] T9.3 MSTest run; comparison recorded.
@@ -523,10 +534,10 @@ evidence). Size: 0.5 plus lab time.
 Result: D16, D17. Entry: D1 (D16), D12 (D17). Exit evidence: E14; E7 for
 Mocha. Size: 1–1.5.
 
-- [ ] T10.1 Config schema contribution and validation in the extension.
-- [ ] T10.2 `offlineActions` read from the nearest config.
-- [ ] T10.3 Unit tests at 100%; `npm run install:local`; E14.
-- [ ] T10.4 Mocha template and sample; E7 for Mocha.
+- [x] T10.1 Config schema contribution and validation in the extension.
+- [x] T10.2 `offlineActions` read from the nearest config.
+- [x] T10.3 Unit tests at 100%; `npm run install:local`; E14.
+- [x] T10.4 Mocha template and sample; E7 for Mocha (locally accepted; its CI loop not yet run).
 
 ## 4. Acceptance index
 

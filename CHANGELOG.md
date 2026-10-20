@@ -12,9 +12,15 @@ same results and trace as `suiterun run` (docs/test-providers):
 * **Go:** `go test`, from `go generate` (`*_bdd_test.go`, committed).
 * **Rust:** `cargo test`, through a `harness = false` target and `build.rs`,
   with the crate's new `testing` feature.
-* **TypeScript:** `node:test`, Vitest and Jest (`*.bdd.test.ts`), and a
-  `node:test` JUnit reporter that keeps a failed suite teardown.
+* **TypeScript:** `node:test`, Vitest, Jest and Mocha (`*.bdd.test.ts`), and
+  a `node:test` JUnit reporter that keeps a failed suite teardown.
 * **PowerShell:** Pester 5 (`*.Bdd.Tests.ps1`).
+
+The VS Code extension checks `bddsuite.tests.yaml` (and other `*.tests.yaml`)
+as you type, marking a misspelled key (BDD070) and any other refusal of
+`spec/tests.config.schema.json` (BDD071), and completes its keys and
+providers. A suite run from the editor takes `offlineActions` from the
+nearest config that selects the suite, else from `bddSuite.offlineActions`.
 
 Every runtime gains:
 
