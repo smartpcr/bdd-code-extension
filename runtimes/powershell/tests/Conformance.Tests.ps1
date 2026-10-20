@@ -40,7 +40,8 @@ if (-not $RunHarness -and (Get-Command Describe -ListImported -ErrorAction Silen
     )
     Describe 'E2: the conformance corpus, PowerShell' -ForEach @(@{ HarnessPath = $PSCommandPath; PendingCases = $pendingCases }) {
         It 'produces the diagnostics, traces, values and reports the corpus expects' { & $HarnessPath -RunHarness }
-        It 'pending for powershell: <Name>' -ForEach $PendingCases { Set-ItResult -Skipped -Because 'the manifest marks it pendingIn powershell' }
+        # Only when something is pending: Pester 6 refuses a -ForEach over nothing.
+        if ($PendingCases) { It 'pending for powershell: <Name>' -ForEach $PendingCases { Set-ItResult -Skipped -Because 'the manifest marks it pendingIn powershell' } }
     }
     return
 }

@@ -222,7 +222,8 @@ BeforeDiscovery {
 }
 
 Describe 'E1: every execute entry through the session, in file order and reversed' {
-    It 'pending for powershell: <Suite>' -ForEach $script:pendingExecute { Set-ItResult -Skipped -Because 'the manifest marks it pendingIn powershell' }
+    # Only when something is pending: Pester 6 refuses a -ForEach over nothing.
+    if ($script:pendingExecute) { It 'pending for powershell: <Suite>' -ForEach $script:pendingExecute { Set-ItResult -Skipped -Because 'the manifest marks it pendingIn powershell' } }
 
     It 'emits the expected trace both ways, and the results of the whole-file run' {
         $manifest = ConvertFrom-Yaml (Get-Content -LiteralPath (Join-Path $script:corpusRoot 'run-manifest.yaml') -Raw) -Ordered
