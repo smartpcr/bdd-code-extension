@@ -1,0 +1,32 @@
+suite: names
+description: A name filter of two globs selects the cases either matches, and what it leaves out is reported as skipped rather than dropped.
+tags: [conformance]
+
+# Run with --name "*-an-order,order-?": a star matches any run of characters,
+# a question mark exactly one, and the whole name must match.
+tests:
+  - name: place-an-order
+    steps:
+      - when: an order is placed
+        action: core.record
+        marker: placed
+  - name: read-the-stock
+    steps:
+      - when: the stock is read
+        action: core.record
+        marker: never-reached
+  - name: cancel-an-order
+    steps:
+      - when: an order is cancelled
+        action: core.record
+        marker: cancelled
+  - name: order-1
+    steps:
+      - when: the first order is read
+        action: core.record
+        marker: first
+  - name: order-22
+    steps:
+      - when: a question mark would have to match two characters
+        action: core.record
+        marker: never-reached

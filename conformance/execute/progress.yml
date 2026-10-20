@@ -1,0 +1,28 @@
+suite: progress
+description: Progress lines follow the run, case by case, around a passing case and a failing one; the trace is the same as without them.
+tags: [conformance]
+
+# Run with --progress --name "the-*-case"; the lines are progress.expected.txt
+# (spec/progress.md). a-case-left-out is not selected, so it prints nothing.
+setup:
+  - action: core.record
+    marker: suite-setup
+teardown:
+  - action: core.noop
+
+tests:
+  - name: the-passing-case
+    steps:
+      - when: it records
+        action: core.record
+        marker: passed
+  - name: the-failing-case
+    steps:
+      - when: it fails
+        action: core.fail
+        message: the case failed on purpose
+  - name: a-case-left-out
+    steps:
+      - when: it would record
+        action: core.record
+        marker: never-reached

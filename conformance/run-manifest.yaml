@@ -309,6 +309,68 @@ entries:
     expectation: execute/capture-isolation.expected.json
     description: A nested value an action changes in place stays changed in its own case only; the next case and the teardown read the setup's value.
 
+  # docs/packages, stage K0: the name filter, run progress, the action worker and
+  # bdd-suite:core (spec/README.md, spec/progress.md). Every runtime is pending
+  # until its stage (K1 C#, K2 Go, K3 Rust, K4 TypeScript, K5 PowerShell) and
+  # removes itself from pendingIn in that change. The fields they add:
+  #   names       the --name globs the run is given, in the command line's form
+  #   progress    run with --progress and compare the progress lines with this
+  #               file, masked as spec/progress.md says
+  #   schemaRoot  validate or run against this schema folder, not the corpus's
+  - kind: execute
+    suite: execute/names.yml
+    expectation: execute/names.expected.json
+    description: A name filter of two globs selects the cases either matches, and skips the rest with reason tag.
+    names: '*-an-order,order-?'
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - kind: execute
+    suite: execute/names-and-tags.yml
+    expectation: execute/names-and-tags.expected.json
+    description: A case runs only when both the name filter and the tag filter select it.
+    names: '*-order'
+    tags: wanted
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - kind: execute
+    suite: execute/names-none.yml
+    expectation: execute/names-none.expected.json
+    description: A name filter that selects no case skips every case and runs neither the suite setup nor the teardown.
+    names: 'nothing-*'
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - kind: execute
+    suite: execute/progress.yml
+    expectation: execute/progress.expected.json
+    description: Progress lines follow the run around a passing and a failing case, and the trace is the one a run without them writes.
+    names: 'the-*-case'
+    progress: execute/progress.expected.txt
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  # fixture.throw, which each runtime's corpus test extension implements before
+  # it removes itself, as it did fixture.append.
+  - kind: execute
+    suite: execute/worker-throws.yml
+    expectation: execute/worker-throws.expected.json
+    description: An action that throws its language's most unusual failure fails its step, and the cleanup, the next case and the teardown still run.
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - kind: execute
+    suite: execute/core-import.yml
+    expectation: execute/core-import.expected.json
+    description: Core actions read through bdd-suite:core run as they do through a path import.
+    schemaRoot: schema-core-import
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - kind: validate
+    suite: validate/core-import.yml
+    expectation: validate/core-import.expected.json
+    description: A catalog that imports bdd-suite:core and supports only csharp leaves no core action to the go binding.
+    schemaRoot: schema-core-import
+    binding: go
+    bindingCheck: true
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
 support:
   # Libraries the validate entries import, and catalog overlays they validate
   # against. They have no expectation of their own: what they are for is what
@@ -321,6 +383,24 @@ support:
   - validate/_catalog/new-parameter.yaml
   # The library execute/meta-from-library.yml imports.
   - execute/_lib/marks.yml
+
+lists:
+  # suiterun list with a name filter (spec/README.md, "The command line"): the
+  # case names it prints, in order, from its "<file name>  <case name>" lines. A
+  # separate list rather than entries, so a runtime without --name yet reads
+  # nothing new; pending as the K0 entries above are.
+  - suite: execute/names.yml
+    names: '*-an-order,order-?'
+    expected: [place-an-order, cancel-an-order, order-1]
+    description: 'Two globs, a star and a question mark; the file order.'
+    pendingIn: [powershell, csharp, go, rust, typescript]
+
+  - suite: execute/names-and-tags.yml
+    names: '*-order'
+    tags: wanted
+    expected: [a-wanted-order]
+    description: 'Only what both filters select.'
+    pendingIn: [powershell, csharp, go, rust, typescript]
 
 generate:
   # suiterun generate --plan (spec/test-plan.md): the plan a config must produce,

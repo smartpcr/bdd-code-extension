@@ -9,12 +9,21 @@ mod common;
 use serde_json::Value;
 use suiterun::{diag, model, schema, validate};
 
+/// The validate entries this runtime runs; each pending one is reported, not
+/// returned.
 fn validate_entries() -> Vec<Value> {
     common::manifest()["entries"]
         .as_array()
         .expect("the manifest lists entries")
         .iter()
         .filter(|entry| entry["kind"].as_str() == Some("validate"))
+        .filter(|entry| {
+            let pending = common::pending_here(entry);
+            if pending {
+                common::report_pending("validate", entry);
+            }
+            !pending
+        })
         .cloned()
         .collect()
 }

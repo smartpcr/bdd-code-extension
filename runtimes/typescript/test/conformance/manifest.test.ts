@@ -17,7 +17,7 @@ const text = (o: Raw, k: string): string[] => (typeof o[k] === 'string' && o[k] 
 
 function named(): string[] {
   const out: string[] = [];
-  for (const e of list(manifest.entries)) for (const k of ['suite', 'expectation', 'catalogOverlay']) out.push(...text(e, k));
+  for (const e of list(manifest.entries)) for (const k of ['suite', 'expectation', 'catalogOverlay', 'progress']) out.push(...text(e, k));
   for (const s of Array.isArray(manifest.support) ? manifest.support : []) if (typeof s === 'string') out.push(s);
   for (const t of list(manifest.tables)) for (const k of ['context', 'cases']) out.push(...text(t, k));
   const reports = (manifest.reports ?? {}) as Raw;

@@ -50,15 +50,24 @@ func TestEveryEntryIsOfAKindThisBindingRuns(t *testing.T) {
 	if len(unknown) > 0 {
 		t.Errorf("the manifest holds entries of kinds no test here runs: %s", strings.Join(unknown, ", "))
 	}
-	// The corpus as it stands here: 41 validate entries (os-context's
-	// lifecycle and E214 entries moved to os-context, DEC-S02) and 14 execute
-	// entries.
-	if got := len(Entries(manifest, "validate")); got != 41 {
-		t.Errorf("%d validate entries, not 41", got)
+	// The corpus as it stands here: 42 validate entries (os-context's
+	// lifecycle and E214 entries moved to os-context, DEC-S02) and 20 execute
+	// entries, of which stage K0's one validate and six execute entries are
+	// pending in every runtime. A pending entry is neither run nor counted as
+	// passed (conformance/README.md); the family tests skip it and name it.
+	if got := len(Entries(manifest, "validate")); got != 42 {
+		t.Errorf("%d validate entries, not 42", got)
 	}
-	if got := len(Entries(manifest, "execute")); got != 14 {
-		t.Errorf("%d execute entries, not 14", got)
+	if got := len(Entries(manifest, "execute")); got != 20 {
+		t.Errorf("%d execute entries, not 20", got)
 	}
+	pending := []string{}
+	for _, entry := range entries {
+		if PendingIn(entry, "go") {
+			pending = append(pending, walk.Text(entry, "kind")+" "+walk.Text(entry, "suite"))
+		}
+	}
+	t.Logf("%d of %d entries pending for go: %s", len(pending), len(entries), strings.Join(pending, ", "))
 	if root := walk.Text(manifest, "schemaRoot"); root != "schema" {
 		t.Errorf("the manifest's schemaRoot is %q, not schema", root)
 	}
@@ -74,11 +83,16 @@ func TestEveryFileTheManifestNamesIsThere(t *testing.T) {
 		t.Fatal(err)
 	}
 	named := []string{}
+	folders := []string{}
 	for _, entry := range Entries(manifest, "") {
-		for _, key := range []string{"suite", "expectation", "catalogOverlay"} {
+		for _, key := range []string{"suite", "expectation", "catalogOverlay", "progress"} {
 			if name := walk.Text(entry, key); name != "" {
 				named = append(named, name)
 			}
+		}
+		// An entry's own schemaRoot names a folder, not a file.
+		if name := walk.Text(entry, "schemaRoot"); name != "" {
+			folders = append(folders, name)
 		}
 	}
 	support, _ := walk.List(manifest, "support")
@@ -125,6 +139,15 @@ func TestEveryFileTheManifestNamesIsThere(t *testing.T) {
 	}
 	if len(missing) > 0 {
 		t.Errorf("the manifest names files that are not there: %s", strings.Join(missing, ", "))
+	}
+	absent := []string{}
+	for _, name := range folders {
+		if info, err := os.Stat(corpus.Path(name)); err != nil || !info.IsDir() {
+			absent = append(absent, name)
+		}
+	}
+	if len(absent) > 0 {
+		t.Errorf("the manifest names schema folders that are not there: %s", strings.Join(absent, ", "))
 	}
 }
 
@@ -250,7 +273,8 @@ func TestEveryFileUnderValidateAndExecuteIsNamed(t *testing.T) {
 	}
 	known := map[string]bool{}
 	for _, entry := range Entries(manifest, "") {
-		for _, key := range []string{"suite", "expectation", "catalogOverlay"} {
+		// progress names the expected --progress output (execute/progress.expected.txt).
+		for _, key := range []string{"suite", "expectation", "catalogOverlay", "progress"} {
 			if name := walk.Text(entry, key); name != "" {
 				known[name] = true
 			}

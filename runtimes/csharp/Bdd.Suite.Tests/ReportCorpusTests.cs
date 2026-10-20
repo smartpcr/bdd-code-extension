@@ -9,7 +9,7 @@ namespace Bdd.Suite.Tests;
 
 /// <summary>Three runs in both formats, canonicalised against what the corpus
 /// stores.</summary>
-public sealed class ReportCorpusTests
+public sealed class ReportCorpusTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     [Fact]
     public void ThreeRunsInBothFormatsCanonicaliseToWhatIsStored()
@@ -21,6 +21,7 @@ public sealed class ReportCorpusTests
 
         var failures = new List<string>();
         var checked_ = 0;
+        var pending = new List<string>();
         foreach (var raw in reports.List("entries") ?? [])
         {
             if (raw is not OrderedMap entry)
@@ -28,6 +29,11 @@ public sealed class ReportCorpusTests
                 continue;
             }
             var name = entry.Text("suite");
+            if (Corpus.PendingIn(entry, "csharp"))
+            {
+                pending.Add($"{name} ({entry.Text("format")})");
+                continue;
+            }
             var path = corpus.Path(name);
             var suite = SuiteDocument.Load(File.ReadAllText(path)).Value as OrderedMap
                 ?? throw new IOException($"{name} does not hold a YAML mapping");
@@ -64,6 +70,7 @@ public sealed class ReportCorpusTests
                 $"{name} in {format} differs at line {first + 1}:\n  produced: {At(producedLines, first)}\n  stored:   {At(storedLines, first)}"));
         }
 
+        Corpus.ReportPending(output, "reports", pending);
         Assert.Equal(7, checked_);
         Assert.True(failures.Count == 0, string.Join('\n', failures));
     }

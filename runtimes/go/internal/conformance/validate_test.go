@@ -37,8 +37,15 @@ func TestEveryValidateEntry(t *testing.T) {
 
 	failures := []string{}
 	checked := 0
+	pending := []string{}
 	for _, entry := range Entries(manifest, "validate") {
 		suite := walk.Text(entry, "suite")
+		// A pending entry is neither run nor counted as passed
+		// (conformance/README.md).
+		if PendingIn(entry, "go") {
+			pending = append(pending, suite)
+			continue
+		}
 		path := corpus.Path(suite)
 		relative := diag.RelativePath(path, corpus.Root)
 
@@ -116,7 +123,7 @@ func TestEveryValidateEntry(t *testing.T) {
 		}
 	}
 
-	t.Logf("%d of %d validate entries match", checked-len(failures), checked)
+	t.Logf("%d of %d validate entries match; pending for go: %v", checked-len(failures), checked, pending)
 	if checked < 40 {
 		t.Fatalf("only %d entries were checked", checked)
 	}

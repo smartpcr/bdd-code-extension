@@ -1,0 +1,10 @@
+# A workspace catalog that imports the core by name rather than by path, and
+# supports only the csharp binding (docs/packages, DEC-P07; spec/README.md).
+# Each reader resolves bdd-suite:core to its own core and cuts every core
+# action's bindings to [csharp], so validate/core-import.yml finds every core
+# action unimplemented by go. Build-Schema.ps1 folds it into suite.schema.json
+# beside it.
+catalogVersion: 1
+imports:
+  - bdd-suite:core
+bindings: [csharp]

@@ -239,6 +239,10 @@ fn three_runs_in_both_formats_canonicalise_to_what_is_stored() {
     let mut failures: Vec<String> = Vec::new();
     let mut checked = 0usize;
     for entry in manifest["reports"]["entries"].as_array().unwrap() {
+        if common::pending_here(entry) {
+            common::report_pending("report", entry);
+            continue;
+        }
         let suite = entry["suite"].as_str().unwrap();
         let path = corpus.join(suite);
         let text = std::fs::read_to_string(&path).unwrap();

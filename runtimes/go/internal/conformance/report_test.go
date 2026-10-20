@@ -39,12 +39,19 @@ func TestThreeRunsInBothFormatsCanonicaliseToWhatIsStored(t *testing.T) {
 
 	failures := []string{}
 	checked := 0
+	pending := []string{}
 	for _, raw := range entries {
 		entry, ok := walk.AsMap(raw)
 		if !ok {
 			continue
 		}
 		name := walk.Text(entry, "suite")
+		// A pending entry is neither run nor counted as passed
+		// (conformance/README.md).
+		if PendingIn(entry, "go") {
+			pending = append(pending, name)
+			continue
+		}
 		path := corpus.Path(name)
 		text, err := os.ReadFile(path)
 		if err != nil {
@@ -97,9 +104,9 @@ func TestThreeRunsInBothFormatsCanonicaliseToWhatIsStored(t *testing.T) {
 			name, format, first+1, at(producedLines, first), at(storedLines, first)))
 	}
 
-	t.Logf("%d of %d stored reports match", checked-len(failures), checked)
-	if checked != 7 {
-		t.Fatalf("%d reports were checked, not 7", checked)
+	t.Logf("%d of %d stored reports match; pending for go: %v", checked-len(failures), checked, pending)
+	if checked+len(pending) != 7 {
+		t.Fatalf("%d reports were checked and %d are pending, not 7 in all", checked, len(pending))
 	}
 	if len(failures) > 0 {
 		t.Fatal(strings.Join(failures, "\n"))

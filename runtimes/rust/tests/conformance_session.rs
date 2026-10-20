@@ -53,8 +53,14 @@ fn e1_every_execute_entry_through_the_session_in_file_order_and_reversed() {
     let manifest = common::manifest();
     let mut failures = Vec::new();
     let mut checked = 0;
+    let mut pending = 0;
     for entry in manifest["entries"].as_array().unwrap() {
         if entry["kind"].as_str() != Some("execute") {
+            continue;
+        }
+        if common::pending_here(entry) {
+            common::report_pending("execute", entry);
+            pending += 1;
             continue;
         }
         let name = entry["suite"].as_str().unwrap();
@@ -117,5 +123,6 @@ fn e1_every_execute_entry_through_the_session_in_file_order_and_reversed() {
         checked += 1;
     }
     assert_eq!(checked, 14, "execute entries checked");
+    assert_eq!(pending, 6, "execute entries pending in rust");
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }

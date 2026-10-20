@@ -1,0 +1,34 @@
+{
+  "kind": "execute",
+  "suite": "execute/names-and-tags.yml",
+  "description": "A case runs only when both the name filter and the tag filter select it.",
+  "exitCode": 0,
+  "tags": "wanted",
+  "names": "*-order",
+  "trace": [
+    {
+      "phase": "step",
+      "case": "a-wanted-order",
+      "step": "when the case both filters select runs (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "a-wanted-order",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "an-unwanted-order",
+      "status": "skipped",
+      "reason": "tag"
+    },
+    {
+      "phase": "case",
+      "case": "a-wanted-refund",
+      "status": "skipped",
+      "reason": "tag"
+    }
+  ]
+}

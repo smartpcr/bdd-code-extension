@@ -1,0 +1,28 @@
+{
+  "kind": "execute",
+  "suite": "execute/core-import.yml",
+  "description": "Core actions read through bdd-suite:core run as they do through a path import.",
+  "exitCode": 0,
+  "schemaRoot": "schema-core-import",
+  "trace": [
+    {
+      "phase": "step",
+      "case": "the-imported-core-runs",
+      "step": "when a value is set through the imported core (core.set)",
+      "action": "core.set",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-imported-core-runs",
+      "step": "then it reads back (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-imported-core-runs",
+      "status": "passed"
+    }
+  ]
+}

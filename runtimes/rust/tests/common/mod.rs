@@ -108,3 +108,26 @@ pub fn run_cli(arguments: &[String]) -> (i32, String, String) {
     let code = suiterun::main_with(arguments.to_vec(), &mut out, &mut err, &corpus_extensions());
     (code, String::from_utf8_lossy(&out).to_string(), String::from_utf8_lossy(&err).to_string())
 }
+
+/// This runtime's name in a manifest entry's `pendingIn`.
+pub const RUNTIME: &str = "rust";
+
+/// Whether a manifest entry of any kind (entries, generate, lists, reports)
+/// names this runtime in its `pendingIn`. A pending entry is neither run nor
+/// counted as passed (conformance/README.md); the test that reads it reports
+/// it with [`report_pending`] instead.
+pub fn pending_here(entry: &Value) -> bool {
+    entry
+        .get("pendingIn")
+        .and_then(Value::as_array)
+        .is_some_and(|runtimes| runtimes.iter().any(|runtime| runtime.as_str() == Some(RUNTIME)))
+}
+
+/// Prints a pending entry, so a skipped entry is visible rather than silent.
+pub fn report_pending(kind: &str, entry: &Value) {
+    let what = ["suite", "config"]
+        .iter()
+        .find_map(|key| entry.get(*key).and_then(Value::as_str))
+        .unwrap_or("(unnamed)");
+    println!("  pending in {RUNTIME}: {kind} {what}");
+}

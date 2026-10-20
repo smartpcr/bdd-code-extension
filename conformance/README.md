@@ -24,6 +24,7 @@ The same rule is stated for diagnostics in
 | Path | What it holds |
 | --- | --- |
 | `schema/` | The corpus's catalog (`actions.catalog.yaml`: the core, imported, plus fixture actions), its suite-schema extension (`fixture.suite.json`: the fields `requires`, `cluster` and `target`), and the `suite.schema.json` generated from them. A runtime validates the corpus against this folder, never a workspace's. |
+| `schema-core-import/` | A workspace catalog that imports the core by name (`bdd-suite:core`) and supports only `csharp`, and its generated schema: the entries naming `schemaRoot: schema-core-import` prove that every reader resolves the name to its own core and cuts the core's bindings (spec/README.md). |
 | `rename.json` | How the corpus became product-neutral when it moved here from os-context: the action and value renames, all of the same length so no expected position changed, and the entries handed back to os-context. |
 | `run-manifest.yaml` | Every entry, and what it is for. A binding enumerates this rather than a directory, so an entry cannot be skipped quietly. |
 | `expectation.schema.json` | The shape of an expectation file. Every `*.expected.json` here validates against it. |
@@ -80,31 +81,43 @@ runner did, in the order it did it, ending with the result of each case.
 1. Read `run-manifest.yaml`.
 2. For each `validate` entry, validate the suite and compare the diagnostics
    and the exit code with the expectation.
-3. For each `execute` entry, run the suite with the tags and parameters the
-   expectation names, and compare the emitted trace and the exit code.
+3. For each `execute` entry, run the suite with the tags, names and parameters
+   the expectation names, and compare the emitted trace and the exit code. An
+   entry with `progress` also runs with `--progress`: its progress lines (the
+   standard output lines up to and including the first `Summary: ` line) must
+   equal that file after masking the text after `failure: ` to `*` and every
+   `(<n>s)` to `(*s)` (spec/progress.md).
 4. For the expression and assertion tables, evaluate every row and compare the
    value, the type or the diagnostic code the row states.
 5. For the report entries, canonicalise the report the run produced by the
    rules in `report/canonicalise.md` and compare it with the stored document.
 
+An entry with `schemaRoot` is validated or run against that folder instead of
+the manifest's `schemaRoot`. Each `lists` entry runs `suiterun list` with its
+`names` and `tags` and compares the case names of the printed lines, in order,
+with `expected`.
+
 A runtime's corpus test registers a test extension supplying the context keys
 the expression table reads (`cluster`, `target`, `labId`, `apiUrl`, with the
 values in `expressions/context.yaml`), because the core defines none of its
-own. Each runtime's own folder says how to run its corpus test.
+own, and the two fixture actions the execute corpus runs: `fixture.append`
+(changes the list it is given in place) and `fixture.throw` (fails with the
+most unusual failure its language has, with the `message` given). Each runtime's own folder says how to run its corpus test.
 
 ## Entries a runtime does not meet yet
 
 An entry may carry `pendingIn`, the runtimes that do not meet it yet. Such a
 runtime reports the entry as pending, never as passed, and removes itself from
-the list in the change that makes it pass, so the list only ever shrinks. Two
-uses today:
+the list in the change that makes it pass, so the list only ever shrinks. A
+pending entry of any kind is neither run nor counted as passed. Uses today:
 
-* `execute/capture-isolation.yml` runs `fixture.append`, the one fixture action
-  the execute corpus runs, which each runtime's corpus test extension
-  implements. A runtime that copies the suite bag only one level deep fails
-  it; each removes itself when its session lands (docs/test-providers,
-  DEC-T04).
+* `execute/capture-isolation.yml` (it runs `fixture.append`) was pending in
+  each runtime until its session landed (docs/test-providers, DEC-T04); no
+  runtime is pending on it now.
 * Every `generate` entry, until that runtime's generator lands.
+* The name filter, run progress, the action worker and `bdd-suite:core`
+  (`names*.yml`, `progress.yml`, `worker-throws.yml`, `core-import.yml` and the
+  `lists`), until each runtime's stage of docs/packages lands (K1 to K5).
 
 The `generate` list is separate from `entries`, so a runtime with no generator
 reads nothing new. For each `generate` entry a runtime runs `suiterun generate

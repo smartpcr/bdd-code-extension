@@ -40,3 +40,16 @@ export const corpusComposite = compose([corpusExtension], coreActions);
 
 /** The command line the corpus tests spawn: suiterun with the corpus extension. */
 export const corpusCli = path.join(pkg, 'dist-test', 'test', 'conformance', 'cli.js');
+
+/** This runtime's name in a manifest entry's pendingIn. */
+export const runtime = 'typescript';
+
+/**
+ * pendingIn (conformance/README.md): an entry of any kind this runtime does
+ * not meet yet is neither run nor counted as passed. Splits a manifest list
+ * into the entries to run and those to report as pending.
+ */
+export function splitPending<T extends { pendingIn?: string[] }>(entries: readonly T[]): { run: T[]; pending: T[] } {
+  const isPending = (e: T) => (e.pendingIn ?? []).includes(runtime);
+  return { run: entries.filter(e => !isPending(e)), pending: entries.filter(isPending) };
+}

@@ -119,6 +119,18 @@ public sealed class Corpus
     public static bool PendingIn(OrderedMap entry, string binding) =>
         (entry.List("pendingIn") ?? []).Any(name => name is string text && string.Equals(text, binding, StringComparison.Ordinal));
 
+    /// <summary>
+    /// Say which entries of a family were left pending: neither run nor counted
+    /// as passed (conformance/README.md), but named in the test's output so a
+    /// skipped entry is never silent.
+    /// </summary>
+    public static void ReportPending(Xunit.Abstractions.ITestOutputHelper output, string family, IReadOnlyCollection<string> pending)
+    {
+        output.WriteLine(pending.Count == 0
+            ? $"{family}: no entry is pending in csharp"
+            : $"{family}: {pending.Count} pending in csharp, not run: {string.Join(", ", pending)}");
+    }
+
     /// <summary>Every action name a value names anywhere inside it.</summary>
     public static void CollectActions(object? value, HashSet<string> found)
     {

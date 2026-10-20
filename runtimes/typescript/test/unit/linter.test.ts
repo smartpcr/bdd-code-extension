@@ -7,11 +7,11 @@ import { test } from 'node:test';
 import { parse } from 'yaml';
 import { apiVersion, createLinter } from '../../src/index.js';
 import { diskReader } from '../../src/reader.js';
-import { corpus, corpusExtension, corpusSchema, repo } from '../where.js';
+import { corpus, corpusExtension, corpusSchema, repo, splitPending } from '../where.js';
 
 const root = repo;
 const manifest = parse(fs.readFileSync(path.join(corpus, 'run-manifest.yaml'), 'utf8')) as {
-  entries: { kind: string; suite: string; binding?: string; bindingCheck?: boolean; params?: Record<string, unknown>; catalogOverlay?: string }[];
+  entries: { kind: string; suite: string; binding?: string; bindingCheck?: boolean; params?: Record<string, unknown>; catalogOverlay?: string; pendingIn?: string[] }[];
 };
 const sig = (d: { code: string; line: number; column: number }) => `${d.code}@${d.line}:${d.column}`;
 
@@ -22,7 +22,9 @@ test('B7.4-3 the API version is 1.1.0: extensions were added, nothing an existin
 test('every validate entry linted from an overlay at another path in its directory gives the file\'s codes and positions', () => {
   const linter = createLinter({ root, schemaRoot: corpusSchema, extensions: [corpusExtension] });
   let compared = 0;
-  for (const e of manifest.entries.filter(x => x.kind === 'validate' && !x.catalogOverlay)) {
+  // pendingIn: entries this runtime does not meet yet are neither run nor counted.
+  const { run, pending } = splitPending(manifest.entries.filter(x => x.kind === 'validate' && !x.catalogOverlay));
+  for (const e of run) {
     const file = path.join(corpus, e.suite);
     // A suite that imports itself is a cycle only under its own name; at another path it is not, by design.
     if (fs.readFileSync(file, 'utf8').includes(path.basename(file))) continue;
@@ -34,7 +36,7 @@ test('every validate entry linted from an overlay at another path in its directo
     assert.ok(!fs.existsSync(ghost), 'the overlay path is never written');
     compared++;
   }
-  console.log(`  ${compared} validate entries give the same answer from an overlay`);
+  console.log(`  ${compared} validate entries give the same answer from an overlay; pending: ${pending.map(e => e.suite).join(', ')}`);
 });
 
 test('B7.4-2 an overlaid path is never read from disk, imports included', () => {

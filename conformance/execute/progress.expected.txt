@@ -1,0 +1,10 @@
+    suite-setup   step 1 (core.record) passed
+StartGroup: progress::the-passing-case
+    step          when it records (core.record) passed
+EndGroup: progress::the-passing-case [Passed] (*s)
+StartGroup: progress::the-failing-case
+    step          when it fails (core.fail) failed [action]
+    failure: *
+EndGroup: progress::the-failing-case [Failed] (*s)
+    suite-teardown step 1 (core.noop) passed
+Summary: Total=2, Passed=1, Failed=1, Blocked=0, Not Run=0, Skipped=0

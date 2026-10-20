@@ -1,7 +1,7 @@
 # The corpus's catalog: the core, imported, plus fixture actions that exist only
 # to be checked (DEC-S02). No runtime implements a fixture action except
-# fixture.append, which each runtime's corpus test extension implements for the
-# execute corpus; the validate corpus lints suites that use the others, which is
+# fixture.append and fixture.throw, which each runtime's corpus test extension
+# implements for the execute corpus; the validate corpus lints suites that use the others, which is
 # all it needs. Each fixture action that replaced an os-context action keeps the
 # exact parameters, types, captures and bindings of the action it replaced when
 # the corpus moved here (conformance/rename.json), so every expected finding is
@@ -132,3 +132,18 @@ actions:
     captures:
       type: array
       description: The list it was given, with the item appended.
+
+  # The other fixture action the execute corpus runs: each runtime's corpus test
+  # extension throws, or panics with, the most unusual failure its language has,
+  # so execute/worker-throws.yml can prove that any failure of an action is that
+  # step's failure and never the end of the run (spec/progress.md; docs/packages,
+  # DEC-P06).
+  - name: fixture.throw
+    summary: Fixture. Fail by throwing the most unusual failure the runtime's language has, with the message given.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: message, type: string, required: true, description: The text the failure carries. }
+    captures:
+      type: 'null'
+      description: Nothing; it never returns.

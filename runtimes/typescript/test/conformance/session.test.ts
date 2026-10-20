@@ -16,9 +16,9 @@ import { loadSchema } from '../../src/schema.js';
 import { createRunContext, openSession } from '../../src/session.js';
 import { Entry, Trace } from '../../src/trace.js';
 import { ValueMap } from '../../src/value.js';
-import { corpus, corpusExtension, corpusSchema } from '../where.js';
+import { corpus, corpusExtension, corpusSchema, splitPending } from '../where.js';
 
-type ManifestEntry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string };
+type ManifestEntry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string; pendingIn?: string[] };
 
 const line = (e: Partial<Entry>) => [e.phase, e.case ?? '', e.step ?? '', e.action ?? '', e.status, e.reason ?? ''].join(' | ');
 
@@ -42,7 +42,8 @@ test('E1 every execute entry through the session, in file order and reversed', a
   const composite = compose([corpusExtension], coreActions);
   const wrong: string[] = [];
   let checked = 0;
-  for (const entry of manifest.entries.filter(e => e.kind === 'execute')) {
+  const { run, pending } = splitPending(manifest.entries.filter(e => e.kind === 'execute'));
+  for (const entry of run) {
     const file = path.join(corpus, entry.suite);
     const suite = () => loadDocument(fs.readFileSync(file, 'utf8')).value as ValueMap;
     const wanted = (JSON.parse(fs.readFileSync(path.join(corpus, entry.expectation), 'utf8')) as { trace: Partial<Entry>[] }).trace;
@@ -74,6 +75,7 @@ test('E1 every execute entry through the session, in file order and reversed', a
     if (wholeCases.join('\n') !== inOrder.results.join('\n')) wrong.push(`${entry.suite}: results differ from the whole-file run`);
     checked++;
   }
+  console.log(`  ${checked} execute entries through the session; pending: ${pending.map(e => e.suite).join(', ')}`);
   assert.equal(checked, 14);
   assert.deepEqual(wrong, []);
 });

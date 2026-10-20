@@ -46,6 +46,8 @@ Import-Module powershell-yaml -ErrorAction Stop
 $script:SpecRoot = $PSScriptRoot
 $script:CatalogPath = if ($Catalog) { [IO.Path]::GetFullPath($Catalog) } else { Join-Path $script:SpecRoot 'core.catalog.yaml' }
 $script:SchemaRoot = Split-Path -Parent $script:CatalogPath
+# The import name that means the core beside this script (README.md).
+$script:CoreImport = 'bdd-suite:core'
 
 function Resolve-Catalog {
     <#
@@ -57,6 +59,11 @@ function Resolve-Catalog {
         A name declared twice is an error naming both files, and so is an
         import cycle: either would make the meaning of a step depend on which
         file happened to be read last.
+
+        The import bdd-suite:core is the core.catalog.yaml beside this script
+        (README.md): through it, each core action's bindings are cut to the
+        importing catalog's own bindings list when it has one, and the core's
+        binding names are not added. A path import is read as written.
     #>
     param([string]$Path)
 
@@ -67,7 +74,8 @@ function Resolve-Catalog {
     $done = @{}
 
     $visit = {
-        param([string]$File)
+        # $Narrow, for the core read through bdd-suite:core: @{ To = the importer's bindings }, To $null when it has none.
+        param([string]$File, [hashtable]$Narrow = $null)
         $full = [IO.Path]::GetFullPath($File)
         if ($visiting -contains $full) { throw "Catalog import cycle: $(($visiting + $full) -join ' -> ')" }
         if ($done.ContainsKey($full)) { return }
@@ -75,15 +83,32 @@ function Resolve-Catalog {
         $visiting.Add($full)
         $catalog = ConvertFrom-Yaml (Get-Content -LiteralPath $full -Raw) -Ordered
         $directory = Split-Path -Parent $full
-        # Combine, not Join-Path: an absolute import stays absolute.
-        foreach ($import in Get-CatalogList $catalog.imports) { & $visit ([IO.Path]::Combine($directory, [string]$import)) }
-        foreach ($binding in Get-CatalogList $catalog.bindings) {
-            if (-not $merged.bindings.Contains([string]$binding)) { $merged.bindings.Add([string]$binding) }
+        foreach ($import in Get-CatalogList $catalog.imports) {
+            if ([string]$import -ceq $script:CoreImport) {
+                # The importer's own bindings, when it lists them, are what the core is cut to.
+                $cut = @{ To = if ($null -ne $catalog.bindings) { [string[]]@(Get-CatalogList $catalog.bindings) } else { $null } }
+                & $visit (Join-Path $script:SpecRoot 'core.catalog.yaml') $cut
+            } else {
+                # Combine, not Join-Path: an absolute import stays absolute.
+                & $visit ([IO.Path]::Combine($directory, [string]$import))
+            }
+        }
+        if ($null -eq $Narrow -or $null -eq $Narrow.To) {
+            foreach ($binding in Get-CatalogList $catalog.bindings) {
+                if (-not $merged.bindings.Contains([string]$binding)) { $merged.bindings.Add([string]$binding) }
+            }
         }
         foreach ($action in Get-CatalogList $catalog.actions) {
             $name = [string]$action.name
             if ($declaredIn.ContainsKey($name)) { throw "Action $name is declared twice: in $($declaredIn[$name]) and in $full" }
             $declaredIn[$name] = $full
+            if ($null -ne $Narrow -and $null -ne $Narrow.To -and $null -ne $action.bindings) {
+                $cutAction = [ordered]@{}
+                foreach ($key in $action.Keys) { $cutAction[$key] = $action[$key] }
+                $cutAction.bindings = [Collections.Generic.List[object]]::new()
+                foreach ($binding in Get-CatalogList $action.bindings) { if ($Narrow.To -contains [string]$binding) { $cutAction.bindings.Add($binding) } }
+                $action = $cutAction
+            }
             $merged.actions.Add($action)
         }
         foreach ($extension in Get-CatalogList $catalog.suiteSchema) {

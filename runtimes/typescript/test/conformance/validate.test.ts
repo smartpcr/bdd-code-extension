@@ -8,12 +8,12 @@ import { test } from 'node:test';
 import { parse } from 'yaml';
 import { fails } from '../../src/diag.js';
 import { loadDocument } from '../../src/model.js';
-import { corpus, corpusCli, corpusComposite, corpusSchema, repo } from '../where.js';
+import { corpus, corpusCli, corpusComposite, corpusSchema, repo, splitPending } from '../where.js';
 import { loadSchema, withOverlay } from '../../src/schema.js';
 import { validateFile } from '../../src/validate/index.js';
 
 type Entry = { kind: string; suite: string; expectation: string; binding?: string; bindingCheck?: boolean; strict?: boolean;
-  params?: Record<string, unknown>; catalogOverlay?: string };
+  params?: Record<string, unknown>; catalogOverlay?: string; pendingIn?: string[] };
 type Expected = { exitCode: number; diagnostics: { code: string; severity: string; line: number; column: number }[] };
 
 const root = repo;
@@ -40,7 +40,9 @@ export function runEntry(entry: Entry): { got: string[]; want: string[]; exit: n
   };
 }
 
-const validate = manifest.entries.filter(e => e.kind === 'validate');
+// pendingIn: entries this runtime does not meet yet are reported as pending, never run nor counted as passed.
+const { run: validate, pending } = splitPending(manifest.entries.filter(e => e.kind === 'validate'));
+const pendingNote = `pending: ${pending.map(e => e.suite).join(', ')}`;
 
 test('B7.4-1 every validate entry matches exactly (B7.2-1 is the E1xx part of it)', () => {
   const inSlice = validate;
@@ -51,7 +53,7 @@ test('B7.4-1 every validate entry matches exactly (B7.2-1 is the E1xx part of it
       wrong.push(`${entry.suite}\n    got  ${r.got.join(', ')} exit ${r.exit}\n    want ${r.want.join(', ')} exit ${r.wantExit}`);
     }
   }
-  console.log(`  ${inSlice.length - wrong.length} of ${inSlice.length} validate entries match`);
+  console.log(`  ${inSlice.length - wrong.length} of ${inSlice.length} validate entries match; ${pendingNote}`);
   assert.equal(wrong.length, 0, wrong.join('\n'));
 });
 
@@ -73,6 +75,6 @@ test('E-B12 the same entries through the program: `lint --json` output and exit 
     if (got.join('|') !== want.join('|') || r.status !== expected.exitCode) wrong.push(`${entry.suite}: exit ${r.status}, ${got.join(', ')}`);
     ran++;
   }
-  console.log(`  ${ran - wrong.length} of ${ran} entries match through the program (catalog-overlay entries are library-only)`);
+  console.log(`  ${ran - wrong.length} of ${ran} entries match through the program (catalog-overlay entries are library-only); ${pendingNote}`);
   assert.deepEqual(wrong, []);
 });

@@ -16,7 +16,7 @@ namespace Bdd.Suite.Tests;
 /// order, emits the expected trace, in file order and with the cases reversed.
 /// Then one test per rule.
 /// </summary>
-public sealed class SessionTests
+public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static readonly SuiteSchema CorpusSchema = SuiteSchema.Load(Corpus.Find().SchemaRoot);
 
@@ -84,7 +84,10 @@ public sealed class SessionTests
         var corpus = Corpus.Find();
         var failures = new List<string>();
         var checked_ = 0;
-        foreach (var entry in Corpus.Entries(corpus.Manifest(), "execute").Where(entry => !Corpus.PendingIn(entry, "csharp")))
+        var entries = Corpus.Entries(corpus.Manifest(), "execute");
+        Corpus.ReportPending(output, "execute through the session", entries
+            .Where(entry => Corpus.PendingIn(entry, "csharp")).Select(entry => entry.Text("suite")).ToList());
+        foreach (var entry in entries.Where(entry => !Corpus.PendingIn(entry, "csharp")))
         {
             var name = entry.Text("suite");
             var expected = corpus.Json(entry.Text("expectation")).List("trace") ?? [];

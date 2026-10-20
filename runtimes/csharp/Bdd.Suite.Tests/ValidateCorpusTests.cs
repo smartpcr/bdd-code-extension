@@ -14,7 +14,7 @@ namespace Bdd.Suite.Tests;
 /// message wording is not compared, because it is deliberately not part of the
 /// contract (spec/diagnostics.md).
 /// </summary>
-public sealed class ValidateCorpusTests
+public sealed class ValidateCorpusTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     [Fact]
     public void EveryValidateEntry()
@@ -25,9 +25,15 @@ public sealed class ValidateCorpusTests
 
         var failures = new List<string>();
         var checked_ = 0;
+        var pending = new List<string>();
         foreach (var entry in Corpus.Entries(manifest, "validate"))
         {
             var suite = entry.Text("suite");
+            if (Corpus.PendingIn(entry, "csharp"))
+            {
+                pending.Add(suite);
+                continue;
+            }
             var path = corpus.Path(suite);
             var relative = Findings.RelativePath(path, corpus.Root);
 
@@ -84,6 +90,7 @@ public sealed class ValidateCorpusTests
             }
         }
 
+        Corpus.ReportPending(output, "validate", pending);
         Assert.Equal(41, checked_);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");

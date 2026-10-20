@@ -264,7 +264,7 @@ extension may add a stricter one, for example for suites with a given tag.
 
 ## The actions
 
-13 actions, from `actions.catalog.yaml` and the catalogs it imports. `bindings` is which
+14 actions, from `actions.catalog.yaml` and the catalogs it imports. `bindings` is which
 runtimes implement the action; naming one the selected binding does not implement is
 `E201`. `interruptible: false` means the runner cannot cancel the work, so a
 timeout on it is reported as abandoned rather than cancelled.
@@ -520,6 +520,22 @@ Captures:
 
 ```
 <captureAs> -> array
+```
+
+### `fixture.throw`
+
+Fixture. Fail by throwing the most unusual failure the runtime's language has, with the message given.
+
+Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`. Interruptible: true.
+
+| Parameter | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `message` | string | yes |  | The text the failure carries. |
+
+Captures:
+
+```
+<captureAs> -> null
 ```
 
 ## Diagnostics

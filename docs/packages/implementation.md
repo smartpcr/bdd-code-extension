@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; no stage started.** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stage K0 built 2026-10-20 and run locally, its CI not yet run ([K0](../evidence/packages-k0.md)); K1 to K9 not started.** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -47,7 +47,7 @@ Priority orders the work; it never weakens a completion condition.
   failure, and how `bdd-suite:core` resolves and narrows; the corpus holds
   entries every runtime must pass.
 * **How.** `spec/README.md` (command line), a new `spec/progress.md` (the line
-  shape, standard error, masking of durations for comparison), the session
+  shape, standard output, masking of durations for comparison), the session
   spec (`--name` applies to a session's selection), the catalog schema
   (`imports` accepts `bdd-suite:core`) and a narrowing rule. Corpus:
   `execute/names.yml`, `execute/progress.yml` with
@@ -73,7 +73,7 @@ Priority orders the work; it never weakens a completion condition.
   `Composite` (core flags an extension may not take), `SuiteExpansion`
   (`NameMatches`), `Executor` (`RunOptions.Names`, `IRunObserver`, the worker
   catch-all), `SuiteSession`, `Runner.Running`, `Trace.Added`,
-  `Run/ProgressPrinter.cs` (writing to standard error). Embed
+  `Run/ProgressPrinter.cs` (writing to standard output). Embed
   `spec/core.catalog.yaml` and resolve `bdd-suite:core` in the catalog loader.
   Port the patch tests into `Bdd.Suite.Tests`.
 * **Files.** `runtimes/csharp/Bdd.Suite/**`, `Bdd.Suite.Tests/**`.
@@ -350,18 +350,18 @@ Result: D1, D14. Entry: none. Exit evidence: the spec job passes; every
 runtime's corpus lists D1's entries as pending; the version check passes and
 its unit test proves it fails on a mismatch.
 
-- [ ] K0.1 `spec/README.md`: `--name` (run, list), `--progress`; `spec/progress.md` (line shape, standard error, duration masking).
-- [ ] K0.2 `spec/session.md`: a session's selection applies `--name` with the tag filter.
-- [ ] K0.3 Observer contract and the worker rule written into the spec, with the fatal-condition limit.
-- [ ] K0.4 Catalog schema: `imports` accepts `bdd-suite:core`; the narrowing rule written.
-- [ ] K0.5 Corpus: `execute/names.yml` and its expectations (names alone, names with tags, no match).
-- [ ] K0.6 Corpus: a `list` entry with names.
-- [ ] K0.7 Corpus: `execute/progress.yml` and `progress.expected.txt`.
-- [ ] K0.8 Corpus: `fixture.throw` in the corpus catalog; `execute/worker-throws.yml` and expectations.
-- [ ] K0.9 Corpus: a catalog importing `bdd-suite:core` with narrowed bindings, validate and execute entries.
-- [ ] K0.10 Manifest fields `names:`, `progress:`; the per-runtime pending list and each corpus test reading it.
-- [ ] K0.11 `scripts/set-version.mjs` and `scripts/check-versions.mjs`; unit tests.
-- [ ] K0.12 The version check in the CI `build` job.
+- [x] K0.1 `spec/README.md`: `--name` (run, list), `--progress`; `spec/progress.md` (line shape, standard output, duration masking).
+- [x] K0.2 `spec/session.md`: a session's selection applies `--name` with the tag filter.
+- [x] K0.3 Observer contract and the worker rule written into the spec, with the fatal-condition limit.
+- [x] K0.4 Catalog schema: `imports` accepts `bdd-suite:core`; the narrowing rule written.
+- [x] K0.5 Corpus: `execute/names.yml` and its expectations (names alone, names with tags, no match).
+- [x] K0.6 Corpus: a `list` entry with names.
+- [x] K0.7 Corpus: `execute/progress.yml` and `progress.expected.txt`.
+- [x] K0.8 Corpus: `fixture.throw` in the corpus catalog; `execute/worker-throws.yml` and expectations.
+- [x] K0.9 Corpus: a catalog importing `bdd-suite:core` with narrowed bindings, validate and execute entries.
+- [x] K0.10 Manifest fields `names:`, `progress:`; the per-runtime pending list and each corpus test reading it.
+- [x] K0.11 `scripts/set-version.mjs` and `scripts/check-versions.mjs`; unit tests.
+- [x] K0.12 The version check in the CI `build` job.
 
 ### Stage K1: C# end to end (P0)
 
@@ -369,7 +369,7 @@ Result: D2, D7, D15 (C#). Entry: K0. Exit evidence: C# corpus with the new
 entries; E1 (C#) and E2 from a local feed.
 
 - [ ] K1.1 `--name` in `CommandLine`, `Composite`, `SuiteExpansion.NameMatches`, `RunOptions.Names`, `SuiteSession`, `list`.
-- [ ] K1.2 `IRunObserver`, `Trace.Added`, `ProgressPrinter` on standard error, `--progress`.
+- [ ] K1.2 `IRunObserver`, `Trace.Added`, `ProgressPrinter` on standard output, `--progress`.
 - [ ] K1.3 The worker catch-all.
 - [ ] K1.4 Embedded core; `bdd-suite:core` in the catalog loader with narrowing.
 - [ ] K1.5 update2's patch tests ported into `Bdd.Suite.Tests`; coverage as before.

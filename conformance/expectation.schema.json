@@ -52,6 +52,16 @@
       "description": "execute only: the tag filter the runner is given, in the same comma-separated form the command line takes. Absent means no filter.",
       "type": "string"
     },
+    "names": {
+      "description": "execute only: the name filter (--name) the runner is given, as comma-separated globs in the form the command line takes. Absent means no filter.",
+      "type": "string",
+      "minLength": 1
+    },
+    "schemaRoot": {
+      "description": "The schema folder the entry is validated or run against, relative to the conformance root, instead of the manifest's schemaRoot.",
+      "type": "string",
+      "minLength": 1
+    },
     "maxSeconds": {
       "description": "execute only: the wall clock the entry must finish inside. A cancellation fixture is only proved by finishing quickly, so this is an assertion rather than a note.",
       "type": "number",

@@ -39,11 +39,48 @@ fn every_entry_is_of_a_kind_this_runtime_runs() {
         "the manifest holds entries of kinds no test here runs: {}",
         unknown.join(", ")
     );
-    let validate = entries.iter().filter(|entry| entry["kind"] == "validate").count();
-    let execute = entries.iter().filter(|entry| entry["kind"] == "execute").count();
-    println!("  {validate} validate and {execute} execute entries");
+    // A pending entry is neither run nor counted as passed: the family tests
+    // report it, and the counts here keep the two apart.
+    let count = |kind: &str, pending: bool| {
+        entries
+            .iter()
+            .filter(|entry| entry["kind"] == kind && common::pending_here(entry) == pending)
+            .count()
+    };
+    let (validate, execute) = (count("validate", false), count("execute", false));
+    let (validate_pending, execute_pending) = (count("validate", true), count("execute", true));
+    println!(
+        "  {validate} validate and {execute} execute entries run; {validate_pending} validate and {execute_pending} execute pending in {}",
+        common::RUNTIME
+    );
     assert_eq!(validate, 41, "validate entries");
     assert_eq!(execute, 14, "execute entries");
+    assert_eq!(validate_pending, 1, "validate entries pending");
+    assert_eq!(execute_pending, 6, "execute entries pending");
+}
+
+#[test]
+fn every_list_entry_is_pending_here() {
+    // No test here runs `suiterun list --name` yet (docs/packages, K3), so a
+    // list entry that is not pending for this runtime would be skipped in
+    // silence. Each one is reported as pending.
+    let manifest = common::manifest();
+    let lists = manifest["lists"].as_array().cloned().unwrap_or_default();
+    let mut not_pending: Vec<String> = Vec::new();
+    for entry in &lists {
+        if common::pending_here(entry) {
+            common::report_pending("list", entry);
+        } else {
+            not_pending.push(entry["suite"].as_str().unwrap_or("(unnamed)").to_string());
+        }
+    }
+    assert_eq!(lists.len(), 2, "list entries");
+    assert!(
+        not_pending.is_empty(),
+        "list entries no test here runs, yet not pending in {}: {}",
+        common::RUNTIME,
+        not_pending.join(", ")
+    );
 }
 
 /// Every file the manifest names, relative to the corpus.
@@ -58,7 +95,7 @@ fn named() -> Vec<String> {
         }
     };
     for entry in manifest["entries"].as_array().unwrap() {
-        for key in ["suite", "expectation", "catalogOverlay"] {
+        for key in ["suite", "expectation", "catalogOverlay", "progress"] {
             take(entry.get(key));
         }
     }
@@ -121,6 +158,11 @@ fn every_action_the_execute_corpus_calls_is_one_this_runtime_registers() {
     let mut called: BTreeSet<String> = BTreeSet::new();
     for entry in common::manifest()["entries"].as_array().unwrap() {
         if entry["kind"] != "execute" {
+            continue;
+        }
+        // A pending entry may call an action that arrives with the stage that
+        // makes it pass (fixture.throw); it is not run here, so not checked.
+        if common::pending_here(entry) {
             continue;
         }
         let text = std::fs::read_to_string(corpus.join(entry["suite"].as_str().unwrap())).unwrap();

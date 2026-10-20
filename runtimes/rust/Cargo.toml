@@ -1,6 +1,6 @@
 [package]
 name = "suiterun"
-version = "0.1.0"
+version = "0.6.10"
 edition = "2021"
 description = "The Rust runtime of the YAML suite runner: the suite model, lint, execution and reports, extensible by an outside crate. Reads the same suites, catalog and conformance corpus as the other runtimes."
 publish = false

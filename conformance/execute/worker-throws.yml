@@ -1,0 +1,29 @@
+suite: worker-throws
+description: An action that throws the most unusual failure its language has fails its step; the case's cleanup, the next case and the teardown still run.
+tags: [conformance]
+
+# fixture.throw is implemented by each runtime's corpus test extension: a
+# thrown value that is not an Error (TypeScript), a panic (Go, Rust), an
+# exception of a type the runtime does not name (C#), an exception of a custom
+# .NET type (PowerShell). spec/progress.md, "The action worker".
+teardown:
+  - action: core.record
+    marker: teardown-ran
+
+tests:
+  - name: the-case-whose-action-throws
+    steps:
+      - when: the action throws
+        action: fixture.throw
+        message: thrown on purpose
+      - then: this step would run
+        action: core.record
+        marker: never-reached
+    cleanup:
+      - action: core.record
+        marker: cleanup-ran
+  - name: the-case-after-it
+    steps:
+      - when: the next case runs normally
+        action: core.record
+        marker: still-ran

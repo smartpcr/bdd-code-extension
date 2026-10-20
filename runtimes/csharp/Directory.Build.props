@@ -16,6 +16,9 @@
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- The release's version, the VS Code extension's (docs/packages, DEC-P03):
+         written by scripts/set-version.mjs, checked by scripts/check-versions.mjs. -->
+    <Version>0.6.10</Version>
     <!-- The repository's own artifact directories are elsewhere; these keep the
          build output of a test tool out of everything that scans the tree. -->
     <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>

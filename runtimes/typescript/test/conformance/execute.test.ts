@@ -7,7 +7,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { parse } from 'yaml';
-import { corpus, corpusCli, corpusSchema, repo } from '../where.js';
+import { corpus, corpusCli, corpusSchema, repo, splitPending } from '../where.js';
 
 type Entry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string; pendingIn?: string[] };
 type Expected = { exitCode: number; maxSeconds?: number; trace: Record<string, string>[] };
@@ -25,12 +25,10 @@ function run(argv: string[]): Promise<{ code: number | null; seconds: number }> 
 }
 
 test('B7.5-1 every execute entry: the trace, the exit code, inside maxSeconds', async () => {
-  const all = manifest.entries.filter(e => e.kind === 'execute');
-  assert.equal(all.length, 14);
-  // pendingIn: entries this runtime does not meet yet are reported as pending, never as passed.
-  const pending = all.filter(e => (e.pendingIn ?? []).includes('typescript')).map(e => e.suite);
-  assert.equal(pending.length, 0, `pending: ${pending.join(', ')}`);
-  const entries = all.filter(e => !pending.includes(e.suite));
+  // pendingIn: entries this runtime does not meet yet are reported as pending, never run nor counted as passed.
+  const { run: entries, pending: held } = splitPending(manifest.entries.filter(e => e.kind === 'execute'));
+  const pending = held.map(e => e.suite);
+  assert.equal(entries.length, 14);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-execute-'));
   const wrong: string[] = [];
   await Promise.all(entries.map(async entry => {

@@ -19,7 +19,7 @@ below names the corpus entry that pins it, under
 | **Run context** | What one test process shares: the composed extensions, started once (their `start` called once, their state shared by every session), the schema, the options, the parameters, the tag filter, the dry-run flag and the trace. `suiterun` makes one per invocation; a test process makes one when it starts. |
 | **Session** | One suite file inside a run context: the parsed and expanded suite, its case list, the setup's capture bag, and which phases have run. |
 | **Case** | One entry of the case list: a `tests` entry, or one row of its `examples`, named `<name> [<column>=<value>, ...]`. A case is always named by that exact text. |
-| **Selected** | A case the run context's tag filter selects. A case that is not selected is reported `skipped` with reason `tag` and runs nothing (`tags.yml`). |
+| **Selected** | A case the run context's tag filter **and** its name filter (`--name` globs, README.md) both select. A case that is not selected is reported `skipped` with reason `tag` and runs nothing (`tags.yml`, `names.yml`). |
 
 ## Operations
 
@@ -109,7 +109,8 @@ that provider step.
 
 8. **Selection belongs to the run context and the framework.** A framework
    decides which cases it runs by name; the run context's tag filter
-   (`BDD_SUITE_TAGS`, or `--tags`) additionally makes a case `skipped`. A case a
+   (`BDD_SUITE_TAGS`, or `--tags`) and name filter (`--name`) additionally
+   make a case `skipped`. A case a
    framework never runs is neither reported nor traced.
 
 9. **Guarded suites need an opt-in.** A session whose suite the test plan marks
@@ -122,6 +123,12 @@ that provider step.
 10. **A dry run** validates and runs nothing: no setup, no teardown, every
     selected case `skipped`, and no `case` trace entry, as `suiterun run
     --dry-run` has always done.
+
+11. **Observers and workers** ([progress.md](progress.md)). A run observer is
+    told of each selected case and each trace entry and changes nothing; a
+    session with one produces the same results and trace as one without. An
+    action that throws or panics with anything fails its step with reason
+    `action`; the session goes on as for any failed step.
 
 ## Inputs a test process takes from the environment
 

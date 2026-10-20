@@ -52,6 +52,8 @@ BeforeAll {
             ExitCode = $LASTEXITCODE
             Output   = $output
             Schema   = if (Test-Path $schemaPath) { Get-Content $schemaPath -Raw | ConvertFrom-Json } else { $null }
+            # The reference page, which is where each action's bindings show.
+            Reference = $(if (Test-Path ($schemaPath -replace '\.json$', '.md')) { Get-Content ($schemaPath -replace '\.json$', '.md') -Raw } else { '' })
         }
         Remove-Item -LiteralPath $root -Recurse -Force
         return $result
@@ -172,6 +174,28 @@ Describe 'A workspace extends the core by import' {
         $r.Output | Should -Match 'core\.set is declared twice'
         $r.Output | Should -Match 'core\.catalog\.yaml'
         $r.Output | Should -Match 'actions\.catalog\.yaml'
+    }
+
+    It 'reads bdd-suite:core as the core beside the generator, its bindings cut to the importer''s (docs/packages, DEC-P07)' {
+        $r = Invoke-Workspace @{
+            'actions.catalog.yaml' = "catalogVersion: 1`nimports: [ 'bdd-suite:core' ]`nbindings: [csharp, go]`nactions:`n" + ($script:Action -f 'shop.order')
+        }
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        @($r.Schema.'$defs'.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.sleep', 'core.record', 'wait', 'shop.order')
+        ([regex]::Matches($r.Reference, 'Bindings: `csharp`, `go`\.')).Count | Should -Be 6 -Because 'each of the six core actions is cut to [csharp, go]'
+        $r.Reference | Should -Not -Match 'Bindings: `powershell`'
+    }
+
+    It 'reads bdd-suite:core whole when the importer lists no bindings' {
+        $r = Invoke-Workspace @{ 'actions.catalog.yaml' = "catalogVersion: 1`nimports: [ 'bdd-suite:core' ]" }
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        ([regex]::Matches($r.Reference, 'Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`\.')).Count | Should -Be 6
+    }
+
+    It 'reads a path import as written, without the cut' {
+        $r = Invoke-Workspace @{ 'actions.catalog.yaml' = "catalogVersion: 1`nimports: [{spec}/core.catalog.yaml]`nbindings: [go]" }
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        ([regex]::Matches($r.Reference, 'Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`\.')).Count | Should -Be 6
     }
 
     It 'refuses an import cycle' {

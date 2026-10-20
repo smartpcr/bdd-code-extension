@@ -46,8 +46,14 @@ fn every_execute_entry() {
 
     let mut failures: Vec<String> = Vec::new();
     let mut checked = 0usize;
+    let mut pending = 0usize;
     for entry in entries(&corpus) {
         if entry["kind"].as_str() != Some("execute") {
+            continue;
+        }
+        if common::pending_here(&entry) {
+            common::report_pending("execute", &entry);
+            pending += 1;
             continue;
         }
         let suite = entry["suite"].as_str().unwrap();
@@ -111,8 +117,9 @@ fn every_execute_entry() {
 
     let _ = std::fs::remove_dir_all(&scratch);
     assert_eq!(exit::PASSED, 0);
-    println!("  {checked} execute entries run; {} differ", failures.len());
+    println!("  {checked} execute entries run; {} differ; {pending} pending", failures.len());
     assert_eq!(checked, 14, "execute entries checked");
+    assert_eq!(pending, 6, "execute entries pending in rust");
     assert!(
         failures.is_empty(),
         "{} of {checked} entries differ:\n{}",

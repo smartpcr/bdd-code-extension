@@ -1,0 +1,8 @@
+suite: core-import
+description: A catalog that imports bdd-suite:core and supports only csharp leaves no core action to the go binding.
+tests:
+  - name: the-core-cut-to-the-workspace
+    steps:
+      - action: core.record
+        marker: imported
+      - action: core.noop

@@ -20,13 +20,6 @@ fn sorted(value: &Value) -> Value {
     }
 }
 
-fn pending_for_rust(entry: &Value) -> bool {
-    entry
-        .get("pendingIn")
-        .and_then(Value::as_array)
-        .is_some_and(|runtimes| runtimes.iter().any(|runtime| runtime.as_str() == Some("rust")))
-}
-
 #[test]
 fn e3_every_generate_entry_of_the_manifest() {
     let corpus = common::corpus();
@@ -34,7 +27,8 @@ fn e3_every_generate_entry_of_the_manifest() {
     let mut checked = 0;
     let mut failures = Vec::new();
     for entry in manifest["generate"].as_array().expect("the manifest lists generate entries") {
-        if pending_for_rust(entry) {
+        if common::pending_here(entry) {
+            common::report_pending("generate", entry);
             continue;
         }
         let config = corpus.join(entry["config"].as_str().unwrap());

@@ -1,0 +1,24 @@
+suite: names-and-tags
+description: A case runs only when both the name filter and the tag filter select it.
+tags: [conformance]
+
+# Run with --name "*-order" --tags wanted.
+tests:
+  - name: a-wanted-order
+    tags: [wanted]
+    steps:
+      - when: the case both filters select runs
+        action: core.record
+        marker: both
+  - name: an-unwanted-order
+    tags: [unwanted]
+    steps:
+      - when: the name matches but the tag does not
+        action: core.record
+        marker: never-reached
+  - name: a-wanted-refund
+    tags: [wanted]
+    steps:
+      - when: the tag matches but the name does not
+        action: core.record
+        marker: never-reached

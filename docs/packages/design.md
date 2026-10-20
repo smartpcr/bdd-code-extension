@@ -237,8 +237,8 @@ release v0.7.0  (one CI run on main)
   case is selected when its name matches any glob (`*` and `?`, the glob
   `--path` already takes) **and** the tag filter; a session's selection
   applies it the same way. PowerShell's existing `--test-name <case>` stays,
-  as one exact name. `run --progress` writes live lines to standard error in
-  one specified shape:
+  as one exact name. `run --progress` writes live lines to standard output
+  in one specified shape ([spec/progress.md](../../spec/progress.md)):
 
   ```text
   StartGroup: <suite>::<case>
@@ -255,8 +255,9 @@ release v0.7.0  (one CI run on main)
 * **Why.** update2 needs them (requests 6.1, 6.2) and asked for them in
   every runtime; the format's rule is that one command line means the same in
   all five. The shape is TAEF's console shape, which update2's lab tooling
-  already parses, and it is plain enough for any reader. Standard error keeps
-  `--json` and report output on standard output unchanged.
+  already parses, and it is plain enough for any reader. Standard output,
+  as update2's patch writes it, because that is the stream its tooling reads;
+  reports go to files and `run` has no `--json`, so nothing else is mixed in.
 * **Trade-off.** A fixed text shape is now part of the spec; changing it later
   is a spec change. `--name` on `list` lets the VS Code extension run one case
   in every binding, not only PowerShell (`selectsOneCase`), which it may adopt
@@ -295,7 +296,8 @@ release v0.7.0  (one CI run on main)
   hand, follows from the importing catalog's own `bindings:` (an imported
   action's bindings are cut to the importer's list).
 * **Trade-off.** A small format addition (one reserved import name, and the
-  narrowing rule), in five loaders, the generator and the VS Code extension's
+  narrowing rule, which applies through `bdd-suite:core` only: a path import
+  is the workspace's own file and is read as written), in five loaders, the generator and the VS Code extension's
   index, all covered by new corpus entries. The extension's bundled generator
   must match the runtime version the consumer uses; with lockstep versions
   ([DEC-P03](#dec-p03)) the extension warns when a consumer's package version

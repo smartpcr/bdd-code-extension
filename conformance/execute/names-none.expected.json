@@ -1,0 +1,21 @@
+{
+  "kind": "execute",
+  "suite": "execute/names-none.yml",
+  "description": "A name filter that selects no case skips every case and runs neither the suite setup nor the teardown.",
+  "exitCode": 0,
+  "names": "nothing-*",
+  "trace": [
+    {
+      "phase": "case",
+      "case": "first",
+      "status": "skipped",
+      "reason": "tag"
+    },
+    {
+      "phase": "case",
+      "case": "second",
+      "status": "skipped",
+      "reason": "tag"
+    }
+  ]
+}

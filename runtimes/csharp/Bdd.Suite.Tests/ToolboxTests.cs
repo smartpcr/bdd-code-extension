@@ -308,7 +308,10 @@ public sealed class ToolboxTests
         Assert.True(schema.Has("wait"));
         Assert.True(schema.Has("fixture.state"));
         Assert.True(schema.Has("fixture.append"));
-        Assert.Equal(13, schema.ActionNames.Count);
+        // Declared for the K0 worker-throws entry; csharp implements it in K1,
+        // and until then the entry that calls it is pending.
+        Assert.True(schema.Has("fixture.throw"));
+        Assert.Equal(14, schema.ActionNames.Count);
         Assert.Equal(schema.ActionNames.OrderBy(name => name, StringComparer.Ordinal), schema.ActionNames);
 
         var invoke = schema.Actions["invoke"];

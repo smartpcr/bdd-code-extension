@@ -22,8 +22,25 @@
 #>
 [CmdletBinding()]param([switch]$RunHarness)
 if (-not $RunHarness -and (Get-Command Describe -ListImported -ErrorAction SilentlyContinue)) {
-    Describe 'E2: the conformance corpus, PowerShell' -ForEach @(@{ HarnessPath = $PSCommandPath }) {
+    # Every entry pendingIn marks for powershell, of every kind the harness
+    # reads, is its own skipped test: visible in the counts, never run and
+    # never counted as passed. The harness skips the same entries.
+    Import-Module powershell-yaml -ErrorAction Stop
+    $pendingManifest = ConvertFrom-Yaml (Get-Content -LiteralPath (Join-Path $PSScriptRoot '../../../conformance/run-manifest.yaml') -Raw) -Ordered
+    $pendingCases = @(
+        foreach ($entry in @($pendingManifest.entries | Where-Object { $null -ne $_ })) {
+            if (@($entry.pendingIn) -contains 'powershell') { @{ Name = "$($entry.kind) $($entry.suite)" } }
+        }
+        foreach ($entry in @($pendingManifest.generate | Where-Object { $null -ne $_ })) {
+            if (@($entry.pendingIn) -contains 'powershell') { @{ Name = "generate $($entry.config)" } }
+        }
+        foreach ($entry in @($pendingManifest.reports.entries | Where-Object { $null -ne $_ })) {
+            if (@($entry.pendingIn) -contains 'powershell') { @{ Name = "report $($entry.suite) ($($entry.format))" } }
+        }
+    )
+    Describe 'E2: the conformance corpus, PowerShell' -ForEach @(@{ HarnessPath = $PSCommandPath; PendingCases = $pendingCases }) {
         It 'produces the diagnostics, traces, values and reports the corpus expects' { & $HarnessPath -RunHarness }
+        It 'pending for powershell: <Name>' -ForEach $PendingCases { Set-ItResult -Skipped -Because 'the manifest marks it pendingIn powershell' }
     }
     return
 }
@@ -312,6 +329,8 @@ try {
         $named[([string]$entry.suite)] = $true
         $named[([string]$entry.expectation)] = $true
         if ($entry.catalogOverlay) { $named[([string]$entry.catalogOverlay)] = $true }
+        # The progress lines an execute entry compares with (spec/progress.md).
+        if ($entry.progress) { $named[([string]$entry.progress)] = $true }
     }
     foreach ($support in @($manifest.support)) { if ($support) { $named[[string]$support] = $true } }
     foreach ($family in @('validate', 'execute')) {
@@ -338,8 +357,13 @@ try {
     # -------------------------------------------------------------------
     $expectationSchema = Get-Content -LiteralPath (Join-Path $corpusRoot 'expectation.schema.json') -Raw
     $seenCodes = @{}
+    # pendingIn names the runtimes that do not meet an entry yet. An entry of
+    # any kind pending for powershell is neither run nor counted as passed; it
+    # is listed as pending (conformance/README.md).
+    $pending = [System.Collections.Generic.List[string]]::new()
     foreach ($entry in $entries) {
         if ([string]$entry.kind -ne 'validate') { continue }
+        if (@($entry.pendingIn) -contains 'powershell') { $pending.Add([string]$entry.suite); continue }
         $result = Invoke-ValidateEntry -Entry (@{} + $entry)
         $expectationPath = Get-CorpusPath ([string]$entry.expectation)
         if ($dump) {
@@ -384,9 +408,7 @@ try {
     # passed; only a trace says in which order the phases ran, which step a
     # guard skipped and which row of a table failed.
     # -------------------------------------------------------------------
-    # pendingIn names the runtimes that do not meet an entry yet; this one
-    # reports such an entry as pending, never as passed.
-    $pending = [System.Collections.Generic.List[string]]::new()
+    # A pending execute entry is listed with the validate ones above.
     foreach ($entry in $entries) {
         if ([string]$entry.kind -ne 'execute') { continue }
         if (@($entry.pendingIn) -contains 'powershell') { $pending.Add([string]$entry.suite); continue }
@@ -426,7 +448,6 @@ try {
         Assert ($actualText -eq $expectedText) "$($entry.suite) trace differs.`nProduced:`n$actualText`nExpected:`n$expectedText"
         $counts.execute++
     }
-    Assert ($pending.Count -eq 0) "Pending for powershell: $($pending -join ', ')"
 
     # -------------------------------------------------------------------
     # E3 (docs/test-providers): every generate entry the manifest does not
@@ -445,7 +466,7 @@ try {
     }
     $generateChecked = 0
     foreach ($entry in @($manifest.generate | Where-Object { $null -ne $_ })) {
-        if (@($entry.pendingIn) -contains 'powershell') { continue }
+        if (@($entry.pendingIn) -contains 'powershell') { $pending.Add([string]$entry.config); continue }
         $generated = Invoke-BddSuiteGenerate -Config (Get-CorpusPath ([string]$entry.config)) -Plan
         Assert ($generated.Code -eq [int]$entry.exitCode) "$($entry.config) exits $($generated.Code), not $($entry.exitCode): $($generated.Errors)"
         if ($entry.expected) {
@@ -470,6 +491,7 @@ try {
     Assert (Test-Path -LiteralPath (Get-CorpusPath ([string]$manifest.reports.definition))) 'The manifest names the page the canonical form is defined on.'
     foreach ($entry in @($manifest.reports.entries | Where-Object { $null -ne $_ })) {
         $row = @{} + $entry
+        if (@($row.pendingIn) -contains 'powershell') { $pending.Add("$($row.suite) ($($row.format))"); continue }
         $result = Invoke-ExecuteEntry -Entry $row
         $canonical = ConvertTo-CanonicalReport -Report $result.report
         $expectedPath = Get-CorpusPath ([string]$row.expected)
@@ -688,7 +710,8 @@ line two</b><c></c><d>text<e/></d></r>'
     $uncovered = @($documented | Where-Object { -not $seenCodes.ContainsKey($_) })
     Assert (-not $uncovered.Count) "No corpus entry produces: $($uncovered -join ', ')"
 
-    Write-Host ("PASS: $script:checks conformance assertions: {0} validate, {1} execute ({6} pending), {7} generate, {2} reports, {3} expression rows, {4} assertion rows, core catalog = {5} registered." -f
+    if ($pending.Count) { Write-Host "Pending for powershell, not run and not counted: $($pending -join ', ')" }
+    Write-Host ("PASS: $script:checks conformance assertions: {0} validate, {1} execute, {6} pending, {7} generate, {2} reports, {3} expression rows, {4} assertion rows, core catalog = {5} registered." -f
         $counts.validate, $counts.execute, $counts.reports, $counts.expressions, $counts.asserts, $registered.Count, $pending.Count, $generateChecked)
 } finally {
     if (Test-Path -LiteralPath $scratch) {

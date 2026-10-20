@@ -8,13 +8,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { parse } from 'yaml';
-import { corpus, corpusCli } from '../where.js';
+import { corpus, corpusCli, splitPending } from '../where.js';
 
 type GenerateEntry = { config: string; expected?: string; exitCode: number; diagnostics?: { file: string; code: string; line: number; column: number }[]; pendingIn?: string[] };
 
 test('E3 every generate entry of the manifest', () => {
   const manifest = parse(fs.readFileSync(path.join(corpus, 'run-manifest.yaml'), 'utf8')) as { generate: GenerateEntry[] };
-  const entries = manifest.generate.filter(e => !(e.pendingIn ?? []).includes('typescript'));
+  const { run: entries, pending } = splitPending(manifest.generate);
   assert.equal(entries.length, 2);
   for (const entry of entries) {
     const config = path.join(corpus, entry.config);
@@ -28,4 +28,5 @@ test('E3 every generate entry of the manifest', () => {
       assert.match(r.stderr, /Nothing was generated/);
     }
   }
+  console.log(`  ${entries.length} generate entries run; pending: ${pending.map(e => e.config).join(', ')}`);
 });

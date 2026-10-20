@@ -8,10 +8,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { parse } from 'yaml';
-import { corpus, corpusCli, corpusSchema, repo } from '../where.js';
+import { corpus, corpusCli, corpusSchema, repo, splitPending } from '../where.js';
 import { canonicalise } from './canonicalise.js';
 
-type Entry = { suite: string; format: string; expected: string; tags?: string };
+type Entry = { suite: string; format: string; expected: string; tags?: string; pendingIn?: string[] };
 
 const root = repo;
 const manifest = parse(fs.readFileSync(path.join(corpus, 'run-manifest.yaml'), 'utf8')) as { reports: { entries: Entry[] } };
@@ -25,7 +25,8 @@ function report(entry: Entry, file: string): string {
 }
 
 test('B7.6-1 every stored report matches after canonicalisation, and three runs canonicalise identical', () => {
-  const entries = manifest.reports.entries;
+  // pendingIn: entries this runtime does not meet yet are reported as pending, never run nor counted as passed.
+  const { run: entries, pending } = splitPending(manifest.reports.entries);
   assert.equal(entries.length, 7);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-report-'));
   const wrong: string[] = [];
@@ -36,6 +37,6 @@ test('B7.6-1 every stored report matches after canonicalisation, and three runs 
     if (runs[1] !== runs[0] || runs[2] !== runs[0]) wrong.push(`${entry.expected}: three runs differ`);
   }
   fs.rmSync(dir, { recursive: true, force: true });
-  console.log(`  ${entries.length - wrong.length} of ${entries.length} stored reports match`);
+  console.log(`  ${entries.length - wrong.length} of ${entries.length} stored reports match; pending: ${pending.map(e => e.expected).join(', ')}`);
   assert.deepEqual(wrong, []);
 });

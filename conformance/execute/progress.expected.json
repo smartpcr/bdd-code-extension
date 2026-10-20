@@ -1,0 +1,53 @@
+{
+  "kind": "execute",
+  "suite": "execute/progress.yml",
+  "description": "Progress lines follow the run around a passing and a failing case; the trace is the one a run without them writes.",
+  "exitCode": 1,
+  "names": "the-*-case",
+  "trace": [
+    {
+      "phase": "suite-setup",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-passing-case",
+      "step": "when it records (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-passing-case",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "the-failing-case",
+      "step": "when it fails (core.fail)",
+      "action": "core.fail",
+      "status": "failed",
+      "reason": "action"
+    },
+    {
+      "phase": "case",
+      "case": "the-failing-case",
+      "status": "failed",
+      "reason": "action"
+    },
+    {
+      "phase": "case",
+      "case": "a-case-left-out",
+      "status": "skipped",
+      "reason": "tag"
+    },
+    {
+      "phase": "suite-teardown",
+      "step": "step 1 (core.noop)",
+      "action": "core.noop",
+      "status": "passed"
+    }
+  ]
+}

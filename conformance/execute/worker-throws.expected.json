@@ -1,0 +1,47 @@
+{
+  "kind": "execute",
+  "suite": "execute/worker-throws.yml",
+  "description": "An action that throws its language's most unusual failure fails its step; the cleanup, the next case and the teardown still run.",
+  "exitCode": 1,
+  "trace": [
+    {
+      "phase": "step",
+      "case": "the-case-whose-action-throws",
+      "step": "when the action throws (fixture.throw)",
+      "action": "fixture.throw",
+      "status": "failed",
+      "reason": "action"
+    },
+    {
+      "phase": "case-cleanup",
+      "case": "the-case-whose-action-throws",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-case-whose-action-throws",
+      "status": "failed",
+      "reason": "action"
+    },
+    {
+      "phase": "step",
+      "case": "the-case-after-it",
+      "step": "when the next case runs normally (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "the-case-after-it",
+      "status": "passed"
+    },
+    {
+      "phase": "suite-teardown",
+      "step": "step 1 (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    }
+  ]
+}

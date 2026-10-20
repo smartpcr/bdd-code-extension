@@ -1,0 +1,16 @@
+suite: core-import
+description: Core actions read through bdd-suite:core run as they do through a path import.
+tags: [conformance]
+
+tests:
+  - name: the-imported-core-runs
+    steps:
+      - when: a value is set through the imported core
+        action: core.set
+        value: { from: bdd-suite-core }
+        captureAs: held
+      - then: it reads back
+        action: core.noop
+        asserts:
+          - var: held.from
+            equals: bdd-suite-core

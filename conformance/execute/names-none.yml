@@ -1,0 +1,21 @@
+suite: names-none
+description: A name filter that selects no case skips every case and runs neither the suite setup nor the teardown.
+tags: [conformance]
+
+# Run with --name "nothing-*".
+setup:
+  - action: core.record
+    marker: suite-setup
+teardown:
+  - action: core.record
+    marker: suite-teardown
+
+tests:
+  - name: first
+    steps:
+      - action: core.record
+        marker: never-reached
+  - name: second
+    steps:
+      - action: core.record
+        marker: never-reached

@@ -211,13 +211,26 @@ Describe 'the session (spec/session.md)' {
     }
 }
 
+BeforeDiscovery {
+    # Execute entries the manifest marks pendingIn powershell: each is its own
+    # skipped test, never run and never counted as passed (conformance/README.md).
+    Import-Module powershell-yaml -ErrorAction Stop
+    $discoveryManifest = ConvertFrom-Yaml (Get-Content -LiteralPath (Join-Path $PSScriptRoot '../../../conformance/run-manifest.yaml') -Raw) -Ordered
+    $script:pendingExecute = @(foreach ($entry in @($discoveryManifest.entries | Where-Object { $_.kind -eq 'execute' })) {
+        if (@($entry.pendingIn) -contains 'powershell') { @{ Suite = [string]$entry.suite } }
+    })
+}
+
 Describe 'E1: every execute entry through the session, in file order and reversed' {
+    It 'pending for powershell: <Suite>' -ForEach $script:pendingExecute { Set-ItResult -Skipped -Because 'the manifest marks it pendingIn powershell' }
+
     It 'emits the expected trace both ways, and the results of the whole-file run' {
         $manifest = ConvertFrom-Yaml (Get-Content -LiteralPath (Join-Path $script:corpusRoot 'run-manifest.yaml') -Raw) -Ordered
         $line = { param($e) (@('phase', 'case', 'step', 'action', 'status', 'reason') | ForEach-Object { [string]$e[$_] }) -join ' | ' }
         $wrong = [Collections.Generic.List[string]]::new()
         $checked = 0
         foreach ($entry in @($manifest.entries | Where-Object { $_.kind -eq 'execute' })) {
+            if (@($entry.pendingIn) -contains 'powershell') { continue }
             $file = Join-Path $script:corpusRoot $entry.suite
             $expected = @(((Get-Content -LiteralPath (Join-Path $script:corpusRoot $entry.expectation) -Raw) | ConvertFrom-Json -AsHashtable).trace)
             $environment = @{ BDD_SUITE_TAGS = [string]$entry.tags }

@@ -48,6 +48,11 @@ jobs:
       - name: Unit tests (100% coverage of core, config and tools)
         run: npm run test:unit
 
+      # docs/packages, DEC-P03 (E10): every runtime manifest, and every lock file
+      # that records a runtime, carries package.json's version.
+      - name: Every runtime is at the extension's version
+        run: node scripts/check-versions.mjs
+
       - name: Package (.vsix, its .sha256, and a check of what the archive holds)
         run: npm run package
 
@@ -87,7 +92,7 @@ jobs:
       - name: Every committed generated schema is current
         shell: pwsh
         run: |
-          foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml',
+          foreach ($catalog in @('spec/core.catalog.yaml', 'conformance/schema/actions.catalog.yaml', 'conformance/schema-core-import/actions.catalog.yaml', 'runtimes/typescript/example/schema/actions.catalog.yaml',
                                 'runtimes/go/example/schema/actions.catalog.yaml', 'runtimes/rust/example/schema/actions.catalog.yaml',
                                 'runtimes/csharp/Bdd.Suite.Example/schema/actions.catalog.yaml', 'runtimes/powershell/example/schema/actions.catalog.yaml')) {
             pwsh -NoProfile -File spec/Build-Schema.ps1 -Catalog $catalog -Check

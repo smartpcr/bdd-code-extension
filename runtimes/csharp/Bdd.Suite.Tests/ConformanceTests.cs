@@ -14,7 +14,7 @@ namespace Bdd.Suite.Tests;
 /// implement would otherwise be skipped in silence, and a corpus that is quietly
 /// skipped looks like coverage and is not.
 /// </summary>
-public sealed class ConformanceTests
+public sealed class ConformanceTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     [Fact]
     public void EveryEntryIsOfAKindThisBindingRuns()
@@ -24,7 +24,15 @@ public sealed class ConformanceTests
         var entries = Corpus.Entries(manifest, string.Empty);
         Assert.True(entries.Count >= 50, $"only {entries.Count} entries");
 
-        var unknown = entries
+        // A pending entry is neither run nor counted (conformance/README.md),
+        // whatever its kind: one of a kind this binding does not run yet waits
+        // for the stage that adds it, as any other pending entry does.
+        var pending = entries.Where(entry => Corpus.PendingIn(entry, "csharp")).ToList();
+        var runnable = entries.Where(entry => !Corpus.PendingIn(entry, "csharp")).ToList();
+        Corpus.ReportPending(output, "entries", pending
+            .Select(entry => $"{entry.Text("kind")} {entry.Text("suite")}").ToList());
+
+        var unknown = runnable
             .Select(entry => entry.Text("kind"))
             .Where(kind => !string.Equals(kind, "validate", StringComparison.Ordinal)
                 && !string.Equals(kind, "execute", StringComparison.Ordinal))
@@ -34,8 +42,8 @@ public sealed class ConformanceTests
             $"the manifest holds entries of kinds no test here runs: {string.Join(", ", unknown)}");
         // The counts after the move (conformance/rename.json): the lifecycle and
         // E214 entries went back to the product that owns those rules.
-        Assert.Equal(41, Corpus.Entries(manifest, "validate").Count);
-        Assert.Equal(14, Corpus.Entries(manifest, "execute").Count);
+        Assert.Equal(41, runnable.Count(entry => string.Equals(entry.Text("kind"), "validate", StringComparison.Ordinal)));
+        Assert.Equal(14, runnable.Count(entry => string.Equals(entry.Text("kind"), "execute", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -46,7 +54,7 @@ public sealed class ConformanceTests
         var known = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in Corpus.Entries(manifest, string.Empty))
         {
-            foreach (var key in new[] { "suite", "expectation", "catalogOverlay" })
+            foreach (var key in new[] { "suite", "expectation", "catalogOverlay", "progress" })
             {
                 if (entry.Text(key) is { Length: > 0 } name)
                 {
@@ -84,7 +92,7 @@ public sealed class ConformanceTests
         var named = new List<string>();
         foreach (var entry in Corpus.Entries(manifest, string.Empty))
         {
-            foreach (var key in new[] { "suite", "expectation", "catalogOverlay" })
+            foreach (var key in new[] { "suite", "expectation", "catalogOverlay", "progress" })
             {
                 var name = entry.Text(key);
                 if (name.Length > 0)
@@ -96,6 +104,13 @@ public sealed class ConformanceTests
         foreach (var raw in manifest.List("support") ?? [])
         {
             if (raw is string name)
+            {
+                named.Add(name);
+            }
+        }
+        foreach (var raw in manifest.List("lists") ?? [])
+        {
+            if (raw is OrderedMap list && list.Text("suite") is { Length: > 0 } name)
             {
                 named.Add(name);
             }
@@ -140,6 +155,10 @@ public sealed class ConformanceTests
         }
 
         var missing = named.Where(name => !File.Exists(corpus.Path(name))).ToList();
+        // An entry's schemaRoot names a folder, not a file.
+        missing.AddRange(Corpus.Entries(manifest, string.Empty)
+            .Select(entry => entry.Text("schemaRoot"))
+            .Where(folder => folder.Length > 0 && !System.IO.Directory.Exists(corpus.Path(folder))));
         Assert.True(missing.Count == 0,
             $"the manifest names files that are not there: {string.Join(", ", missing)}");
     }

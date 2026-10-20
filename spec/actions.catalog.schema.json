@@ -14,7 +14,7 @@
       "const": 1
     },
     "imports": {
-      "description": "Other catalogs this one extends, resolved relative to this file, depth first in listed order. Their actions, binding names and suite-schema extensions are part of this catalog. A name declared twice, in this file or across imports, is an error naming both files; so is an import cycle.",
+      "description": "Other catalogs this one extends, resolved relative to this file, depth first in listed order; the name bdd-suite:core is the reader's own core catalog, whose actions' bindings are cut to this catalog's bindings list when it has one (README.md). Their actions, binding names and suite-schema extensions are part of this catalog. A name declared twice, in this file or across imports, is an error naming both files; so is an import cycle.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,

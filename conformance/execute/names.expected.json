@@ -1,0 +1,57 @@
+{
+  "kind": "execute",
+  "suite": "execute/names.yml",
+  "description": "A name filter of two globs selects the cases either matches (a star any run of characters, a question mark one), and what it leaves out is skipped with reason tag.",
+  "exitCode": 0,
+  "names": "*-an-order,order-?",
+  "trace": [
+    {
+      "phase": "step",
+      "case": "place-an-order",
+      "step": "when an order is placed (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "place-an-order",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "read-the-stock",
+      "status": "skipped",
+      "reason": "tag"
+    },
+    {
+      "phase": "step",
+      "case": "cancel-an-order",
+      "step": "when an order is cancelled (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "cancel-an-order",
+      "status": "passed"
+    },
+    {
+      "phase": "step",
+      "case": "order-1",
+      "step": "when the first order is read (core.record)",
+      "action": "core.record",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "order-1",
+      "status": "passed"
+    },
+    {
+      "phase": "case",
+      "case": "order-22",
+      "status": "skipped",
+      "reason": "tag"
+    }
+  ]
+}
