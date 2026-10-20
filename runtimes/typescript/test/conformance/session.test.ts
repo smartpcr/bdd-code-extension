@@ -18,7 +18,8 @@ import { Entry, Trace } from '../../src/trace.js';
 import { ValueMap } from '../../src/value.js';
 import { corpus, corpusExtension, corpusSchema, splitPending } from '../where.js';
 
-type ManifestEntry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string; pendingIn?: string[] };
+type ManifestEntry = { kind: string; suite: string; expectation: string; params?: Record<string, unknown>; tags?: string; names?: string;
+  schemaRoot?: string; pendingIn?: string[] };
 
 const line = (e: Partial<Entry>) => [e.phase, e.case ?? '', e.step ?? '', e.action ?? '', e.status, e.reason ?? ''].join(' | ');
 
@@ -49,11 +50,13 @@ test('E1 every execute entry through the session, in file order and reversed', a
     const wanted = (JSON.parse(fs.readFileSync(path.join(corpus, entry.expectation), 'utf8')) as { trace: Partial<Entry>[] }).trace;
     const options: RunOptions = {
       tags: (entry.tags ?? '').split(',').map(t => t.trim()).filter(Boolean),
+      names: (entry.names ?? '').split(',').map(t => t.trim()).filter(Boolean),
       params: Object.entries(entry.params ?? {}).map(([k, v]) => [k, String(v)]), dryRun: false, recordPath: '', env: {},
     };
+    const own = entry.schemaRoot ? loadSchema(path.join(corpus, entry.schemaRoot)) : schema;
     const drive = async (reversed: boolean) => {
       const context = createRunContext({ composite, started: start(composite, new Map()) }, options);
-      const session = openSession(file, suite(), schema, context);
+      const session = openSession(file, suite(), own, context);
       await session.setup();
       const order = session.cases.map((_, i) => i);
       if (reversed) order.reverse();
@@ -70,12 +73,12 @@ test('E1 every execute entry through the session, in file order and reversed', a
     if (inOrder.lines.join('\n') !== wanted.map(line).join('\n')) wrong.push(`${entry.suite} (file order):\n${inOrder.lines.join('\n')}`);
     const reversed = await drive(true);
     if (reversed.lines.join('\n') !== casesReversed(wanted).join('\n')) wrong.push(`${entry.suite} (reversed):\n${reversed.lines.join('\n')}`);
-    const whole = await runFile(file, suite(), schema, options, new Trace(), { composite, started: start(composite, new Map()) });
+    const whole = await runFile(file, suite(), own, options, new Trace(), { composite, started: start(composite, new Map()) });
     const wholeCases = whole.cases.filter(c => c.name !== 'teardown').map(summary);
     if (wholeCases.join('\n') !== inOrder.results.join('\n')) wrong.push(`${entry.suite}: results differ from the whole-file run`);
     checked++;
   }
   console.log(`  ${checked} execute entries through the session; pending: ${pending.map(e => e.suite).join(', ')}`);
-  assert.equal(checked, 14);
+  assert.equal(checked, 20);
   assert.deepEqual(wrong, []);
 });

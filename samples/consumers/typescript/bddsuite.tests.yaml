@@ -1,0 +1,7 @@
+# The greeter's suites as node:test tests (spec/test-plan.md); npm run generate
+# writes them into tests/. greet.shout is not offline, so loud.yml is guarded.
+suites: [ "suites/*.yml" ]
+schemaRoot: schema
+provider: node
+extensions: [ "./greeter.mjs#greeterExtension" ]
+offlineActions: [ "core.*", "wait", "greet.say" ]

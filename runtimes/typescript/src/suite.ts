@@ -5,6 +5,7 @@ import { DEFAULT_ENV_PREFIX } from './extension.js';
 import * as path from 'node:path';
 import { expand, newScope } from './expr.js';
 import { loadDocument } from './model.js';
+import { matchesGlob } from './paths.js';
 import { diskReader, Reader } from './reader.js';
 import { isMap, text, Value, ValueMap } from './value.js';
 import { CASE_PHASES, HOOKS, listOf, textOf } from './walk.js';
@@ -195,6 +196,13 @@ export const caseTags = (suite: ValueMap, c: ValueMap): string[] =>
 
 /** No filter selects everything; otherwise any shared tag does. */
 export const tagsMatch = (tags: string[], filter: string[]): boolean => !filter.length || tags.some(t => filter.includes(t));
+
+/**
+ * Whether a case name matches any --name glob; none matches every case. The
+ * same glob --path takes (`*`, `?`, the whole name), so `*apply*` means one
+ * thing everywhere.
+ */
+export const nameMatches = (name: string, patterns: readonly string[]): boolean => !patterns.length || patterns.some(p => matchesGlob(p, name));
 
 /**
  * Parameter values, lowest first: library, file, case (a default, then a

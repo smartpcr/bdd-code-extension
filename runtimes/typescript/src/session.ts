@@ -20,7 +20,7 @@ import { Diagnostic, fails, human, sorted } from './diag.js';
 import { loadDocument } from './model.js';
 import { diskReader } from './reader.js';
 import { Schema } from './schema.js';
-import { cases, caseTags, expandedCase, expandedHooks, Library, metaDefinitions, readLibraries, resolveParams, resolveVars, tagsMatch } from './suite.js';
+import { cases, caseTags, expandedCase, expandedHooks, Library, metaDefinitions, readLibraries, nameMatches, resolveParams, resolveVars, tagsMatch } from './suite.js';
 import { Reason, Status, Trace } from './trace.js';
 import { deepClone, isMap, Value, ValueMap } from './value.js';
 import { textOf } from './walk.js';
@@ -163,7 +163,7 @@ export class Session {
     this.hooks = expandedHooks(suite, this.definitions);
     this.caseModels = cases(suite);
     this.cases = this.caseModels.map(c => textOf(c, 'name'));
-    this.selected = this.caseModels.map(c => tagsMatch(caseTags(suite, c), context.options.tags));
+    this.selected = this.caseModels.map(c => tagsMatch(caseTags(suite, c), context.options.tags) && nameMatches(textOf(c, 'name'), context.options.names ?? []));
   }
 
   /** The run context's trace. */

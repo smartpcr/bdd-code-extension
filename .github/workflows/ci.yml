@@ -404,6 +404,15 @@ jobs:
             node samples/workspace/tests/typescript/scenarios.mjs --provider "$provider"
           done
 
+      # docs/packages, E1 and E5: the package packed with exactly its listed
+      # contents, and a consumer that installs only that tarball builds its
+      # suiterun and runs its tests on it.
+      - name: The npm package, and a consumer of it alone (E1, E5)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File samples/consumers/typescript/run-e5.ps1
+          if ($LASTEXITCODE) { throw 'the TypeScript consumer failed on the package' }
+
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4

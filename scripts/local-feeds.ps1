@@ -14,17 +14,19 @@
       cargo    the crate suiterun-<version>.crate (cargo package, which builds
                it from its packaged files), and the same unpacked beside it,
                which a consumer's [patch.crates-io] can name
+      npm      @bdd-suite/runtime as bdd-suite-runtime-<version>.tgz (npm pack,
+               which builds dist/ first)
 
     Each package is checked with Test-PackageContents.ps1 against its list in
     packaging/ (the Go zip is also made, and so checked, by golang.org/x/mod/zip).
     Exits 1 when a pack or a check fails.
 
 .EXAMPLE
-    pwsh -File scripts/local-feeds.ps1 -Language csharp, go, rust
+    pwsh -File scripts/local-feeds.ps1 -Language csharp, go, rust, typescript
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('csharp', 'go', 'rust')][string[]]$Language = @('csharp', 'go', 'rust'),
+    [ValidateSet('csharp', 'go', 'rust', 'typescript')][string[]]$Language = @('csharp', 'go', 'rust', 'typescript'),
     [string]$Out
 )
 
@@ -87,6 +89,23 @@ foreach ($language in $Language) {
                 $stream.Dispose()
             }
             Write-Output "cargo feed: $feed"
+        }
+        'typescript' {
+            $feed = Join-Path $Out 'npm'
+            New-Item -ItemType Directory -Force -Path $feed | Out-Null
+            Get-ChildItem $feed -Filter 'bdd-suite-runtime-*.tgz' | Remove-Item -Force
+            Push-Location (Join-Path $repo 'runtimes/typescript')
+            try {
+                npm pack --pack-destination $feed --silent | Out-Null
+                if ($LASTEXITCODE) { throw 'npm pack failed' }
+            } finally {
+                Pop-Location
+            }
+            foreach ($package in Get-ChildItem $feed -Filter '*.tgz') {
+                & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Test-PackageContents.ps1') -Package $package.FullName
+                if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
+            }
+            Write-Output "npm feed: $feed"
         }
     }
 }

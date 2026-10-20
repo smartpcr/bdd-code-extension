@@ -4,10 +4,10 @@
 // DEC-Y14 gives every binding the same four verbs and three exit codes:
 //
 //   suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-//   suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-//                    [--dry-run] [--param name=value] [--trace-file f.json]
+//   suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+//                    [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
 //                    [any option an extension declares, with its value]
-//   suiterun list    --path <glob> [--tags a,b]
+//   suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 //   suiterun actions [--json]
 //   suiterun generate --config <file> [--config <file>...] [--plan] [--check]
 //                     [--provider node|vitest|jest|mocha] [--out <dir>]
@@ -37,6 +37,10 @@ export interface Options {
   verb: Verb;
   path: string;
   tags: string[];
+  /** --name globs (`*`, `?`): a case is selected when its name matches any of them and the tag filter selects it; none selects every case (spec/README.md). */
+  names: string[];
+  /** --progress: live lines while a run goes, in the shape spec/progress.md gives. */
+  progress: boolean;
   results: string;
   traceFile: string;
   format: ReportFormat;
@@ -58,9 +62,9 @@ export interface Options {
 }
 
 export const USAGE = `suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                 [--dry-run] [--param name=value] [--trace-file f.json]
-suiterun list    --path <glob> [--tags a,b]
+suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                 [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
+suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 suiterun actions [--json]
 suiterun generate --config <file> [--config <file>...] [--plan] [--check]
                   [--provider node|vitest|jest|mocha] [--out <dir>]`;
@@ -74,8 +78,8 @@ export const usage = (composite?: Composite): string => (composite?.options.leng
 export class UsageError extends Error {}
 
 const VERBS: readonly Verb[] = ['lint', 'run', 'list', 'actions', 'generate'];
-const SWITCHES = new Set(['--json', '--strict', '--dry-run', '--binding-check']);
-const VALUED = new Set(['--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--config', '--provider', '--out']);
+const SWITCHES = new Set(['--json', '--strict', '--dry-run', '--binding-check', '--progress']);
+const VALUED = new Set(['--path', '--tags', '--name', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--config', '--provider', '--out']);
 /** generate takes these and no other; no other verb takes them. */
 const GENERATE_FLAGS = new Set(['--config', '--plan', '--check', '--provider', '--out']);
 
@@ -84,7 +88,7 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
   const USAGE = usage(composite);
   const extensionFlags = new Set(composite?.options.map(o => o.flag) ?? []);
   const options: Options = {
-    verb: 'actions', path: '', tags: [], results: '', traceFile: '', format: 'nunit3', params: [], binding: 'typescript',
+    verb: 'actions', path: '', tags: [], names: [], progress: false, results: '', traceFile: '', format: 'nunit3', params: [], binding: 'typescript',
     json: false, strict: false, dryRun: false, bindingCheck: false, schemaRoot: '', extensionOptions: new Map(), configs: [], plan: false, check: false,
     provider: '', out: '',
   };
@@ -104,6 +108,7 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
       if (name === '--json') options.json = true;
       else if (name === '--strict') options.strict = true;
       else if (name === '--dry-run') options.dryRun = true;
+      else if (name === '--progress') options.progress = true;
       else options.bindingCheck = true;
       continue;
     }
@@ -119,6 +124,7 @@ export function parse(argv: readonly string[], composite?: Composite): Options {
     switch (name) {
       case '--path': options.path = value; break;
       case '--tags': options.tags.push(...value.split(',').map(t => t.trim()).filter(Boolean)); break;
+      case '--name': options.names.push(...value.split(',').map(t => t.trim()).filter(Boolean)); break;
       case '--results': options.results = value; break;
       case '--trace-file': options.traceFile = value; break;
       case '--schema-root': options.schemaRoot = value; break;

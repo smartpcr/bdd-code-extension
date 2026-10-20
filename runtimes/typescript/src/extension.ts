@@ -73,7 +73,7 @@ export const DEFAULT_ENV_PREFIX = 'BDD_SUITE_';
 export const CORE_ROOTS: readonly string[] = ['capture', 'param', 'var', 'row', 'timeoutSec', 'defaults'];
 
 /** The core's own flags; an extension may not take one. */
-const CORE_FLAGS = ['--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--json', '--strict',
+const CORE_FLAGS = ['--path', '--tags', '--name', '--progress', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--json', '--strict',
   '--dry-run', '--binding-check'];
 
 export class ExtensionError extends Error {}

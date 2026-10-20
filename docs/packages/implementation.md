@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and run locally, their CI not yet run ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md)); K4 to K9 not started.** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 built and run locally ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md)); K5 to K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -422,14 +422,14 @@ entries; E1 (Rust), E4, `cargo publish --dry-run`.
 Result: D5, D8, D15 (TypeScript). Entry: K0. Exit evidence: TypeScript corpus
 with the new entries and its coverage gate; E1 (TypeScript), E5.
 
-- [ ] K4.1 `--name` and `--progress`; `names` and the observer interface.
-- [ ] K4.2 The progress printer.
-- [ ] K4.3 The bounded action catches any thrown value.
-- [ ] K4.4 Core spec file in the package; `bdd-suite:core` in the loader.
-- [ ] K4.5 Tests; `npm test` with the coverage gate; the corpus with D1's entries.
-- [ ] K4.6 `package.json`: not private, `files`, metadata, `publishConfig`, `prepack`.
-- [ ] K4.7 `npm pack`; E1 (TypeScript).
-- [ ] K4.8 `samples/consumers/typescript`; E5.
+- [x] K4.1 `--name` and `--progress`; `names` and the observer interface.
+- [x] K4.2 The progress printer.
+- [x] K4.3 The bounded action catches any thrown value.
+- [x] K4.4 Core spec file in the package; `bdd-suite:core` in the loader.
+- [x] K4.5 Tests; `npm test` with the coverage gate; the corpus with D1's entries.
+- [x] K4.6 `package.json`: not private, `files`, metadata, `publishConfig`, `prepack`.
+- [x] K4.7 `npm pack`; E1 (TypeScript).
+- [x] K4.8 `samples/consumers/typescript`; E5.
 
 ### Stage K5: PowerShell (P1)
 

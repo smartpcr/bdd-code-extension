@@ -50,6 +50,9 @@ if ($name -ceq "v$version" -and $Package -match '[\\/]@v[\\/]') {
 } elseif ($leaf -match "^(?<id>.+)-$escaped\.crate$") {
     $kind, $id = 'crate', $Matches.id
     $prefix = "$id-$version/"
+} elseif ($leaf -match "^(?<id>.+)-$escaped\.tgz$") {
+    # npm pack names @scope/name scope-name-<version>.tgz; every entry is under package/.
+    $kind, $id, $prefix = 'npm', $Matches.id, 'package/'
 } elseif ($leaf -match "^(?<id>.+)\.$escaped\.nupkg$") {
     $kind, $id, $prefix = 'nuget', $Matches.id, ''
 } else {
@@ -60,7 +63,7 @@ if (-not $Expected) { $Expected = Join-Path $repo "packaging/$id.files.txt" }
 
 # Every file the archive holds, and a way to read one of them as text.
 $files = @{}
-if ($kind -eq 'crate') {
+if ($kind -in 'crate', 'npm') {
     # A gzipped tar, read with .NET itself rather than whichever tar is on PATH.
     $stream = [IO.File]::OpenRead((Resolve-Path $Package))
     try {
@@ -126,6 +129,17 @@ switch ($kind) {
                 @('(?m)^description = "', 'it has no description'))) {
             if ($manifest -notmatch $rule[0]) { $problems.Add($rule[1]) }
         }
+        foreach ($file in 'LICENSE', 'README.md') { if ($held -cnotcontains $file) { $problems.Add("it holds no $file") } }
+        $said = 'MIT, README, LICENSE, repository'
+    }
+    'npm' {
+        $manifest = (Text 'package.json') | ConvertFrom-Json
+        if (($manifest.name -replace '^@', '' -replace '/', '-') -cne $id) { $problems.Add("its name $($manifest.name) is not $id") }
+        if ($manifest.version -ne $version) { $problems.Add("its version is $($manifest.version), not package.json's $version") }
+        if ($manifest.license -ne 'MIT') { $problems.Add('it declares no MIT license') }
+        if ($manifest.repository.url -notmatch 'github\.com/smartpcr/bdd-code-extension') { $problems.Add('it names no repository') }
+        if ($manifest.private) { $problems.Add('it is private') }
+        if (-not $manifest.description) { $problems.Add('it has no description') }
         foreach ($file in 'LICENSE', 'README.md') { if ($held -cnotcontains $file) { $problems.Add("it holds no $file") } }
         $said = 'MIT, README, LICENSE, repository'
     }

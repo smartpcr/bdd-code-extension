@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: design
 
-Status: **designed 2026-10-20; nothing built.** The plan that builds it is
+Status: **designed 2026-10-20; stages K0 to K4 built ([plan](implementation.md)). Release 0.7.0 (2026-10-20) went to this repository and its GitHub Packages feed only, by the user's choice that day: the NuGet packages on GitHub Packages and as release assets, the crate as a release asset, the Go module by its tag; the public registries of DEC-P02 come later.** The plan that builds it is
 [implementation.md](implementation.md); every outcome here links to the
 deliverables that produce it and the scenarios that prove it. Decisions taken
 with the user on 2026-10-20: publish to the **public registries**; upstream the

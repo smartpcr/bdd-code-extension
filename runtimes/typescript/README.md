@@ -5,6 +5,39 @@ library for editors), the run (`runFile`, the session), reports and the
 `suiterun` command line, extensible through its extension API. It is held to
 the conformance corpus in `../../conformance/` like every runtime.
 
+## Install
+
+```text
+npm install --save-dev @bdd-suite/runtime@0.7.0
+```
+
+The package is not on the npm registry yet: until it is, install the tarball a
+release carries (`bdd-suite-runtime-<version>.tgz`) or one `npm pack` makes in
+`runtimes/typescript`. It carries the release's version, the VS Code
+extension's, so every runtime of one release agrees, and needs Node.js 24.
+
+A workspace adds its own actions in an `Extension` and builds its own
+`suiterun` from it in one line:
+
+```js
+// bin/suiterun.mjs
+import { main } from '@bdd-suite/runtime/cli';
+process.exitCode = await main(process.argv.slice(2), undefined, [myExtension]);
+```
+
+Its catalog imports the core this package carries by name, with no copy of the
+spec (`imports: [ "bdd-suite:core" ]`); the core's actions are cut to the
+catalog's own `bindings` list. Besides `lint`, `run`, `list` and `actions`,
+`run` and `list` take `--name glob[,glob]` (cases whose names match, with the
+tag filter) and `run` takes `--progress` (live `StartGroup`/`EndGroup`/`Summary`
+lines for long runs; spec/progress.md). An action that throws anything, an
+`Error` or not, fails its step; the run goes on. A library caller gets the same
+through `RunOptions.names` and a `RunObserver`.
+
+A working consumer that uses only the package, with its own extension,
+`suiterun` and `node:test` tests:
+[samples/consumers/typescript](https://github.com/smartpcr/bdd-code-extension/tree/main/samples/consumers/typescript).
+
 ## Run suites with your test framework
 
 `suiterun generate` turns a project's suites into `node:test`, Vitest or Jest

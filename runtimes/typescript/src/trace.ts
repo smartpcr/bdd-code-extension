@@ -18,12 +18,16 @@ export interface Entry {
 
 export class Trace {
   readonly entries: Entry[] = [];
+  /** Told of each entry as it is recorded, for a run observer (spec/progress.md); it sees the entry and changes nothing. */
+  added: ((entry: Entry) => void) | undefined;
 
   add(phase: Phase, caseName: string, step: string, action: string, status: Status, reason: Reason): void {
-    this.entries.push({
+    const entry: Entry = {
       phase, ...(caseName ? { case: caseName } : {}), ...(step ? { step } : {}), ...(action ? { action } : {}), status,
       ...(reason ? { reason } : {}),
-    });
+    };
+    this.entries.push(entry);
+    this.added?.(entry);
   }
 
   /** The --trace-file document, in the key order of expectation.schema.json. */

@@ -1,6 +1,7 @@
 // The suite schema and the action catalog, read at run time (nothing is
 // compiled in, so a catalog change needs no rebuild).
 import * as path from 'node:path';
+import { CORE_CATALOG } from './coreCatalog.js';
 import { loadDocument } from './model.js';
 import { diskReader, Reader } from './reader.js';
 import { isList, isMap, Value, ValueMap } from './value.js';
@@ -86,6 +87,27 @@ const declaredIn = new Map<string, string>();
  * imports first, depth first in listed order, each relative to the file that
  * names it; then the catalog's own. An import cycle is refused.
  */
+/**
+ * The import name of the core this runtime carries: spec/core.catalog.yaml as
+ * built in (coreCatalog.ts), so a catalog needs no copy of the spec
+ * (spec/README.md; docs/packages, DEC-P07).
+ */
+export const CORE_IMPORT = 'bdd-suite:core';
+
+/** The core's action entries read through bdd-suite:core, each one's bindings cut to the importing catalog's own list when it has one. */
+function coreEntries(importer: ValueMap): { entry: ValueMap; file: string }[] {
+  const core = loadDocument(CORE_CATALOG).value as ValueMap;
+  const keep = importer.has('bindings') ? new Set(strings(importer.get('bindings'))) : undefined;
+  const list = core.get('actions');
+  return (isList(list) ? list : []).filter(isMap).map(entry => {
+    const bindings = entry.get('bindings');
+    if (!keep || !isList(bindings)) return { entry, file: CORE_IMPORT };
+    const cut = new Map(entry);
+    cut.set('bindings', bindings.filter(b => typeof b === 'string' && keep.has(b)));
+    return { entry: cut, file: CORE_IMPORT };
+  });
+}
+
 function catalogEntries(file: string, text: string, reader: Reader, visiting: string[] = []): { entry: ValueMap; file: string }[] {
   if (!visiting.length) declaredIn.clear();
   const key = path.resolve(file);
@@ -99,6 +121,10 @@ function catalogEntries(file: string, text: string, reader: Reader, visiting: st
   const out: { entry: ValueMap; file: string }[] = [];
   const root = isMap(catalog.value) ? catalog.value : new Map<string, Value>();
   for (const raw of strings(root.get('imports'))) {
+    if (raw === CORE_IMPORT) {
+      out.push(...coreEntries(root));
+      continue;
+    }
     const imported = path.resolve(path.dirname(key), raw);
     const importedText = reader.read(imported);
     if (importedText === undefined) throw new SchemaError(`${file} imports ${raw}, which does not exist (${imported}).`);

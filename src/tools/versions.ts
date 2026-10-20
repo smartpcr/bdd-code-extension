@@ -6,7 +6,7 @@
 
 /** How a file holds the version. */
 export type VersionKind = 'csharp-props' | 'cargo-toml' | 'cargo-lock' | 'npm-package' | 'npm-lock' | 'psd1' | 'go-require' | 'msbuild-pin'
-  | 'cargo-dependency';
+  | 'cargo-dependency' | 'npm-dependency';
 
 export interface VersionFile {
   /** Relative to the repository root, with forward slashes. */
@@ -30,6 +30,7 @@ export const VERSION_FILES: readonly VersionFile[] = [
   { file: 'samples/consumers/csharp/Directory.Packages.props', kind: 'msbuild-pin' },
   { file: 'samples/consumers/go/go.mod', kind: 'go-require' },
   { file: 'samples/consumers/rust/Cargo.toml', kind: 'cargo-dependency' },
+  { file: 'samples/consumers/typescript/package.json', kind: 'npm-dependency' },
 ];
 
 /** The TypeScript runtime's package name, which the npm lock files record. */
@@ -98,6 +99,8 @@ const RULES: Record<VersionKind, Rule> = {
   'msbuild-pin': pattern(/(<BddSuiteVersion\b[^>]*>)([^<]*)(<\/BddSuiteVersion>)/),
   // A consumer's suiterun dependencies, inline tables with the version first.
   'cargo-dependency': pattern(/(^suiterun\s*=\s*\{\s*version\s*=\s*")([^"]*)(")/m),
+  // A consumer's dependency on the runtime, an exact version.
+  'npm-dependency': pattern(/("@bdd-suite\/runtime":\s*")([^"]*)(")/),
 };
 
 /** Every version a file of this kind holds. A runtime manifest holds one; a lock may hold several. */

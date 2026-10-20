@@ -22,3 +22,4 @@ samples/consumers/**/artifacts/
 samples/consumers/**/TestResults/
 samples/consumers/**/target/
 samples/consumers/**/Cargo.lock
+samples/consumers/**/node_modules/

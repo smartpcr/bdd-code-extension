@@ -1,0 +1,14 @@
+{
+  "name": "greeter",
+  "version": "0.1.0",
+  "description": "A consumer of the @bdd-suite/runtime package (docs/packages, E5): its own extension and suiterun, and its suites as node:test tests. run-e5.ps1 installs the package from the tarball scripts/local-feeds.ps1 packs.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "suiterun generate --config bddsuite.tests.yaml --out tests",
+    "test": "node --test --test-reporter=spec \"tests/*.bdd.test.ts\""
+  },
+  "devDependencies": {
+    "@bdd-suite/runtime": "0.7.0"
+  }
+}

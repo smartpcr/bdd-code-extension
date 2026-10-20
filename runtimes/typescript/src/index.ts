@@ -30,8 +30,14 @@ export {
   createRunContext, flushTrace, GUARDED_MESSAGE, openLinted, openSession, optionVariable, runContextFromEnv, Session, SuiteRefusedError,
 } from './session.js';
 export type { RunContext, TeardownResult } from './session.js';
-export { runFile, coreOnly } from './exec.js';
-export type { CaseResult, RunOptions, RunExtensions, SuiteResult } from './exec.js';
+export { runFile, coreOnly, thrownMessage } from './exec.js';
+export type { CaseResult, RunObserver, RunOptions, RunExtensions, SuiteResult } from './exec.js';
+// Run progress and the observer behind it (spec/progress.md), the name filter,
+// and the core this runtime carries (docs/packages, D5).
+export { ProgressPrinter, setProgressWriter } from './progress.js';
+export { nameMatches } from './suite.js';
+export { CORE_IMPORT } from './schema.js';
+export { CORE_CATALOG } from './coreCatalog.js';
 
 /** One finding, with exactly the fields of diagnostic.schema.json. */
 export interface Diagnostic {

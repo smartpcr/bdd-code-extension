@@ -13,7 +13,7 @@ import { loadSchema, withOverlay } from '../../src/schema.js';
 import { validateFile } from '../../src/validate/index.js';
 
 type Entry = { kind: string; suite: string; expectation: string; binding?: string; bindingCheck?: boolean; strict?: boolean;
-  params?: Record<string, unknown>; catalogOverlay?: string; pendingIn?: string[] };
+  params?: Record<string, unknown>; catalogOverlay?: string; schemaRoot?: string; pendingIn?: string[] };
 type Expected = { exitCode: number; diagnostics: { code: string; severity: string; line: number; column: number }[] };
 
 const root = repo;
@@ -23,9 +23,10 @@ const base = loadSchema(corpusSchema);
 
 export function runEntry(entry: Entry): { got: string[]; want: string[]; exit: number; wantExit: number } {
   const expected = JSON.parse(fs.readFileSync(path.join(corpus, entry.expectation), 'utf8')) as Expected;
+  const own = entry.schemaRoot ? loadSchema(path.join(corpus, entry.schemaRoot)) : base;
   const schema = entry.catalogOverlay
-    ? withOverlay(base, loadDocument(fs.readFileSync(path.join(corpus, entry.catalogOverlay), 'utf8')).value)
-    : base;
+    ? withOverlay(own, loadDocument(fs.readFileSync(path.join(corpus, entry.catalogOverlay), 'utf8')).value)
+    : own;
   const file = path.join(corpus, entry.suite);
   const found = validateFile(file, path.relative(root, file).replace(/\\/g, '/'), schema, {
     binding: entry.binding ?? 'typescript', bindingCheck: !!entry.bindingCheck,
@@ -66,7 +67,7 @@ test('E-B12 the same entries through the program: `lint --json` output and exit 
     // A catalog overlay is a library input the shared command line does not take.
     if (entry.catalogOverlay) continue;
     const expected = JSON.parse(fs.readFileSync(path.join(corpus, entry.expectation), 'utf8')) as Expected;
-    const argv = [cli, 'lint', '--schema-root', corpusSchema, '--path', path.join(corpus, entry.suite), '--json',
+    const argv = [cli, 'lint', '--schema-root', entry.schemaRoot ? path.join(corpus, entry.schemaRoot) : corpusSchema, '--path', path.join(corpus, entry.suite), '--json',
       ...(entry.binding ? ['--binding', entry.binding] : []), ...(entry.bindingCheck ? ['--binding-check'] : []),
       ...(entry.strict ? ['--strict'] : []), ...Object.entries(entry.params ?? {}).flatMap(([k, v]) => ['--param', `${k}=${String(v)}`])];
     const r = spawnSync(process.execPath, argv, { cwd: root, encoding: 'utf8' });

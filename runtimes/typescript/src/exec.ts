@@ -18,7 +18,7 @@ import {
   stepLimit, tagsMatch,
 } from './suite.js';
 import { diskReader, Reader } from './reader.js';
-import { Phase, Reason, Status, Trace } from './trace.js';
+import { Entry, Phase, Reason, Status, Trace } from './trace.js';
 import { isList, isMap, toJson, Value, ValueMap } from './value.js';
 import { createRunContext, openSession } from './session.js';
 import { listOf, textOf } from './walk.js';
@@ -41,6 +41,10 @@ export const coreOnly = (): RunExtensions => {
 
 export interface RunOptions {
   tags: string[];
+  /** --name globs; see nameMatches. None selects every case. */
+  names?: string[];
+  /** Told of each selected case and each trace entry as the run goes (spec/progress.md); it never changes the run or the trace. */
+  observer?: RunObserver;
   params: [string, string][];
   dryRun: boolean;
   recordPath: string;
@@ -49,6 +53,17 @@ export interface RunOptions {
   /** <prefix>PARAM_<NAME> values; the process environment by default. */
   env?: NodeJS.ProcessEnv;
   reader?: Reader;
+}
+
+/**
+ * Told when a selected case starts and finishes, and of each trace entry as it
+ * is recorded, so a long run can say what it is doing while it does it
+ * (spec/progress.md). An observer sees the run; it cannot change it.
+ */
+export interface RunObserver {
+  caseStarted(suite: string, caseName: string): void;
+  caseFinished(suite: string, result: CaseResult): void;
+  entry(entry: Entry): void;
 }
 
 export interface CaseResult {
@@ -166,6 +181,17 @@ async function bounded(name: string, step: ValueMap, ctx: Context, limitSec: num
 
 const SECOND = 1000;
 
+/** What a thrown value says: an Error's message, a string itself, anything else as JSON or text. */
+export function thrownMessage(thrown: unknown): string {
+  if (thrown instanceof Error) return thrown.message;
+  if (typeof thrown === 'string') return thrown;
+  try {
+    return JSON.stringify(thrown) ?? String(thrown);
+  } catch {
+    return String(thrown);
+  }
+}
+
 /** Runs one expanded step and records it; throws an ActionError naming the step when it fails. */
 async function runStep(step: ValueMap, ctx: Context, schema: Schema, deadline: number, phase: Phase, caseName: string, trace: Trace,
   collected: Map<string, Value[]>): Promise<Value> {
@@ -218,9 +244,11 @@ async function runStep(step: ValueMap, ctx: Context, schema: Schema, deadline: n
       })
       : await bounded(name, expanded, ctx, limit, label, interruptible);
   } catch (e) {
+    // Anything an action throws is this step's failure, not only an Error
+    // (spec/progress.md, "The action worker").
     const reason = e instanceof ActionError ? e.reason : 'action';
     trace.add(phase, caseName, label, name, 'failed', reason);
-    const message = (e as Error).message;
+    const message = thrownMessage(e);
     throw new ActionError(message.startsWith(label) ? message : `${label}: ${message}`, reason);
   }
   const captureAs = textOf(expanded, 'captureAs');
@@ -289,19 +317,32 @@ export async function runCaseBody(c: ValueMap, phases: Record<string, ValueMap[]
 export async function runFile(file: string, suite: ValueMap, schema: Schema, options: RunOptions, trace: Trace, run: RunExtensions = coreOnly()): Promise<SuiteResult> {
   const session = openSession(file, suite, schema, createRunContext(run, options, trace));
   const result: SuiteResult = { name: session.name, cases: [] };
-  await session.setup();
-  for (let index = 0; index < session.cases.length; index++) {
-    await session.beforeEach(index);
-    await session.runCase(index);
-    result.cases.push(await session.afterEach(index));
+  // A dry run traces nothing, so its observer hears nothing either.
+  const observer = options.dryRun ? undefined : options.observer;
+  const before = trace.added;
+  if (observer) trace.added = entry => observer.entry(entry);
+  try {
+    await session.setup();
+    for (let index = 0; index < session.cases.length; index++) {
+      // Only the cases this run selected are reported (spec/progress.md).
+      const observed = observer && session.isSelected(index) ? observer : undefined;
+      observed?.caseStarted(session.name, session.cases[index]!);
+      await session.beforeEach(index);
+      await session.runCase(index);
+      const finished = await session.afterEach(index);
+      result.cases.push(finished);
+      observed?.caseFinished(session.name, finished);
+    }
+    // A teardown that fails is its own entry rather than a change to the last
+    // case's result: a teardown is not a test, but the run did not end cleanly.
+    const teardown = await session.teardown();
+    if (teardown.failed) {
+      result.cases.push({ name: 'teardown', status: 'failed', reason: 'hook', message: teardown.message, output: '', durationSec: teardown.durationSec, afterEachFailed: false });
+    }
+    return result;
+  } finally {
+    trace.added = before;
   }
-  // A teardown that fails is its own entry rather than a change to the last
-  // case's result: a teardown is not a test, but the run did not end cleanly.
-  const teardown = await session.teardown();
-  if (teardown.failed) {
-    result.cases.push({ name: 'teardown', status: 'failed', reason: 'hook', message: teardown.message, output: '', durationSec: teardown.durationSec, afterEachFailed: false });
-  }
-  return result;
 }
 
 /** Whether any case failed or errored. */

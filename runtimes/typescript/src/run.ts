@@ -11,7 +11,8 @@ import { allNames, anyFailed, runFile, SuiteResult } from './exec.js';
 import { coreActions } from './actions/core.js';
 import { compose, Composite, start } from './extension.js';
 import { loadDocument } from './model.js';
-import { caseTags, cases, tagsMatch } from './suite.js';
+import { caseTags, cases, nameMatches, tagsMatch } from './suite.js';
+import { ProgressPrinter } from './progress.js';
 import { junit, nunit3 } from './report.js';
 import { Trace } from './trace.js';
 import { isMap, ValueMap } from './value.js';
@@ -110,8 +111,10 @@ export async function runVerb(options: Options, extras: RunExtras = {}): Promise
     const { schemaRoot } = roots(options, cwd);
     const schema = loadSchema(schemaRoot, reader);
     const files = resolveGlob(options.path, cwd);
+    // Live lines while the run goes, for runs that take hours (spec/progress.md).
+    const progress = options.progress ? new ProgressPrinter() : undefined;
     const settings = {
-      tags: options.tags, params: options.params, dryRun: options.dryRun, recordPath: env[`${composite.envPrefix}RECORD_PATH`] ?? '', env, reader,
+      tags: options.tags, names: options.names, ...(progress ? { observer: progress } : {}), params: options.params, dryRun: options.dryRun, recordPath: env[`${composite.envPrefix}RECORD_PATH`] ?? '', env, reader,
       ...(extras.signal ? { signal: extras.signal } : {}),
     };
     // Once per run, shared by every file, so an extension's state persists across files.
@@ -121,6 +124,7 @@ export async function runVerb(options: Options, extras: RunExtras = {}): Promise
       lines.push(`=== Suite: ${path.basename(file)} ===`, ...result.cases.map(c => `  [${c.status.padEnd(5)}] ${c.name}`));
       suites.push(result);
     }
+    progress?.summary();
     if (options.traceFile) {
       write(options.traceFile, trace.toJson());
       lines.push(`Trace written to ${options.traceFile}`);
@@ -145,7 +149,9 @@ export async function listVerb(options: Options, cwd = process.cwd(), reader: Re
   try {
     for (const file of resolveGlob(options.path, cwd)) {
       const suite = loadSuite(file, reader);
-      for (const c of cases(suite)) if (tagsMatch(caseTags(suite, c), options.tags)) lines.push(`${path.basename(file)}  ${textOf(c, 'name')}`);
+      for (const c of cases(suite)) {
+        if (tagsMatch(caseTags(suite, c), options.tags) && nameMatches(textOf(c, 'name'), options.names)) lines.push(`${path.basename(file)}  ${textOf(c, 'name')}`);
+      }
     }
   } catch (e) {
     return refused((e as Error).message);
