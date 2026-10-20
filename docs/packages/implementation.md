@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 built and run locally ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md)); K5 to K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 in CI with the 0.7.1 release, K5 built and run locally, not committed ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md)); K6 to K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -436,14 +436,14 @@ with the new entries and its coverage gate; E1 (TypeScript), E5.
 Result: D6, D10, D15 (PowerShell). Entry: K0. Exit evidence: PowerShell corpus
 with the new entries; E1 (PowerShell), E6.
 
-- [ ] K5.1 `--name`/`-Name` and `--progress`/`-Progress`; `--test-name` kept.
-- [ ] K5.2 The observer scriptblocks and the progress printer.
-- [ ] K5.3 The runspace worker catches every error.
-- [ ] K5.4 Core file in the module; `bdd-suite:core` in `Read-SuiteCatalog`.
-- [ ] K5.5 Pester tests; the corpus with D1's entries.
-- [ ] K5.6 `BddSuite.psd1` Gallery metadata and `FileList`; entry scripts inside the module with forwarders at the old paths.
-- [ ] K5.7 A file PSResource repository; E1 (PowerShell).
-- [ ] K5.8 `samples/consumers/powershell`; E6.
+- [x] K5.1 `--name`/`-Name` and `--progress`/`-Progress`; `--test-name` kept.
+- [x] K5.2 The observer scriptblocks and the progress printer.
+- [x] K5.3 The runspace worker catches every error.
+- [x] K5.4 Core file in the module; `bdd-suite:core` in `Read-SuiteCatalog`.
+- [x] K5.5 Pester tests; the corpus with D1's entries.
+- [x] K5.6 `BddSuite.psd1` Gallery metadata and `FileList`; entry scripts inside the module with forwarders at the old paths.
+- [x] K5.7 A file PSResource repository; E1 (PowerShell).
+- [x] K5.8 `samples/consumers/powershell`; E6.
 
 ### Stage K6: the core spec and the VS Code extension (P1)
 

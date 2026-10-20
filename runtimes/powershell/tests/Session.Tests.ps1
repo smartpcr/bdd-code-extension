@@ -16,8 +16,8 @@ BeforeAll {
 
     $script:counter = 0
     function New-Context {
-        param([hashtable]$Environment = @{})
-        return New-BddSuiteRunContext -SchemaRoot $script:corpusSchema -Extension $script:corpusExtension -Environment $Environment
+        param([hashtable]$Environment = @{}, [string]$SchemaRoot = $script:corpusSchema)
+        return New-BddSuiteRunContext -SchemaRoot $SchemaRoot -Extension $script:corpusExtension -Environment $Environment
     }
     function Open-Suite {
         param([string]$Text, [hashtable]$Context = (New-Context), [switch]$Guarded)
@@ -235,10 +235,13 @@ Describe 'E1: every execute entry through the session, in file order and reverse
             $expected = @(((Get-Content -LiteralPath (Join-Path $script:corpusRoot $entry.expectation) -Raw) | ConvertFrom-Json -AsHashtable).trace)
             $environment = @{ BDD_SUITE_TAGS = [string]$entry.tags }
             $param = @(foreach ($name in @(if ($entry.params) { $entry.params.Keys } else { @() })) { "$name=$([string]$entry.params[$name])" })
+            $names = @(([string]$entry.names) -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            $root = if ($entry.schemaRoot) { Join-Path $script:corpusRoot $entry.schemaRoot } else { $script:corpusSchema }
             $drive = {
                 param([bool]$Reversed)
-                $context = New-Context $environment
+                $context = New-Context $environment $root
                 $context.allowGuarded = $true
+                $context.nameFilter = $names
                 foreach ($pair in $param) { if ($pair -match '^([^=]+)=(.*)$') { $context.commandLineParam[$Matches[1]] = $Matches[2] } }
                 $session = Open-BddSuiteSession -Path $file -Context $context -NoLint
                 Invoke-BddSuiteSetup -Session $session
@@ -266,12 +269,12 @@ Describe 'E1: every execute entry through the session, in file order and reverse
             $wantReversed = @($setup) + @($groups | ForEach-Object { $_.lines }) + @($teardown)
             $reversed = & $drive $true
             if (($reversed.Lines -join "`n") -ne ($wantReversed -join "`n")) { $wrong.Add("$($entry.suite) (reversed):`n$($reversed.Lines -join "`n")") }
-            $whole = Invoke-BddSuite -Path $file -SchemaRoot $script:corpusSchema -Extension $script:corpusExtension -Tags ([string]$entry.tags) -Param $param -ResultsFile '' -Json
+            $whole = Invoke-BddSuite -Path $file -SchemaRoot $root -Extension $script:corpusExtension -Tags ([string]$entry.tags) -Name $names -Param $param -ResultsFile '' -Json
             $wholeResults = @($whole.Suites[0].tests | Where-Object { $_.name -ne 'teardown' } | ForEach-Object { "$($_.name)|$($_.status)|$($_.message)" })
             if (($wholeResults -join "`n") -ne ($inOrder.Results -join "`n")) { $wrong.Add("$($entry.suite): results differ from the whole-file run") }
             $checked++
         }
-        $checked | Should -Be 14
+        $checked | Should -Be 20
         $wrong -join "`n`n" | Should -BeNullOrEmpty
     }
 }

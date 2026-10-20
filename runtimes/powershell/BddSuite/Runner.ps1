@@ -154,6 +154,8 @@ function Add-SuiteTrace {
     $entry['status'] = $Status
     if ($Reason) { $entry['reason'] = $Reason }
     $script:RunState.trace.Add($entry)
+    # A run observer sees each entry as it is recorded (spec/progress.md).
+    if ($script:RunState.observer) { & $script:RunState.observer.Entry $entry }
 }
 
 function Get-StepIdentity {
@@ -576,6 +578,7 @@ function Invoke-BddSuite {
     param(
         [Parameter(Mandatory)][string[]]$Path,
         [string]$Tags = '',
+        [string[]]$Name = @(),
         [string]$TestName = '',
         [string]$ResultsFile = 'test-results.xml',
         [ValidateSet('NUnit3', 'JUnit')][string]$ReportFormat = 'NUnit3',
@@ -592,7 +595,9 @@ function Invoke-BddSuite {
         [string[]]$Extension = @(),
         [hashtable]$Option = @{},
         [ValidatePattern('^[a-z][a-z0-9]*$')][string]$Binding = 'powershell',
-        [switch]$BindingCheck
+        [switch]$BindingCheck,
+        [switch]$Progress,
+        [hashtable]$Observer
     )
 
     $outcome = [pscustomobject]@{ ExitCode = 2; Diagnostics = @(); Suites = @(); Trace = @(); Error = $null }
@@ -638,7 +643,8 @@ function Invoke-BddSuiteRun {
         [string]$ReportFormat = 'NUnit3', [switch]$DryRun, [switch]$Lint, [switch]$Strict, [switch]$Json,
         [string[]]$Param = @(), [string]$TraceFile = '', [string]$TimingFile = '', [string]$StopFile = '',
         [string]$SchemaRoot, [string[]]$ActionPath = @(), [string[]]$Extension = @(), [hashtable]$Option = @{},
-        [string]$Binding = 'powershell', [switch]$BindingCheck, [Parameter(Mandatory)]$Outcome
+        [string]$Binding = 'powershell', [switch]$BindingCheck, [string[]]$Name = @(), [switch]$Progress, [hashtable]$Observer,
+        [Parameter(Mandatory)]$Outcome
     )
 
     $run = $script:RunState
@@ -650,9 +656,10 @@ function Invoke-BddSuiteRun {
     $run.composite = $composite
     # Options are refused before the lint: a value nobody reads is a mistake
     # whichever suite it was meant for.
-    foreach ($name in @($Option.Keys)) {
-        if (-not @($composite.Options | Where-Object { $_.Name -eq [string]$name }).Count) {
-            throw "Invoke-BddSuite does not take the option ${name}: no extension of this run declares it."
+    # Not $name: that is -Name, the name filter.
+    foreach ($optionName in @($Option.Keys)) {
+        if (-not @($composite.Options | Where-Object { $_.Name -eq [string]$optionName }).Count) {
+            throw "Invoke-BddSuite does not take the option ${optionName}: no extension of this run declares it."
         }
     }
 
@@ -708,6 +715,12 @@ function Invoke-BddSuiteRun {
     # What the session reads from the run (Session.ps1): suiterun runs guarded
     # suites, and the command line's tags and parameters.
     $run.tagFilter = $tagFilter
+    $run.nameFilter = @($Name | Where-Object { $_ })
+    # Live lines while the run goes, for runs that take hours (spec/progress.md);
+    # a library caller may give an observer of its own. A dry run traces
+    # nothing, so its observer hears nothing either.
+    $printer = if ($Progress) { New-BddSuiteProgressPrinter } else { $null }
+    $run.observer = if ($DryRun) { $null } elseif ($Observer) { $Observer } else { $printer }
     $run.commandLineParam = $commandLineParam
     $run.allowGuarded = $true
     $run.schemaRoot = $roots.schemaRoot
@@ -725,12 +738,16 @@ function Invoke-BddSuiteRun {
         }
         Invoke-BddSuiteSetup -Session $session
         for ($index = 0; $index -lt $session.Cases.Count; $index++) {
+            # Only the cases this run selected are reported (spec/progress.md).
+            $observed = if ($run.observer -and $session.Selected[$index]) { $run.observer } else { $null }
+            if ($observed) { & $observed.CaseStarted $session.Name $session.Cases[$index] }
             Invoke-BddSuiteBeforeEach -Session $session -Case $index
             $null = Invoke-BddSuiteCase -Session $session -Case $index
             $settled = Invoke-BddSuiteAfterEach -Session $session -Case $index
             # A stop asked for before a case started ends the file's cases there.
             if ($settled.stopped) { break }
             $suiteResult.tests.Add($settled)
+            if ($observed) { & $observed.CaseFinished $session.Name $settled }
         }
         # The teardown runs after the last case whether cases passed, and
         # whether the setup did: state a failed setup half-built still has to
@@ -741,6 +758,7 @@ function Invoke-BddSuiteRun {
         $results.Add($suiteResult)
     }
     $Outcome.Suites = @($results.ToArray())
+    if ($printer) { & $printer.Summary }
 
     # An empty -ResultsFile writes no report (the command line's run without
     # --results, as every program's suiterun).

@@ -11,6 +11,44 @@ extensions.
 Requirements: PowerShell 7.2 or later (tested on 7.6.7), the
 `powershell-yaml` module (tested with 0.4.12), and Pester 5 for the tests.
 
+## Install
+
+```powershell
+Register-PSResourceRepository -Name bdd-suite -Uri <a folder holding BddSuite.0.7.1.nupkg> -Trusted
+Install-PSResource BddSuite -Version 0.7.1 -Repository bdd-suite, PSGallery
+Import-Module BddSuite
+```
+
+The module is not on the PowerShell Gallery yet: until it is, a release
+carries it as `BddSuite.<version>.nupkg`; save it in a folder and register
+that folder, as above (`powershell-yaml`, which the module requires, comes
+from the Gallery). It carries the release's version, the VS Code extension's,
+so every runtime of one release agrees. `scripts/local-feeds.ps1 -Language
+powershell` builds the same package from a checkout.
+
+The package is the `BddSuite` folder, exactly the files its `FileList` names,
+with `suiterun.ps1`, `Invoke-BddSuite.ps1`, the core catalog and the license
+inside it. A workspace's own `suiterun.ps1` imports the module by name:
+
+```powershell
+#Requires -Modules @{ ModuleName = 'BddSuite'; RequiredVersion = '0.7.1' }
+Import-Module BddSuite -DisableNameChecking
+exit (Invoke-BddSuiteCli -Arguments $args -Extension @(Join-Path $PSScriptRoot 'My/My.psm1'))
+```
+
+Its catalog imports the core the module carries by name, with no copy of the
+spec (`imports: [ "bdd-suite:core" ]`); the core's actions are cut to the
+catalog's own `bindings` list. `run` and `list` take `--name glob[,glob]`
+(`-Name`; cases whose names match, with the tag filter) and `run` takes
+`--progress` (`-Progress`; live `StartGroup`/`EndGroup`/`Summary` lines for
+long runs; spec/progress.md). An action that throws any error fails its step;
+the run goes on. A library caller gives `Invoke-BddSuite -Observer` a
+hashtable of `CaseStarted`, `CaseFinished` and `Entry` script blocks.
+
+A working consumer that uses only the module, with its own extension,
+`suiterun.ps1` and Pester tests:
+[samples/consumers/powershell](https://github.com/smartpcr/bdd-code-extension/tree/main/samples/consumers/powershell).
+
 ## Layout
 
 | Path | What it is |
@@ -25,9 +63,12 @@ Requirements: PowerShell 7.2 or later (tested on 7.6.7), the
 | `BddSuite/Expression.psm1`, `Assertions.psm1`, `ReportCompare.psm1` | The `${...}` language, the operator table, the canonical report form. |
 | `BddSuite/actions/` | `ActionRegistry.ps1` (`Register-SuiteAction`), `Core.ps1`, `Wait.ps1`. |
 | `BddSuite/Cli.ps1` | `Invoke-BddSuiteCli`, the `suiterun` command line every program has (below). |
-| `suiterun.ps1` | That command line as a script, with the core alone; a workspace's own `suiterun.ps1` adds its extensions. |
-| `Invoke-BddSuite.ps1` | The older entry: `Invoke-BddSuite`'s own parameters as a script, which sets the exit code. |
-| `tests/` | `BddSuite.Tests.ps1` (the runtime's own tests), `Cli.Tests.ps1` (the command line), `Session.Tests.ps1` (the session's rules and E1), `Generate.Tests.ps1` (the generator, golden files in `golden/pester`) and `Conformance.Tests.ps1` (the corpus, with the generate entries). |
+| `BddSuite/Progress.ps1` | The name filter (`Test-SuiteNameMatch`), the progress printer and its writer. |
+| `BddSuite/core.catalog.yaml`, `BddSuite/LICENSE` | Copies of `spec/core.catalog.yaml` (what `bdd-suite:core` reads) and the repository's license; a test keeps them equal. |
+| `BddSuite/suiterun.ps1` | That command line as a script, with the core alone; a workspace's own `suiterun.ps1` adds its extensions. |
+| `BddSuite/Invoke-BddSuite.ps1` | The older entry: `Invoke-BddSuite`'s own parameters as a script, which sets the exit code. |
+| `suiterun.ps1`, `Invoke-BddSuite.ps1` | Forwarders to the two entries above, so the old paths keep working. |
+| `tests/` | `BddSuite.Tests.ps1` (the runtime's own tests), `Cli.Tests.ps1` (the command line), `Session.Tests.ps1` (the session's rules and E1), `Generate.Tests.ps1` (the generator, golden files in `golden/pester`), `Packages.Tests.ps1` (the module as a package, the name filter, the observer) and `Conformance.Tests.ps1` (the corpus, with the generate entries). |
 | `example/` | An example extension and its workspace (E3). |
 | `HANDOVER.md` | What of os-context's runner stayed there, and what its wrapper must do (D10). |
 
@@ -142,9 +183,9 @@ PowerShell binding like any other (DEC-S11):
 
 ```text
 pwsh -File runtimes/powershell/suiterun.ps1 lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-pwsh -File runtimes/powershell/suiterun.ps1 run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                                                    [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>]
-pwsh -File runtimes/powershell/suiterun.ps1 list    --path <glob> [--tags a,b] [--test-name <case>]
+pwsh -File runtimes/powershell/suiterun.ps1 run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                                                    [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>] [--progress]
+pwsh -File runtimes/powershell/suiterun.ps1 list    --path <glob> [--tags a,b] [--name a*,b?] [--test-name <case>]
 pwsh -File runtimes/powershell/suiterun.ps1 actions [--json]
 ```
 

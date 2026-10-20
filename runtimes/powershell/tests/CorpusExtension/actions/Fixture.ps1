@@ -12,3 +12,11 @@ Register-SuiteAction -Name 'fixture.append' -Handler {
     }
     return , @(@($list) + , $Step['item'])
 }
+
+# fixture.throw (execute/worker-throws.yml): an exception of a .NET type the
+# runtime never names, so only a worker that turns any error into the step's
+# failure keeps the run going (spec/progress.md).
+Register-SuiteAction -Name 'fixture.throw' -Handler {
+    param([hashtable]$Step, [hashtable]$Ctx)
+    throw [System.Security.Cryptography.CryptographicException]::new([string]$Step['message'])
+}

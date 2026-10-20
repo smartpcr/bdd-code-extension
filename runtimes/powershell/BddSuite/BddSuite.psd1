@@ -5,9 +5,12 @@
     Author            = 'bdd-code-extension contributors'
     Description       = 'The PowerShell runtime of the BDD suite format: suite model, lint, step execution, expressions, assertions, report comparison, the action registry, the core actions and the generic runner (Invoke-BddSuite), extensible by modules (README.md).'
     PowerShellVersion = '7.2'
+    CompatiblePSEditions = @('Core')
+    CompanyName       = 'bdd-code-extension contributors'
+    Copyright         = 'Copyright (c) bdd-code-extension contributors'
     FunctionsToExport = @(
         # The runner and the extension API.
-        'Invoke-BddSuite', 'Import-SuiteExtension', 'New-SuiteComposite', 'Start-SuiteExtension', 'Protect-SuiteText',
+        'Invoke-BddSuite', 'Test-SuiteNameMatch', 'New-BddSuiteProgressPrinter', 'Set-BddSuiteProgressWriter', 'Import-SuiteExtension', 'New-SuiteComposite', 'Start-SuiteExtension', 'Protect-SuiteText',
         'Get-SuiteCaseLimitSec', 'Initialize-SuiteActionRegistry', 'Import-SuiteActionSource', 'Get-SuiteRunLoad',
         # The session a test framework drives a suite through (spec/session.md), and the Pester glue.
         'New-BddSuiteRunContext', 'Open-BddSuiteSession', 'Invoke-BddSuiteSetup', 'Invoke-BddSuiteBeforeEach', 'Invoke-BddSuiteCase',
@@ -47,6 +50,37 @@
     AliasesToExport   = @('Register-LabAction', 'Get-LabActionNames', 'Get-LabAction')
     CmdletsToExport   = @()
     VariablesToExport = @()
-    RequiredModules   = @()
-    PrivateData       = @{ PSData = @{ Tags = @('bdd', 'suite', 'yaml') } }
+    # The YAML reader the suite model mirrors (0.4.12 or later).
+    RequiredModules   = @(@{ ModuleName = 'powershell-yaml'; ModuleVersion = '0.4.12' })
+    # Every file the module holds; a test fails when the folder and this list differ (docs/packages, D10).
+    FileList          = @(
+        'actions/ActionRegistry.ps1',
+        'actions/Core.ps1',
+        'actions/Wait.ps1',
+        'Assertions.psm1',
+        'BddSuite.psd1',
+        'BddSuite.psm1',
+        'Cli.ps1',
+        'core.catalog.yaml',
+        'Expression.psm1',
+        'Generate.ps1',
+        'Invoke-BddSuite.ps1',
+        'LICENSE',
+        'Progress.ps1',
+        'ReportCompare.psm1',
+        'Runner.ps1',
+        'Session.ps1',
+        'StepExecution.psm1',
+        'SuiteLint.psm1',
+        'SuiteModel.psm1',
+        'suiterun.ps1'
+    )
+    PrivateData       = @{
+        PSData = @{
+            Tags         = @('bdd', 'suite', 'yaml', 'testing', 'pester', 'gherkin')
+            LicenseUri   = 'https://github.com/smartpcr/bdd-code-extension/blob/main/LICENSE'
+            ProjectUri   = 'https://github.com/smartpcr/bdd-code-extension/tree/main/runtimes/powershell'
+            ReleaseNotes = 'https://github.com/smartpcr/bdd-code-extension/blob/main/CHANGELOG.md'
+        }
+    }
 }

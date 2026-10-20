@@ -1,0 +1,7 @@
+# The greeter's suites as Pester tests (spec/test-plan.md); its suiterun.ps1
+# generate writes them into tests/. greet.shout is not offline, so loud.yml is guarded.
+suites: [ "suites/*.yml" ]
+schemaRoot: schema
+provider: pester
+extensions: [ ./Greeter/Greeter.psm1 ]
+offlineActions: [ "core.*", "wait", "greet.say" ]

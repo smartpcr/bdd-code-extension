@@ -16,17 +16,21 @@
                which a consumer's [patch.crates-io] can name
       npm      @bdd-suite/runtime as bdd-suite-runtime-<version>.tgz (npm pack,
                which builds dist/ first)
+      psresource  the BddSuite module as BddSuite.<version>.nupkg
+               (Publish-PSResource to a file repository), with the
+               powershell-yaml it requires, so Install-PSResource needs
+               nothing else
 
     Each package is checked with Test-PackageContents.ps1 against its list in
     packaging/ (the Go zip is also made, and so checked, by golang.org/x/mod/zip).
     Exits 1 when a pack or a check fails.
 
 .EXAMPLE
-    pwsh -File scripts/local-feeds.ps1 -Language csharp, go, rust, typescript
+    pwsh -File scripts/local-feeds.ps1 -Language csharp, go, rust, typescript, powershell
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('csharp', 'go', 'rust', 'typescript')][string[]]$Language = @('csharp', 'go', 'rust', 'typescript'),
+    [ValidateSet('csharp', 'go', 'rust', 'typescript', 'powershell')][string[]]$Language = @('csharp', 'go', 'rust', 'typescript', 'powershell'),
     [string]$Out
 )
 
@@ -106,6 +110,31 @@ foreach ($language in $Language) {
                 if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
             }
             Write-Output "npm feed: $feed"
+        }
+        'powershell' {
+            $feed = Join-Path $Out 'psresource'
+            New-Item -ItemType Directory -Force -Path $feed | Out-Null
+            Get-ChildItem $feed -Filter '*.nupkg' | Remove-Item -Force
+            # A repository registered for this pack alone, under a name no one else uses.
+            $name = 'bdd-suite-local-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+            Register-PSResourceRepository -Name $name -Uri $feed -Trusted
+            try {
+                Publish-PSResource -Path (Join-Path $repo 'runtimes/powershell/BddSuite') -Repository $name -SkipDependenciesCheck
+                # The YAML reader BddSuite requires, from this machine, so the
+                # feed alone installs the module as the Gallery would.
+                $manifest = Import-PowerShellDataFile (Join-Path $repo 'runtimes/powershell/BddSuite/BddSuite.psd1')
+                $yaml = $manifest.RequiredModules | Where-Object { $_.ModuleName -eq 'powershell-yaml' }
+                $installed = Get-Module powershell-yaml -ListAvailable | Where-Object { $_.Version -ge [version]$yaml.ModuleVersion } |
+                    Sort-Object Version -Descending | Select-Object -First 1
+                if (-not $installed) { throw "powershell-yaml $($yaml.ModuleVersion) or later is not installed: Install-PSResource powershell-yaml" }
+                Publish-PSResource -Path $installed.ModuleBase -Repository $name -SkipDependenciesCheck
+            } finally {
+                Unregister-PSResourceRepository -Name $name
+            }
+            $version = (Get-Content (Join-Path $repo 'package.json') -Raw | ConvertFrom-Json).version
+            & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Test-PackageContents.ps1') -Package (Join-Path $feed "BddSuite.$version.nupkg")
+            if ($LASTEXITCODE) { throw "BddSuite.$version.nupkg does not hold what packaging/BddSuite.files.txt lists" }
+            Write-Output "psresource feed: $feed"
         }
     }
 }

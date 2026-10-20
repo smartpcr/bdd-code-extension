@@ -14,7 +14,10 @@
                                               archive's bookkeeping
                                               ([Content_Types].xml, _rels/,
                                               package/) is not listed
-      Go        <feed>/<module>/@v/v<version>.zip
+      PowerShell BddSuite.<version>.nupkg     packaging/BddSuite.files.txt; a
+                                              NuGet package Publish-PSResource
+                                              packed (its tags say PSModule)
+      Go       <feed>/<module>/@v/v<version>.zip
                                               packaging/runtimes-go.files.txt,
                                               without the <module>@<version>/
                                               prefix every entry carries
@@ -107,10 +110,22 @@ switch ($kind) {
         $metadata = ([xml](Text $nuspec)).package.metadata
         if ($metadata.id -cne $id) { $problems.Add("its id is $($metadata.id), not $id") }
         if ($metadata.version -ne $version) { $problems.Add("its version is $($metadata.version), not package.json's $version") }
+        if (-not $metadata.description) { $problems.Add('it has no description') }
+        if ("$($metadata.tags)" -split ' ' -ccontains 'PSModule') {
+            # A PowerShell module, as Publish-PSResource packs it: its manifest
+            # is the metadata, a license and project link rather than an
+            # expression and a README, and the license file itself inside.
+            $manifest = Text "$id.psd1"
+            if ($manifest -notmatch "(?m)^\s*ModuleVersion\s*=\s*'$escaped'") { $problems.Add("its $id.psd1 is not version $version") }
+            if ($metadata.licenseUrl -ne 'https://github.com/smartpcr/bdd-code-extension/blob/main/LICENSE') { $problems.Add('it links no license') }
+            if ($metadata.projectUrl -notlike 'https://github.com/smartpcr/bdd-code-extension*') { $problems.Add('it names no project') }
+            if ($held -cnotcontains 'LICENSE') { $problems.Add('it holds no LICENSE') }
+            $said = 'module manifest, LICENSE, license and project links'
+            break
+        }
         if ($metadata.license.'#text' -ne 'MIT') { $problems.Add('it declares no MIT license expression') }
         if (-not $metadata.readme -or $held -cnotcontains $metadata.readme) { $problems.Add('it names no README it holds') }
         if ($metadata.repository.url -ne 'https://github.com/smartpcr/bdd-code-extension') { $problems.Add('it names no repository') }
-        if (-not $metadata.description) { $problems.Add('it has no description') }
         $said = 'MIT, README, repository'
     }
     'go' {

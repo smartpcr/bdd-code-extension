@@ -188,6 +188,7 @@ function Invoke-ValidateEntry {
     if ($Entry.binding) { $options['Binding'] = [string]$Entry.binding }
     if ($Entry.bindingCheck) { $options['BindingCheck'] = $true }
     if ($Entry.catalogOverlay) { $options['SchemaRoot'] = New-OverlaySchemaRoot -OverlayRelative ([string]$Entry.catalogOverlay) }
+    if ($Entry.schemaRoot) { $options['SchemaRoot'] = Get-CorpusPath ([string]$Entry.schemaRoot) }
     if ($Entry.params) {
         $param = @{}
         foreach ($name in @($Entry.params.Keys)) { $param[$name] = [string]$Entry.params[$name] }
@@ -222,7 +223,7 @@ function Invoke-ExecuteEntry {
     if (Test-Path -LiteralPath $tracePath) { Remove-Item -LiteralPath $tracePath -Force }
     $arguments = @{
         Path        = @(Get-CorpusPath ([string]$Entry.suite))
-        SchemaRoot  = $schemaRoot
+        SchemaRoot  = $(if ($Entry.schemaRoot) { Get-CorpusPath ([string]$Entry.schemaRoot) } else { $schemaRoot })
         Extension   = @($corpusExtension)
         ResultsFile = $reportPath
         TraceFile   = $tracePath
@@ -230,11 +231,16 @@ function Invoke-ExecuteEntry {
     }
     if ($Entry.format) { $arguments['ReportFormat'] = [string]$Entry.format }
     if ($Entry.tags) { $arguments['Tags'] = [string]$Entry.tags }
+    if ($Entry.names) { $arguments['Name'] = @(([string]$Entry.names) -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    if ($Entry.progress) { $arguments['Progress'] = $true }
     $param = @(foreach ($name in @(if ($Entry.params) { $Entry.params.Keys } else { @() })) { "$name=$([string]$Entry.params[$name])" })
     if ($param.Count) { $arguments['Param'] = $param }
 
+    # The progress lines, wherever the run writes them.
+    $printed = [Collections.Generic.List[string]]::new()
+    $standard = Set-BddSuiteProgressWriter -Writer { param([string]$Line) $printed.Add($Line) }.GetNewClosure()
     $watch = [Diagnostics.Stopwatch]::StartNew()
-    $outcome = Invoke-BddSuite @arguments
+    try { $outcome = Invoke-BddSuite @arguments } finally { $null = Set-BddSuiteProgressWriter -Writer $standard }
     $watch.Stop()
     $said = "error: $($outcome.Error); diagnostics: $(@($outcome.Diagnostics | ForEach-Object { "$($_.code)@$($_.line):$($_.column) $($_.message)" }) -join ' | ')"
     if (-not (Test-Path -LiteralPath $tracePath)) { throw "$($Entry.suite) wrote no trace. The run said: $said" }
@@ -244,6 +250,7 @@ function Invoke-ExecuteEntry {
         seconds  = $watch.Elapsed.TotalSeconds
         output   = $said
         report   = $reportPath
+        progress = @($printed)
     }
 }
 
@@ -439,6 +446,15 @@ try {
         Assert ([string]$expected.kind -eq 'execute') "$($entry.expectation) is not an execute expectation."
         Assert ($result.exitCode -eq [int]$expected.exitCode) `
             "$($entry.suite) exits $($result.exitCode); the expectation says $($expected.exitCode). The run said:`n$($result.output)"
+        # Progress lines with what the contract leaves free masked: the failure
+        # text and the durations (spec/progress.md).
+        if ($entry.progress) {
+            $wantedLines = @((Get-Content -LiteralPath (Get-CorpusPath ([string]$entry.progress))) | Where-Object { $_ })
+            $gotLines = @($result.progress | ForEach-Object { $_ -replace '^(    failure: ).*$', '$1*' -replace '\(\d+s\)', '(*s)' })
+            Assert (($gotLines -join "`n") -ceq ($wantedLines -join "`n")) "$($entry.suite) progress differs.`nPrinted:`n$($gotLines -join "`n")`nExpected:`n$($wantedLines -join "`n")"
+        } else {
+            Assert (-not @($result.progress).Count) "$($entry.suite) printed progress lines without -Progress."
+        }
         if ($expected.maxSeconds) {
             Assert ($result.seconds -lt [double]$expected.maxSeconds) `
                 "$($entry.suite) took $([math]::Round($result.seconds, 1))s; it has to finish inside $($expected.maxSeconds)s or the limit was waited out rather than enforced."
@@ -483,6 +499,24 @@ try {
     }
     Assert ($generateChecked -eq 2) "$generateChecked generate entries checked, not 2"
 
+    # -------------------------------------------------------------------
+    # Every lists entry: suiterun list with its names and tags prints exactly
+    # its case names, in order.
+    # -------------------------------------------------------------------
+    $listsChecked = 0
+    foreach ($entry in @($manifest.lists)) {
+        if (@($entry.pendingIn) -contains 'powershell') { $pending.Add("list $($entry.suite)"); continue }
+        $line = @('list', '--schema-root', $schemaRoot, '--path', (Get-CorpusPath ([string]$entry.suite)))
+        if ($entry.names) { $line += @('--name', [string]$entry.names) }
+        if ($entry.tags) { $line += @('--tags', [string]$entry.tags) }
+        $listed = @(Get-BddSuiteCliCase -File (Get-CorpusPath ([string]$entry.suite)) -Tags @(([string]$entry.tags) -split ',' | Where-Object { $_ }) `
+                -Names @(([string]$entry.names) -split ',' | Where-Object { $_ }))
+        $parsed = ConvertFrom-BddSuiteCliArgument -Arguments $line
+        Assert (($parsed.Names -join ',') -eq [string]$entry.names) "list --name reads $($parsed.Names -join ','), not $($entry.names)"
+        Assert (($listed -join '|') -ceq (@($entry.expected) -join '|')) "$($entry.suite) lists $($listed -join ', '); expected $(@($entry.expected) -join ', ')"
+        $listsChecked++
+    }
+    Assert ($listsChecked -eq 2) "$listsChecked lists entries checked, not 2"
 
     # -------------------------------------------------------------------
     # The canonical report form. Three runs in both formats, reduced by the

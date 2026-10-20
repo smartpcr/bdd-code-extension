@@ -8,9 +8,9 @@
     suiterun (runtimes/typescript/src/cli.ts and run.ts), over Invoke-BddSuite:
 
         suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-        suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                         [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>]
-        suiterun list    --path <glob> [--tags a,b] [--test-name <case>]
+        suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                         [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>] [--progress]
+        suiterun list    --path <glob> [--tags a,b] [--name a*,b?] [--test-name <case>]
         suiterun actions [--json]
         suiterun generate --config <file> [--config <file>...] [--plan] [--check]
                           [--provider pester] [--out <dir>]
@@ -31,17 +31,17 @@
 
 $script:CliUsage = @'
 suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                 [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>]
-suiterun list    --path <glob> [--tags a,b]
+suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                 [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>] [--progress]
+suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 suiterun actions [--json]
 suiterun generate --config <file> [--config <file>...] [--plan] [--check]
                   [--provider pester] [--out <dir>]
 '@ -replace "`r", ''
 
 $script:CliVerbs = @('lint', 'run', 'list', 'actions', 'generate')
-$script:CliSwitches = @('--json', '--strict', '--dry-run', '--binding-check')
-$script:CliValued = @('--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--test-name', '--config', '--provider', '--out')
+$script:CliSwitches = @('--json', '--strict', '--dry-run', '--binding-check', '--progress')
+$script:CliValued = @('--path', '--tags', '--name', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--test-name', '--config', '--provider', '--out')
 # generate takes these and no other; no other verb takes them.
 $script:CliGenerateFlags = @('--config', '--plan', '--check', '--provider', '--out')
 
@@ -88,6 +88,7 @@ function ConvertFrom-BddSuiteCliArgument {
         Verb = 'actions'; Path = ''; Tags = [Collections.Generic.List[string]]::new(); Results = ''; TraceFile = ''
         Format = 'nunit3'; Params = [Collections.Generic.List[string]]::new(); Binding = 'powershell'; Json = $false
         Strict = $false; DryRun = $false; BindingCheck = $false; SchemaRoot = ''; TestName = ''; Options = @{}
+        Names = [Collections.Generic.List[string]]::new(); Progress = $false
         Configs = [Collections.Generic.List[string]]::new(); Plan = $false; Check = $false; Provider = ''; Out = ''
     }
     $all = @($Arguments | Where-Object { $null -ne $_ })
@@ -108,6 +109,7 @@ function ConvertFrom-BddSuiteCliArgument {
                 '--json' { $parsed.Json = $true }
                 '--strict' { $parsed.Strict = $true }
                 '--dry-run' { $parsed.DryRun = $true }
+                '--progress' { $parsed.Progress = $true }
                 default { $parsed.BindingCheck = $true }
             }
             continue
@@ -125,6 +127,7 @@ function ConvertFrom-BddSuiteCliArgument {
         switch -CaseSensitive ($name) {
             '--path' { $parsed.Path = $value }
             '--tags' { foreach ($tag in $value -split ',') { if ($tag.Trim()) { $parsed.Tags.Add($tag.Trim()) } } }
+            '--name' { foreach ($glob in $value -split ',') { if ($glob.Trim()) { $parsed.Names.Add($glob.Trim()) } } }
             '--results' { $parsed.Results = $value }
             '--trace-file' { $parsed.TraceFile = $value }
             '--schema-root' { $parsed.SchemaRoot = $value }
@@ -186,10 +189,11 @@ function Get-BddSuiteCliCase {
     <#
     .SYNOPSIS
         The cases of one suite file a run would select, outlines expanded,
-        filtered by tag and by --test-name as Invoke-BddSuite filters them.
+        filtered by tag, by the --name globs and by --test-name as
+        Invoke-BddSuite filters them.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$File, [string[]]$Tags = @(), [string]$TestName = '')
+    param([Parameter(Mandatory)][string]$File, [string[]]$Tags = @(), [string]$TestName = '', [string[]]$Names = @())
     $text = Get-Content -LiteralPath $File -Raw
     try { $suite = ConvertFrom-Yaml $text -Ordered } catch { throw "$File is not valid YAML: $($_.Exception.Message)" }
     if ($suite -isnot [System.Collections.IDictionary]) { throw "$File does not hold a YAML mapping." }
@@ -202,7 +206,7 @@ function Get-BddSuiteCliCase {
     $suiteTags = @($suite.tags | Where-Object { $_ })
     return @($cases | Where-Object {
             $own = @(@($_.tags) + $suiteTags | Where-Object { $_ } | ForEach-Object { [string]$_ })
-            -not @($Tags).Count -or @($own | Where-Object { $Tags -ccontains $_ }).Count
+            (-not @($Tags).Count -or @($own | Where-Object { $Tags -ccontains $_ }).Count) -and (Test-SuiteNameMatch -Name ([string]$_.name) -Pattern $Names)
         } | ForEach-Object { [string]$_.name })
 }
 
@@ -290,7 +294,7 @@ function Invoke-BddSuiteCli {
             'list' {
                 $lines = [Collections.Generic.List[string]]::new()
                 foreach ($file in Resolve-BddSuiteCliPath -Pattern $options.Path) {
-                    foreach ($name in Get-BddSuiteCliCase -File $file -Tags $options.Tags.ToArray() -TestName $options.TestName) {
+                    foreach ($name in Get-BddSuiteCliCase -File $file -Tags $options.Tags.ToArray() -TestName $options.TestName -Names $options.Names.ToArray()) {
                         $lines.Add("$([IO.Path]::GetFileName($file))  $name")
                     }
                 }
@@ -330,6 +334,8 @@ function Invoke-BddSuiteCli {
                 } else {
                     $invocation.Tags = ($options.Tags -join ',')
                     $invocation.TestName = $options.TestName
+                    $invocation.Name = $options.Names.ToArray()
+                    $invocation.Progress = $options.Progress
                     $invocation.ResultsFile = $options.Results
                     $invocation.ReportFormat = $(if ($options.Format -eq 'junit') { 'JUnit' } else { 'NUnit3' })
                     $invocation.DryRun = $options.DryRun

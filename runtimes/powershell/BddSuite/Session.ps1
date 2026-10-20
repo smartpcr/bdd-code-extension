@@ -267,7 +267,9 @@ function Open-BddSuiteSession {
     $defaults = @{}
     foreach ($key in @($library.defaults.Keys)) { $defaults[$key] = $library.defaults[$key] }
     foreach ($key in @(if ($suite.defaults) { $suite.defaults.Keys } else { @() })) { $defaults[$key] = $suite.defaults[$key] }
-    $selected = @(foreach ($case in $cases) { [bool](Test-TagsMatch (@($case.tags) + $suiteTags) $Context.tagFilter) })
+    $selected = @(foreach ($case in $cases) {
+            [bool](Test-TagsMatch (@($case.tags) + $suiteTags) $Context.tagFilter) -and (Test-SuiteNameMatch -Name ([string]$case.name) -Pattern @($Context.nameFilter))
+        })
     return @{
         Context        = $Context
         File           = $file.FullName

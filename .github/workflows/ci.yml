@@ -453,6 +453,12 @@ jobs:
       - name: Filters, discovery, guarded suites, generation (E8, E9, E10, E12)
         run: node samples/workspace/tests/powershell/scenarios.mjs
 
+      - name: The PowerShell module, and a consumer of it alone (E1, E6)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File samples/consumers/powershell/run-e6.ps1
+          if ($LASTEXITCODE) { throw 'the PowerShell consumer failed on the module' }
+
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4
@@ -553,7 +559,7 @@ jobs:
   # GitHub release with the .vsix. Both happen before the release and the Go
   # tag exist, so a release never names a package that is not there (DEC-P10).
   packages:
-    name: The C# packages, the Rust crate and the npm package, packed and checked (E1)
+    name: The C# packages, the Rust crate, the npm package and the PowerShell module, packed and checked (E1)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -584,6 +590,11 @@ jobs:
           npm pack --pack-destination ../../out/packages
           if ($LASTEXITCODE) { throw 'npm pack failed' }
           Pop-Location
+          # Publish-PSResource into a file repository makes the module's package.
+          Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
+          pwsh -NoProfile -File scripts/local-feeds.ps1 -Language powershell -Out out/feeds
+          if ($LASTEXITCODE) { throw 'the PowerShell module did not pack' }
+          Copy-Item out/feeds/psresource/BddSuite.*.nupkg out/packages/
           foreach ($package in Get-ChildItem out/packages -Include '*.nupkg', '*.crate', '*.tgz' -Recurse) {
             pwsh -NoProfile -File scripts/Test-PackageContents.ps1 -Package $package.FullName
             if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
@@ -619,10 +630,10 @@ jobs:
       # The feed of the repository's owner; the run's own token may write to it.
       # A version the feed already holds is skipped, so a release can be run
       # again. GitHub Packages has no symbol server: the .snupkg files go to the
-      # GitHub release instead.
+      # GitHub release instead, and so does the PowerShell module (BddSuite.*.nupkg).
       - name: Push (a version the feed already has is skipped)
         run: |
-          dotnet nuget push "packages/*.nupkg" \
+          dotnet nuget push "packages/Bdd.Suite*.nupkg" \
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate --no-symbols
 
@@ -664,7 +675,8 @@ jobs:
           ts=$(node -p "require('./runtimes/typescript/package.json').version")
           api=$(node -p "/apiVersion = '([^']+)'/.exec(require('fs').readFileSync('runtimes/typescript/src/index.ts', 'utf8'))[1]")
           rs=$(sed -n 's/^version = "\(.*\)"/\1/p' runtimes/rust/Cargo.toml | head -1)
-          ps=$(sed -n "s/.*ModuleVersion *= *'\(.*\)'.*/\1/p" runtimes/powershell/BddSuite/BddSuite.psd1)
+          # The module's own ModuleVersion, not its RequiredModules entry's.
+          ps=$(sed -n "s/^ *ModuleVersion *= *'\(.*\)'.*/\1/p" runtimes/powershell/BddSuite/BddSuite.psd1)
           tick='`'
           {
             echo "## Runtimes in this release"
@@ -677,7 +689,7 @@ jobs:
             echo "| C# ${tick}Bdd.Suite${tick}, ${tick}Bdd.Suite.Testing${tick} | GitHub Packages, ${tick}https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json${tick} (a token with read:packages), and this release's assets | $rs |"
             echo "| Rust crate ${tick}suiterun${tick} | this release's asset ${tick}suiterun-$rs.crate${tick}, or a git dependency on this tag | $rs |"
             echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | this release's asset ${tick}bdd-suite-runtime-$ts.tgz${tick}: ${tick}npm install <its URL>${tick} | $ts (lint API $api) |"
-            echo "| PowerShell module ${tick}BddSuite${tick} | this tag, ${tick}runtimes/powershell/BddSuite${tick} | $ps |"
+            echo "| PowerShell module ${tick}BddSuite${tick} | this release's asset ${tick}BddSuite.$ps.nupkg${tick}, in a folder registered with ${tick}Register-PSResourceRepository${tick}: ${tick}Install-PSResource BddSuite${tick} (powershell-yaml from the Gallery); or this tag, ${tick}runtimes/powershell/BddSuite${tick} | $ps |"
             echo
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"

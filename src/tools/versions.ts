@@ -6,7 +6,7 @@
 
 /** How a file holds the version. */
 export type VersionKind = 'csharp-props' | 'cargo-toml' | 'cargo-lock' | 'npm-package' | 'npm-lock' | 'psd1' | 'go-require' | 'msbuild-pin'
-  | 'cargo-dependency' | 'npm-dependency';
+  | 'cargo-dependency' | 'npm-dependency' | 'ps-requires';
 
 export interface VersionFile {
   /** Relative to the repository root, with forward slashes. */
@@ -31,6 +31,7 @@ export const VERSION_FILES: readonly VersionFile[] = [
   { file: 'samples/consumers/go/go.mod', kind: 'go-require' },
   { file: 'samples/consumers/rust/Cargo.toml', kind: 'cargo-dependency' },
   { file: 'samples/consumers/typescript/package.json', kind: 'npm-dependency' },
+  { file: 'samples/consumers/powershell/suiterun.ps1', kind: 'ps-requires' },
 ];
 
 /** The TypeScript runtime's package name, which the npm lock files record. */
@@ -92,7 +93,8 @@ const RULES: Record<VersionKind, Rule> = {
   // The first "version" of a package.json is the package's own, right under its name.
   'npm-package': pattern(/^(\{[^{]*?"version":\s*")([^"]*)(")/),
   'npm-lock': npmLock,
-  'psd1': pattern(/(\bModuleVersion\s*=\s*')([^']*)(')/),
+  // The module's own, on a line of its own: a RequiredModules entry has one too.
+  'psd1': pattern(/(^[ \t]*ModuleVersion\s*=\s*')([^']*)(')/m),
   // A consumer's require line; the module's versions carry a v.
   'go-require': pattern(/(github\.com\/smartpcr\/bdd-code-extension\/runtimes\/go v)(\d[^\s]*)()/),
   // The MSBuild property a C# consumer pins its bdd-suite packages with.
@@ -101,6 +103,8 @@ const RULES: Record<VersionKind, Rule> = {
   'cargo-dependency': pattern(/(^suiterun\s*=\s*\{\s*version\s*=\s*")([^"]*)(")/m),
   // A consumer's dependency on the runtime, an exact version.
   'npm-dependency': pattern(/("@bdd-suite\/runtime":\s*")([^"]*)(")/),
+  // A consumer script's #Requires on the module, an exact version.
+  'ps-requires': pattern(/(ModuleName\s*=\s*'BddSuite';\s*RequiredVersion\s*=\s*')([^']*)(')/),
 };
 
 /** Every version a file of this kind holds. A runtime manifest holds one; a lock may hold several. */

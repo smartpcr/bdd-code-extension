@@ -64,7 +64,7 @@ $script:ReservedContextNames = @('caseName', 'suiteName', 'recordPath', 'state',
 
 # Invoke-BddSuite's own parameters. An extension option may not take one,
 # whatever its case, because a reader could not tell them apart.
-$script:CoreOptionNames = @('Path', 'Tags', 'TestName', 'ResultsFile', 'ReportFormat', 'DryRun', 'Lint', 'Strict', 'Json',
+$script:CoreOptionNames = @('Path', 'Tags', 'Name', 'Progress', 'Observer', 'TestName', 'ResultsFile', 'ReportFormat', 'DryRun', 'Lint', 'Strict', 'Json',
     'Param', 'TraceFile', 'TimingFile', 'StopFile', 'SchemaRoot', 'ActionPath', 'Extension', 'Option', 'Binding', 'BindingCheck')
 
 # The hooks an extension's Cases part may hold, in the order the runner reaches
@@ -547,6 +547,7 @@ function New-JUnitXml {
 
 # ---- The runner -----------------------------------------------------------
 
+. (Join-Path $PSScriptRoot 'Progress.ps1')
 . (Join-Path $PSScriptRoot 'Runner.ps1')
 . (Join-Path $PSScriptRoot 'Session.ps1')
 . (Join-Path $PSScriptRoot 'Generate.ps1')

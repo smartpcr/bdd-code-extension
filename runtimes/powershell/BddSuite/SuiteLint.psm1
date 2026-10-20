@@ -226,6 +226,13 @@ function Resolve-SuiteRoot {
     return @{ root = $root; schemaRoot = (Join-Path $root 'test/e2e/schema') }
 }
 
+# The import name of the core this runtime carries: core.catalog.yaml in this
+# module's folder, a copy of spec/core.catalog.yaml that a test keeps equal to
+# it (spec/README.md; docs/packages, DEC-P07). A copy, because an installed
+# module holds only its own folder.
+$script:CoreImport = 'bdd-suite:core'
+$script:CoreCatalogPath = Join-Path $PSScriptRoot 'core.catalog.yaml'
+
 function Read-SuiteCatalog {
     <#
     .SYNOPSIS
@@ -253,6 +260,25 @@ function Read-SuiteCatalog {
         if ($catalog -is [System.Collections.IDictionary]) {
             foreach ($import in @($catalog['imports'])) {
                 if (-not $import) { continue }
+                if ([string]$import -ceq $script:CoreImport) {
+                    # The core's actions, each one's bindings cut to this catalog's own list when it has one.
+                    $cut = if ($catalog.Contains('bindings')) { @($catalog['bindings'] | ForEach-Object { [string]$_ }) } else { $null }
+                    $core = ConvertFrom-SuiteYaml (Get-Content -LiteralPath $script:CoreCatalogPath -Raw)
+                    foreach ($action in @($core['actions'])) {
+                        if ($action -isnot [System.Collections.IDictionary]) { continue }
+                        $name = [string]$action['name']
+                        if ($declaredIn.ContainsKey($name)) { throw "Action $name is declared twice: in $($declaredIn[$name]) and in $script:CoreImport." }
+                        if ($null -ne $cut -and $action.Contains('bindings')) {
+                            $copy = [ordered]@{}
+                            foreach ($k in @($action.Keys)) { $copy[$k] = $action[$k] }
+                            $copy['bindings'] = [Collections.Generic.List[object]]@(@($action['bindings']) | Where-Object { $cut -ccontains [string]$_ })
+                            $action = $copy
+                        }
+                        $declaredIn[$name] = $script:CoreImport
+                        $entries.Add(@{ action = $action; file = $script:CoreImport })
+                    }
+                    continue
+                }
                 # Combine, not Join-Path: an absolute import stays absolute.
                 $imported = [IO.Path]::GetFullPath([IO.Path]::Combine((Split-Path -Parent $key), [string]$import))
                 if (-not (Test-Path -LiteralPath $imported -PathType Leaf)) { throw "$key imports $import, which does not exist ($imported)." }
