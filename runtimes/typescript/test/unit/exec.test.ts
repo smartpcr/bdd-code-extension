@@ -234,9 +234,11 @@ tests:
     steps: [{ action: wait }]
   - name: untilnever
     steps:
+      # 2, not 1: the polled step has whole seconds left, so with 1 a slow
+      # machine's poll had none and never reached until.
       - action: wait
         intervalSec: 1
-        timeoutSec: 1
+        timeoutSec: 2
         forStep: { action: core.noop }
         until: { var: nope, equals: 1 }
 `);
