@@ -536,10 +536,81 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
+  # docs/packages, D16 for this repository's own channels (the user's decision,
+  # 2026-10-20: the GitHub repository and its package feed for now, the public
+  # registries later). One job packs the C# packages and the Rust crate and
+  # checks each one's contents (E1) on every run; on a release the NuGet
+  # packages go to GitHub Packages, and every package file is attached to the
+  # GitHub release with the .vsix. Both happen before the release and the Go
+  # tag exist, so a release never names a package that is not there (DEC-P10).
+  packages:
+    name: The C# packages and the Rust crate, packed and checked (E1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack, and check every package against packaging/
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out/packages | Out-Null
+          dotnet pack runtimes/csharp/Bdd.Suite.sln -c Release -o out/packages --nologo
+          if ($LASTEXITCODE) { throw 'dotnet pack failed' }
+          Push-Location runtimes/rust
+          cargo package --allow-dirty
+          if ($LASTEXITCODE) { throw 'cargo package failed' }
+          Pop-Location
+          Copy-Item runtimes/rust/target/package/suiterun-*.crate out/packages/
+          foreach ($package in Get-ChildItem out/packages -Include '*.nupkg', '*.crate' -Recurse) {
+            pwsh -NoProfile -File scripts/Test-PackageContents.ps1 -Package $package.FullName
+            if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
+          }
+
+      - name: Keep the packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: out/packages/*
+          if-no-files-found: error
+
+  publish-github-packages:
+    name: Push Bdd.Suite and Bdd.Suite.Testing to GitHub Packages
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
+      providers-rust, providers-typescript, providers-powershell, divergence, integration, version, packages]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # The feed of the repository's owner; the run's own token may write to it.
+      # A version the feed already holds is skipped, so a release can be run
+      # again. GitHub Packages has no symbol server: the .snupkg files go to the
+      # GitHub release instead.
+      - name: Push (a version the feed already has is skipped)
+        run: |
+          dotnet nuget push "packages/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate --no-symbols
+
   release:
     name: Release v${{ needs.version.outputs.version }}
     needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
-      providers-rust, providers-typescript, providers-powershell, divergence, integration, version]
+      providers-rust, providers-typescript, providers-powershell, divergence, integration, version, packages, publish-github-packages]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     concurrency:
@@ -560,6 +631,11 @@ jobs:
         with:
           name: vsix
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+
       - name: The package is the one this run built, at this version
         run: sha256sum --check "$VSIX.sha256"
 
@@ -574,13 +650,13 @@ jobs:
           {
             echo "## Runtimes in this release"
             echo
-            echo "Pin this tag (for example as a git submodule) to get the format spec, the corpus and these runtimes together."
+            echo "Install the packages by version, or pin this tag (for example as a git submodule) to get the format spec, the corpus and these runtimes together."
             echo
-            echo "| Runtime | Version |"
-            echo "| --- | --- |"
-            echo "| Go module ${tick}github.com/${GITHUB_REPOSITORY}/runtimes/go${tick} | ${tick}runtimes/go/$TAG${tick} |"
-            echo "| Rust crate ${tick}suiterun${tick} | $rs |"
-            echo "| C# ${tick}Bdd.Suite${tick} | built from this tag by project reference |"
+            echo "| Runtime | Where | Version |"
+            echo "| --- | --- | --- |"
+            echo "| Go module ${tick}github.com/${GITHUB_REPOSITORY}/runtimes/go${tick} | the tag ${tick}runtimes/go/$TAG${tick}: ${tick}go get github.com/${GITHUB_REPOSITORY}/runtimes/go@$TAG${tick} | $TAG |"
+            echo "| C# ${tick}Bdd.Suite${tick}, ${tick}Bdd.Suite.Testing${tick} | GitHub Packages, ${tick}https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json${tick} (a token with read:packages), and this release's assets | $rs |"
+            echo "| Rust crate ${tick}suiterun${tick} | this release's asset ${tick}suiterun-$rs.crate${tick}, or a git dependency on this tag | $rs |"
             echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | $ts (lint API $api) |"
             echo "| PowerShell module ${tick}BddSuite${tick} | $ps |"
             echo
@@ -593,9 +669,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" "$VSIX" "$VSIX.sha256" --clobber
+            gh release upload "$TAG" "$VSIX" "$VSIX.sha256" packages/* --clobber
           else
-            gh release create "$TAG" "$VSIX" "$VSIX.sha256" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+            gh release create "$TAG" "$VSIX" "$VSIX.sha256" packages/* --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
           fi
 
       # D12, DEC-S09: Go resolves a module in a subdirectory only from a tag with that prefix.

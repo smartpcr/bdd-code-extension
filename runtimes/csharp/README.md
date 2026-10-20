@@ -3,8 +3,16 @@
 ## Install
 
 ```xml
-<PackageReference Include="Bdd.Suite" Version="0.6.10" />          <!-- your extension and your suiterun -->
-<PackageReference Include="Bdd.Suite.Testing" Version="0.6.10" />  <!-- your suites as tests -->
+<PackageReference Include="Bdd.Suite" Version="0.7.0" />          <!-- your extension and your suiterun -->
+<PackageReference Include="Bdd.Suite.Testing" Version="0.7.0" />  <!-- your suites as tests -->
+```
+
+Releases are on this repository's GitHub Packages feed, and attached to each
+GitHub release as `.nupkg` files. GitHub Packages asks for a token with
+`read:packages` even to read, so add the feed with one:
+
+```text
+dotnet nuget add source https://nuget.pkg.github.com/smartpcr/index.json --name bdd-suite --username <you> --password <token with read:packages>
 ```
 
 `Bdd.Suite` is the runtime and its extension API. A workspace adds its own

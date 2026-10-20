@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
+
+### The runtimes as packages
+
+The first release a project can take as packages rather than a copy
+(docs/packages, stages K0 to K3):
+
+* **C#:** `Bdd.Suite` and `Bdd.Suite.Testing` on this repository's GitHub
+  Packages feed and as release assets. `Bdd.Suite.Testing` carries its test
+  generator and its build targets, so a test project needs only the package
+  reference, also under central package management.
+* **Go:** the module at the tag `runtimes/go/v0.7.0`.
+* **Rust:** the crate `suiterun`, as a git dependency on the tag `v0.7.0` and
+  as a release asset.
+* Every package carries the release's version (the VS Code extension's).
+
+In C#, Go and Rust (TypeScript and PowerShell follow):
+
+* **`--name glob[,glob]`** on `run` and `list` selects cases by name, with the
+  tag filter; **`--progress`** prints live `StartGroup`/`EndGroup`/`Summary`
+  lines while a run goes, and a library caller gets the same through a run
+  observer (spec/progress.md).
+* **An action that throws or panics with anything fails its step**; the run
+  goes on to the cleanup, the next case and the teardown.
+* **`imports: [ "bdd-suite:core" ]`** in a catalog reads the core the runtime
+  carries, cut to the catalog's own `bindings`, with no copy of the spec; the
+  spec's `Build-Schema.ps1` reads it too.
 
 ### Run suites with your test framework
 

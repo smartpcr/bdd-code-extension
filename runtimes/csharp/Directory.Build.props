@@ -18,7 +18,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- The release's version, the VS Code extension's (docs/packages, DEC-P03):
          written by scripts/set-version.mjs, checked by scripts/check-versions.mjs. -->
-    <Version>0.6.10</Version>
+    <Version>0.7.0</Version>
   </PropertyGroup>
 
   <!-- What every package of this runtime says about itself (docs/packages, D7,
