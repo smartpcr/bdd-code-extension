@@ -389,4 +389,6 @@ format spec, the conformance corpus and the five language runtimes moving
 here, extended by import) is `docs/self-contained/design.md` and
 `docs/self-contained/implementation.md`. Running suites with each language's
 test framework is `docs/test-providers/design.md` and
-`docs/test-providers/implementation.md`.
+`docs/test-providers/implementation.md`. Publishing the runtimes as packages
+(NuGet, npm, crates.io, the PowerShell Gallery and the Go module) is
+`docs/packages/design.md` and `docs/packages/implementation.md`.
