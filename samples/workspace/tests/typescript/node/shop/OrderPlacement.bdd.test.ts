@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import { suite } from '@bdd-suite/runtime/testing';
 import { shop as extension0 } from "@bdd-suite-sample/shop-suiterun";
 
-suite({ describe, it, before, after, skip: (name, reason) => it(name, { skip: reason }, () => {}) }, [extension0], import.meta.url, {
+suite({ describe: (name, body) => describe(name, body), it: (name, body) => it(name, body), before: body => before(body), after: body => after(body), skip: (name, reason) => it(name, { skip: reason }, () => {}) }, [extension0], import.meta.url, {
   file: "../../../suites/order-placement.yml",
   shown: "../../suites/order-placement.yml",
   schemaRoot: "../../../../test/e2e/schema",

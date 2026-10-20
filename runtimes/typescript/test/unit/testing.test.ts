@@ -134,17 +134,17 @@ test('the node:test reporter writes JUnit with suite-level failures and without 
   const hookError = Object.assign(new Error('wrapper'), { failureType: 'hookFailed', cause: new Error('The suite teardown of s failed: x') });
   const out: string[] = [];
   for await (const text of reporter(events([
-    { type: 'test:dequeue', data: { name: 's', nesting: 0} },
-    { type: 'test:start', data: { name: 'one & <two>', nesting: 1} },
+    { type: 'test:dequeue', data: { name: 's', nesting: 0, file: 'a' } },
+    { type: 'test:start', data: { name: 'one & <two>', nesting: 1, file: 'a' } },
     { type: 'test:pass', data: { name: 'one & <two>', nesting: 1, file: 'a', details: { type: 'test', duration_ms: 12 } } },
-    { type: 'test:start', data: { name: 'skipped', nesting: 1} },
+    { type: 'test:start', data: { name: 'skipped', nesting: 1, file: 'a' } },
     { type: 'test:pass', data: { name: 'skipped', nesting: 1, file: 'a', skip: 'tag filter', details: { type: 'test' } } },
-    { type: 'test:start', data: { name: 'bare skip', nesting: 1} },
+    { type: 'test:start', data: { name: 'bare skip', nesting: 1, file: 'a' } },
     { type: 'test:pass', data: { name: 'bare skip', nesting: 1, file: 'a', skip: true, details: { type: 'test' } } },
-    { type: 'test:start', data: { name: 'broken', nesting: 1} },
+    { type: 'test:start', data: { name: 'broken', nesting: 1, file: 'a' } },
     { type: 'test:fail', data: { name: 'broken', nesting: 1, file: 'a', details: { type: 'test', error: Object.assign(new Error('w'), { cause: 'a "string" cause' }) } } },
     { type: 'test:fail', data: { name: 's', nesting: 0, file: 'a', details: { type: 'suite', error: hookError } } },
-    { type: 'test:start', data: { name: 't', nesting: 0} },
+    { type: 'test:start', data: { name: 't', nesting: 0, file: 'b' } },
     { type: 'test:fail', data: { name: 't', nesting: 0, file: 'b', details: { type: 'suite', error: Object.assign(new Error('1 subtest failed'), { failureType: 'subtestsFailed' }) } } },
     { type: 'test:pass', data: { name: 't2', nesting: 0, details: { type: 'suite' } } },
     { type: 'test:fail', data: { name: 'plain', nesting: 0 } },
@@ -162,4 +162,20 @@ test('the node:test reporter writes JUnit with suite-level failures and without 
   let empty = '';
   for await (const text of reporter(events([]))) empty += text;
   assert.equal(empty, '<?xml version="1.0" encoding="utf-8"?>\n<testsuites tests="0" failures="0" skipped="0">\n</testsuites>\n');
+});
+
+test("the node:test reporter names each case after its own file's describe when files' events interleave", async () => {
+  // Two test files running at once: node passes their events on as they come (seen on Linux CI).
+  const out: string[] = [];
+  for await (const text of reporter(events([
+    { type: 'test:dequeue', data: { name: 'names', nesting: 0, file: 'Names.bdd.test.ts' } },
+    { type: 'test:dequeue', data: { name: 'meta', nesting: 0, file: 'Meta.bdd.test.ts' } },
+    { type: 'test:start', data: { name: 'first', nesting: 1, file: 'Names.bdd.test.ts' } },
+    { type: 'test:start', data: { name: 'from-the-use-site', nesting: 1, file: 'Meta.bdd.test.ts' } },
+    { type: 'test:pass', data: { name: 'from-the-use-site', nesting: 1, file: 'Meta.bdd.test.ts', details: { type: 'test' } } },
+    { type: 'test:pass', data: { name: 'first', nesting: 1, file: 'Names.bdd.test.ts', details: { type: 'test' } } },
+  ]))) out.push(text);
+  const xml = out.join('');
+  assert.match(xml, /<testcase name="from-the-use-site" classname="meta"/);
+  assert.match(xml, /<testcase name="first" classname="names"/);
 });

@@ -30,7 +30,12 @@ const relativeTo = (folder: string, target: string) => {
 const FRAMEWORK: Record<TypeScriptProvider, { imports: string; adapter: string }> = {
   node: {
     imports: "import { after, before, describe, it } from 'node:test';",
-    adapter: '{ describe, it, before, after, skip: (name, reason) => it(name, { skip: reason }, () => {}) }',
+    // Every node:test function is called from this file, not from the
+    // runtime: node names the file a test was declared from in its events,
+    // and the runtime's reporter tells files apart by it when their events
+    // interleave (testing/node-reporter.ts).
+    adapter: '{ describe: (name, body) => describe(name, body), it: (name, body) => it(name, body), before: body => before(body), after: body => after(body), '
+      + 'skip: (name, reason) => it(name, { skip: reason }, () => {}) }',
   },
   vitest: {
     imports: "import { afterAll, beforeAll, describe, it } from 'vitest';",
