@@ -705,327 +705,39 @@ function Invoke-BddSuiteRun {
     $results = [Collections.Generic.List[hashtable]]::new()
     $anyFailures = $false
     if ($TestName -and $suiteFiles.Count -ne 1) { throw '-TestName requires exactly one suite file.' }
+    # What the session reads from the run (Session.ps1): suiterun runs guarded
+    # suites, and the command line's tags and parameters.
+    $run.tagFilter = $tagFilter
+    $run.commandLineParam = $commandLineParam
+    $run.allowGuarded = $true
+    $run.schemaRoot = $roots.schemaRoot
+    $run.repositoryRoot = $roots.root
 
+    # Each file through a session, its operations in order (spec/session.md),
+    # so a Pester run and this run of a file give the same results and trace.
     foreach ($f in $suiteFiles) {
         Write-RunHost "`n=== Suite: $($f.Name) ===" Cyan
-        $suite = ConvertFrom-Yaml (Get-Content -LiteralPath $f.FullName -Raw) -Ordered
-        if (-not $suite.tests) { throw "Suite $($f.Name) has no tests." }
-
-        # Every meta use site becomes the steps it stands for, before anything
-        # runs, so the loop below only ever sees a flat list and a failure can
-        # name which step of which definition broke. Keywords resolve here too.
-        # What this file imports is in scope before what it declares itself.
-        $library = Import-SuiteLibrary -FilePath $f.FullName -Model $suite
-        $metaDefinitions = Get-MetaStepDefinition -Model $suite -Imported $library.metaSteps
-        foreach ($hook in @('setup', 'beforeEach', 'afterEach', 'teardown')) {
-            if ($suite.$hook) {
-                $suite[$hook] = Resolve-SuiteKeyword -Steps (Expand-SuiteStepList -Steps $suite.$hook `
-                        -Definitions $metaDefinitions -Where "suite $($f.Name) $hook")
-            }
-        }
-        $suite['tests'] = Expand-SuiteOutline -Cases $suite.tests
-        foreach ($case in @($suite.tests)) {
-            if ($null -eq $case) { continue }
-            foreach ($phase in @('setup', 'steps', 'cleanup')) {
-                if ($case.$phase) {
-                    $case[$phase] = Resolve-SuiteKeyword -Steps (Expand-SuiteStepList -Steps $case.$phase `
-                            -Definitions $metaDefinitions -Where "case '$($case.name)' $phase")
-                }
-            }
-        }
-
+        $session = Open-BddSuiteSession -Path $f.FullName -Context $run -NoLint -TestName $TestName
         $suiteResult = @{
-            name  = if ($suite.suite) { $suite.suite } elseif ($suite.name) { $suite.name } else { [IO.Path]::GetFileNameWithoutExtension($f.Name) }
+            name  = $session.Name
             file  = $f.FullName
             tests = [Collections.Generic.List[hashtable]]::new()
         }
-        $run.currentSuite = [string]$suiteResult.name
-        $run.currentSuiteModel = $suite
-
-        $suiteTags = @($suite.tags)
-        # An imported default is in scope, and a local one replaces it.
-        $suiteDefaults = @{}
-        foreach ($key in @($library.defaults.Keys)) { $suiteDefaults[$key] = $library.defaults[$key] }
-        foreach ($key in @(if ($suite.defaults) { $suite.defaults.Keys } else { @() })) { $suiteDefaults[$key] = $suite.defaults[$key] }
-
-        if ($TestName) {
-            $selected = @($suite.tests | Where-Object { $_.name -ceq $TestName })
-            if (-not $selected.Count) { $selected = @($suite.tests | Where-Object { $_.name.StartsWith("$TestName [", [StringComparison]::Ordinal) }) }
-            elseif ($selected.Count -ne 1) { throw "Suite $($f.Name) does not declare exactly one case named '$TestName'." }
-            if (-not $selected.Count) { throw "Suite $($f.Name) does not declare exactly one case named '$TestName'." }
-            $suite['tests'] = $selected
+        Invoke-BddSuiteSetup -Session $session
+        for ($index = 0; $index -lt $session.Cases.Count; $index++) {
+            Invoke-BddSuiteBeforeEach -Session $session -Case $index
+            $null = Invoke-BddSuiteCase -Session $session -Case $index
+            $settled = Invoke-BddSuiteAfterEach -Session $session -Case $index
+            # A stop asked for before a case started ends the file's cases there.
+            if ($settled.stopped) { break }
+            $suiteResult.tests.Add($settled)
         }
-
-        $defaultTimeout = if ($suiteDefaults.timeoutSec) { [int]$suiteDefaults.timeoutSec } else { 600 }
-        # The suite's own capture bag, filled once before the first selected
-        # case and read by the teardown after the last. Every case starts from a
-        # copy of it.
-        $suiteBag = @{}
-        $suiteSetupError = $null
-        $suiteHookCtx = $null
-        $selectedCount = @($suite.tests | Where-Object { $null -ne $_ -and (Test-TagsMatch (@($_.tags) + $suiteTags) $tagFilter) }).Count
-        if (-not $DryRun -and $selectedCount -gt 0 -and @($suite.setup | Where-Object { $null -ne $_ }).Count) {
-            $suiteHookCtx = New-SuiteRunContext -Defaults $suiteDefaults -Capture $suiteBag -TimeoutSec $defaultTimeout
-            Add-CaseHookContext -Ctx $suiteHookCtx -Case $null
-            Write-RunHost '  [HOOK] suite setup' DarkCyan
-            try {
-                Invoke-HookList -Steps $suite.setup -Ctx $suiteHookCtx -Label 'suite setup' `
-                    -TimeoutSec (Get-HookLimitSec -Suite $suite -Key 'setupTimeoutSec' -Default 300) -Phase 'suite-setup'
-                # An extension may still refuse a setup whose steps passed.
-                $hookFailure = Get-CaseHookMessage -Name 'AfterSuiteHook' -Values @{ Hook = 'setup'; Ctx = $suiteHookCtx }
-                if ($hookFailure) { throw $hookFailure }
-            } catch {
-                $suiteSetupError = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
-                Write-RunHost "  [FAIL] suite setup: $suiteSetupError" Red
-                $anyFailures = $true
-            }
-        }
-
-        foreach ($t in $suite.tests) {
-            $testTags = @($t.tags) + $suiteTags
-            if (-not (Test-TagsMatch $testTags $tagFilter)) {
-                Write-RunHost "  [SKIP] $($t.name) (tags: $($testTags -join ','))" DarkGray
-                Add-SuiteTrace -Phase 'case' -CaseName ([string]$t.name) -Status 'skipped' -Reason 'tag'
-                $now = Get-Date
-                $suiteResult.tests.Add(@{
-                        name = $t.name; status = 'skipped'; durationSec = 0.0
-                        startTime = $now; endTime = $now
-                        message = 'tag filter'; details = ''; stdout = ''
-                    })
-                continue
-            }
-
-            # A case an extension's SkipCase hook skips is reported skipped
-            # with its sentence, before any of its steps and before a failed
-            # suite setup is charged to it.
-            $caseSkip = Get-CaseHookSkip -Name 'SkipCase' -Values @{ Case = $t; CaseName = [string]$t.name }
-            if ($caseSkip) {
-                Write-RunHost "  [SKIP] $($t.name) ($($caseSkip.Message))" DarkGray
-                Add-SuiteTrace -Phase 'case' -CaseName ([string]$t.name) -Status 'skipped' -Reason $caseSkip.Reason
-                $now = Get-Date
-                $suiteResult.tests.Add(@{
-                        name = $t.name; status = 'skipped'; durationSec = 0.0
-                        startTime = $now; endTime = $now
-                        message = $caseSkip.Message; details = ''; stdout = ''
-                    })
-                continue
-            }
-
-            $declaredTimeout = if ($null -ne $t.timeoutSec) { [int]$t.timeoutSec } else { $defaultTimeout }
-            $caseLimit = Get-SuiteCaseLimitSec -Composite $composite -Suite $suite -DeclaredSec $declaredTimeout
-            $ctx = New-SuiteRunContext -Defaults $suiteDefaults -Capture (@{} + $suiteBag) -TimeoutSec $declaredTimeout
-            $ctx.caseName = [string]$t.name
-            $ctx.suiteName = [string]$suite.suite
-            $ctx.caseLimitSec = $caseLimit
-            # Read as ${param.<name>}, resolved highest source first.
-            $ctx.param = (Resolve-SuiteParameter -Library $library -Model $suite -Case $t -CommandLine $commandLineParam -EnvPrefix $composite.EnvPrefix)
-            # The row an outline is running, bound for the whole case.
-            $ctx.row = $t.__row
-            # What the extensions add to this case's context, before its vars,
-            # which may read it.
-            Add-CaseHookContext -Ctx $ctx -Case $t
-            $ctx.var = [ordered]@{}
-            foreach ($source in @($library.vars, $suite.vars, $t.vars)) {
-                foreach ($name in @(if ($source) { $source.Keys } else { @() })) {
-                    $ctx.var[$name] = Expand-SuiteExpression -Value $source[$name] -Scope $ctx
-                }
-            }
-
-            $sw = [Diagnostics.Stopwatch]::StartNew()
-            $workWatch = [Diagnostics.Stopwatch]::new()
-            $cleanupWatch = [Diagnostics.Stopwatch]::new()
-            $setupSec = 0.0
-            $testStart = Get-Date
-            $status = 'passed'; $msg = ''; $details = ''; $stdout = ''; $caseReason = ''
-            $cleanupTimeout = 120
-
-            # A suite setup that failed leaves no case runnable: every one of them
-            # is errored with the setup's message, and none of their steps runs.
-            if ($suiteSetupError) {
-                Write-RunHost "  [ERR ] $($t.name) (suite setup failed)" Red
-                Add-SuiteTrace -Phase 'case' -CaseName ([string]$t.name) -Status 'error' -Reason 'suite-setup'
-                $sw.Stop()
-                $run.suiteTimings.Add(@{ suite = $suite.suite; case = $t.name; status = 'error'; timeoutSec = $caseLimit; workSec = 0.0; setupSec = 0.0; cleanupSec = 0.0; cleanupTimeoutSec = $cleanupTimeout; totalSec = 0.0 })
-                $suiteResult.tests.Add(@{
-                        name = $t.name; status = 'error'; durationSec = 0.0
-                        startTime = $testStart; endTime = $testStart
-                        message = "Suite setup failed: $suiteSetupError"; details = ''; stdout = ''
-                    })
-                continue
-            }
-
-            $stopped = $false
-            try {
-                $requestedCleanupTimeout = if ($t.cleanupTimeoutSec) { [int]$t.cleanupTimeoutSec } elseif ($suiteDefaults.cleanupTimeoutSec) { [int]$suiteDefaults.cleanupTimeoutSec } else { 120 }
-                if ($requestedCleanupTimeout -lt 1 -or $requestedCleanupTimeout -gt 14400) { throw 'cleanupTimeoutSec must be between 1 and 14400 seconds.' }
-                $cleanupTimeout = $requestedCleanupTimeout
-                if (-not @($t.steps).Count) { throw 'Test must contain at least one step.' }
-                foreach ($step in @($suite.setup) + @($suite.beforeEach) + @($t.setup) + @($t.steps) + @($t.cleanup) + @($suite.afterEach) + @($suite.teardown)) {
-                    if ($null -ne $step -and -not (Get-SuiteAction -Name ([string]$step.action))) {
-                        throw "Unknown action: $($step.action). No extension of this runtime registers it."
-                    }
-                    # An extension's own check of the step, before anything
-                    # runs and under -DryRun too; what it throws fails the case.
-                    if ($null -ne $step) { Invoke-CaseHookList -Name 'CheckStep' -Values @{ Step = $step; Case = $t; CaseName = [string]$t.name } }
-                }
-                if ($DryRun) {
-                    Write-RunHost "  [DRY ] $($t.name)" DarkGray
-                    $status = 'skipped'; $msg = 'Validated only; live execution pending.'
-                } else {
-                    # A stop asked for before this case starts ends the run here,
-                    # before anything is planted, rather than after.
-                    if (Test-StopRequested) {
-                        Write-RunHost "  [STOP] $($t.name) not started: the run was cancelled" Yellow
-                        $anyFailures = $true
-                        $stopped = $true
-                    } else {
-                        Write-RunHost "  [RUN ] $($t.name)" White
-                        # beforeEach, then the case's own setup. Both write into
-                        # this case's bag, both have their own bound, and a failure
-                        # in either skips the steps while leaving cleanup and
-                        # afterEach to undo a half-built precondition.
-                        Invoke-HookList -Steps $suite.beforeEach -Ctx $ctx -Label 'beforeEach' `
-                            -TimeoutSec (Get-HookLimitSec -Suite $suite -Key 'beforeEachTimeoutSec' -Default 300) -Phase 'before-each' -CaseName ([string]$t.name)
-                        Invoke-HookList -Steps $t.setup -Ctx $ctx -Label 'case setup' `
-                            -TimeoutSec (Get-HookLimitSec -Suite $suite -Case $t -Key 'setupTimeoutSec' -Default 300) -Phase 'case-setup' -CaseName ([string]$t.name)
-
-                        # The case's own limit starts here, after the hooks,
-                        # because a hook never draws on it.
-                        $ctx.deadline = [DateTime]::UtcNow.AddSeconds($caseLimit)
-                        $ctx.caseStartedUtc = [DateTime]::UtcNow
-                        $setupSec = $sw.Elapsed.TotalSeconds
-                        $workWatch.Start()
-                        Invoke-CaseHookList -Name 'WorkStarted' -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name }
-                        foreach ($step in @($t.steps)) {
-                            # Between steps, so the throw lands where the case's
-                            # own cleanup still runs and undoes what the steps so
-                            # far have planted.
-                            if (Test-StopRequested) { throw 'The run was cancelled; the case stopped between steps and its cleanup will run.' }
-                            $stepOut = Invoke-Step -Step $step -Ctx $ctx -Description (Format-StepLabel $step) -Phase 'step' -CaseName ([string]$t.name)
-                            if ($null -ne $stepOut) { $stdout += ((ConvertTo-Json -InputObject $stepOut -Depth 30 -Compress) + [Environment]::NewLine) }
-                            # An extension may fail the case after a step that
-                            # passed; the case's cleanup still runs.
-                            $stepFailure = Get-CaseHookMessage -Name 'AfterStep' -Values @{ Step = $step; Ctx = $ctx; Case = $t; CaseName = [string]$t.name }
-                            if ($stepFailure) { throw $stepFailure }
-                        }
-                        foreach ($a in @($t.asserts)) {
-                            Test-Assertion -Assert $a -Ctx $ctx
-                        }
-                        if ($workWatch.Elapsed.TotalSeconds -gt $caseLimit) { throw (Get-CaseBudgetFailure -ElapsedSec $workWatch.Elapsed.TotalSeconds -BudgetSec $caseLimit) }
-                        Write-RunHost "  [PASS] $($t.name)" Green
-                    }
-                }
-            } catch {
-                $status = 'failed'
-                $caseReason = Get-StepFailureReason -Failure $_.Exception
-                $msg = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
-                $details = Protect-SuiteText -Text ($_ | Out-String) -Started $run.started
-                $anyFailures = $true
-                Write-RunHost "  [FAIL] $($t.name): $msg" Red
-            } finally {
-                if (-not $workWatch.IsRunning -and $workWatch.ElapsedTicks -eq 0) { $setupSec = $sw.Elapsed.TotalSeconds }
-                $workWatch.Stop()
-                Invoke-CaseHookList -Name 'WorkFinished' -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name; Status = $status; WorkSec = $workWatch.Elapsed.TotalSeconds }
-                $cleanupWatch.Start()
-                # Cleanup may decide what to keep from the complete work verdict.
-                $ctx.caseWorkStatus = $status
-                if (-not $DryRun -and -not $stopped) {
-                    # Cleanup gets its own bounded window even after a timeout.
-                    $ctx.deadline = [DateTime]::UtcNow.AddSeconds($cleanupTimeout)
-                    foreach ($step in @($t.cleanup)) {
-                        if ($null -eq $step) { continue }
-                        try { $null = Invoke-Step -Step $step -Ctx $ctx -Description "cleanup $(Format-StepLabel $step)" -Phase 'case-cleanup' -CaseName ([string]$t.name) } catch {
-                            $status = 'failed'; $anyFailures = $true; $caseReason = 'cleanup'
-                            $cleanupError = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
-                            $msg += " Cleanup failed: $cleanupError"
-                            Write-RunHost "  [FAIL] $($t.name) cleanup: $cleanupError" Red
-                        }
-                    }
-                    # afterEach runs even when the cleanup threw, because a
-                    # suite-wide restore still has to happen; its own failure is
-                    # appended rather than replacing what the case reported.
-                    try {
-                        Invoke-HookList -Steps $suite.afterEach -Ctx $ctx -Label 'afterEach' `
-                            -TimeoutSec (Get-HookLimitSec -Suite $suite -Key 'afterEachTimeoutSec' -Default 300) -Phase 'after-each' -CaseName ([string]$t.name)
-                    } catch {
-                        $status = 'failed'; $anyFailures = $true; $caseReason = 'hook'
-                        $hookError = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
-                        $msg += " afterEach failed: $hookError"
-                        Write-RunHost "  [FAIL] $($t.name) afterEach: $hookError" Red
-                    }
-                }
-                # After cleanup and afterEach, whatever the case did: what an
-                # extension holds open for the case is released with it.
-                Invoke-CaseHookList -Name 'CaseFinally' -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name; Status = $status }
-                $stdout = Protect-SuiteText -Text $stdout -Started $run.started
-            }
-            if ($stopped) { break }
-
-            $sw.Stop()
-            $cleanupWatch.Stop()
-            # The extensions' last word on the case, after its cleanup and
-            # afterEach and before its verdict is recorded. Each failure fails
-            # the case and is appended to what it reported; each hook sees the
-            # status the ones before it left.
-            foreach ($entry in Get-CaseHook -Name 'AfterCase') {
-                $answers = Invoke-CaseHook -Entry $entry -Values @{ Ctx = $ctx; Case = $t; CaseName = [string]$t.name; Status = $status; SuiteCtx = $suiteHookCtx }
-                foreach ($failure in @($answers)) {
-                    $failMessage = if ($failure -is [System.Collections.IDictionary]) { [string]$failure.Message } else { [string]$failure }
-                    if (-not $failMessage) { continue }
-                    $status = 'failed'; $anyFailures = $true
-                    $caseReason = if ($failure -is [System.Collections.IDictionary] -and $failure.Reason) { [string]$failure.Reason } else { 'hook' }
-                    $msg += ' ' + (Protect-SuiteText -Text $failMessage -Started $run.started)
-                    if ($failure -is [System.Collections.IDictionary] -and $failure.Line) { Write-RunHost "  [FAIL] $($t.name): $($failure.Line)" Red }
-                }
-            }
-            $run.suiteTimings.Add(@{ suite = $suite.suite; case = $t.name; status = $status; timeoutSec = $caseLimit; workSec = $workWatch.Elapsed.TotalSeconds; setupSec = $setupSec; cleanupSec = $cleanupWatch.Elapsed.TotalSeconds; cleanupTimeoutSec = $cleanupTimeout; totalSec = $sw.Elapsed.TotalSeconds })
-            # The case's own result closes its part of the trace, after every
-            # step, cleanup and afterEach that belongs to it.
-            Add-SuiteTrace -Phase 'case' -CaseName ([string]$t.name) -Status $status -Reason $caseReason
-            $suiteResult.tests.Add(@{
-                    name        = $t.name
-                    status      = $status
-                    durationSec = $sw.Elapsed.TotalSeconds
-                    startTime   = $testStart
-                    endTime     = $testStart.AddSeconds($sw.Elapsed.TotalSeconds)
-                    message     = $msg
-                    details     = $details
-                    stdout      = $stdout
-                })
-        }
-
         # The teardown runs after the last case whether cases passed, and
-        # whether the setup did: state a failed setup half-built still has to be
-        # released. It reads the suite bag, not any case's copy, and its failure
-        # is its own entry rather than being charged to the last case that ran.
-        if (-not $DryRun -and $selectedCount -gt 0 -and @($suite.teardown | Where-Object { $null -ne $_ }).Count) {
-            if (-not $suiteHookCtx) {
-                $suiteHookCtx = New-SuiteRunContext -Defaults $suiteDefaults -Capture $suiteBag -TimeoutSec $defaultTimeout
-                Add-CaseHookContext -Ctx $suiteHookCtx -Case $null
-            }
-            Write-RunHost '  [HOOK] suite teardown' DarkCyan
-            $teardownStart = Get-Date
-            $teardownWatch = [Diagnostics.Stopwatch]::StartNew()
-            try {
-                Invoke-HookList -Steps $suite.teardown -Ctx $suiteHookCtx -Label 'suite teardown' `
-                    -TimeoutSec (Get-HookLimitSec -Suite $suite -Key 'teardownTimeoutSec' -Default 300) -Phase 'suite-teardown'
-                $hookFailure = Get-CaseHookMessage -Name 'AfterSuiteHook' -Values @{ Hook = 'teardown'; Ctx = $suiteHookCtx }
-                if ($hookFailure) { throw $hookFailure }
-            } catch {
-                $teardownError = Protect-SuiteText -Text $_.Exception.Message -Started $run.started
-                Write-RunHost "  [FAIL] suite teardown: $teardownError" Red
-                $anyFailures = $true
-                $teardownWatch.Stop()
-                $suiteResult.tests.Add(@{
-                        name = 'teardown'; status = 'failed'; durationSec = $teardownWatch.Elapsed.TotalSeconds
-                        startTime = $teardownStart; endTime = $teardownStart.AddSeconds($teardownWatch.Elapsed.TotalSeconds)
-                        message = $teardownError; details = ''; stdout = ''
-                    })
-            }
-            # After the teardown, passed or failed, with the suite hooks' context.
-            Invoke-CaseHookList -Name 'AfterTeardown' -Values @{ Ctx = $suiteHookCtx }
-        }
-
+        # whether the setup did: state a failed setup half-built still has to
+        # be released.
+        $teardown = Invoke-BddSuiteTeardown -Session $session
+        if ($teardown.Failed) { $suiteResult.tests.Add($teardown.Entry) }
+        if ($session.AnyFailures) { $anyFailures = $true }
         $results.Add($suiteResult)
     }
     $Outcome.Suites = @($results.ToArray())

@@ -426,7 +426,41 @@ try {
         Assert ($actualText -eq $expectedText) "$($entry.suite) trace differs.`nProduced:`n$actualText`nExpected:`n$expectedText"
         $counts.execute++
     }
-    Assert (($pending -join ',') -eq 'execute/capture-isolation.yml') "Pending for powershell: $($pending -join ', ')"
+    Assert ($pending.Count -eq 0) "Pending for powershell: $($pending -join ', ')"
+
+    # -------------------------------------------------------------------
+    # E3 (docs/test-providers): every generate entry the manifest does not
+    # mark pending for this runtime gives the plan it expects, compared as
+    # data with its keys sorted, or the refusal's exit code and findings.
+    # -------------------------------------------------------------------
+    $sortKeys = {
+        param($Value)
+        if ($Value -is [System.Collections.IDictionary]) {
+            $sorted = [ordered]@{}
+            foreach ($key in @($Value.Keys | Sort-Object -CaseSensitive)) { $sorted[$key] = & $sortKeys $Value[$key] }
+            return $sorted
+        }
+        if ($Value -is [System.Collections.IList]) { return , @(foreach ($item in $Value) { & $sortKeys $item }) }
+        return $Value
+    }
+    $generateChecked = 0
+    foreach ($entry in @($manifest.generate | Where-Object { $null -ne $_ })) {
+        if (@($entry.pendingIn) -contains 'powershell') { continue }
+        $generated = Invoke-BddSuiteGenerate -Config (Get-CorpusPath ([string]$entry.config)) -Plan
+        Assert ($generated.Code -eq [int]$entry.exitCode) "$($entry.config) exits $($generated.Code), not $($entry.exitCode): $($generated.Errors)"
+        if ($entry.expected) {
+            $want = ConvertTo-Json -InputObject (& $sortKeys ((Get-Content -LiteralPath (Get-CorpusPath ([string]$entry.expected)) -Raw) | ConvertFrom-Json -AsHashtable)) -Depth 20 -Compress
+            $got = ConvertTo-Json -InputObject (& $sortKeys ($generated.Out | ConvertFrom-Json -AsHashtable)) -Depth 20 -Compress
+            Assert ($want -ceq $got) "$($entry.config): the plan differs:`n$($generated.Out)"
+        } else {
+            $found = @([regex]::Matches($generated.Errors, '(?m)^(\S+):(\d+):(\d+) +([EW]\d+)') | ForEach-Object { "$($_.Groups[1].Value):$($_.Groups[2].Value):$($_.Groups[3].Value) $($_.Groups[4].Value)" })
+            $wanted = @($entry.diagnostics | ForEach-Object { "$($_.file):$($_.line):$($_.column) $($_.code)" })
+            Assert (($found -join '|') -eq ($wanted -join '|')) "$($entry.config): findings $($found -join ', '), not $($wanted -join ', ')"
+            Assert ($generated.Errors -match 'Nothing was generated') "$($entry.config) does not say nothing was generated."
+        }
+        $generateChecked++
+    }
+    Assert ($generateChecked -eq 2) "$generateChecked generate entries checked, not 2"
 
 
     # -------------------------------------------------------------------
@@ -654,8 +688,8 @@ line two</b><c></c><d>text<e/></d></r>'
     $uncovered = @($documented | Where-Object { -not $seenCodes.ContainsKey($_) })
     Assert (-not $uncovered.Count) "No corpus entry produces: $($uncovered -join ', ')"
 
-    Write-Host ("PASS: $script:checks conformance assertions: {0} validate, {1} execute ({6} pending), {2} reports, {3} expression rows, {4} assertion rows, core catalog = {5} registered." -f
-        $counts.validate, $counts.execute, $counts.reports, $counts.expressions, $counts.asserts, $registered.Count, $pending.Count)
+    Write-Host ("PASS: $script:checks conformance assertions: {0} validate, {1} execute ({6} pending), {7} generate, {2} reports, {3} expression rows, {4} assertion rows, core catalog = {5} registered." -f
+        $counts.validate, $counts.execute, $counts.reports, $counts.expressions, $counts.asserts, $registered.Count, $pending.Count, $generateChecked)
 } finally {
     if (Test-Path -LiteralPath $scratch) {
         $resolved = [IO.Path]::GetFullPath($scratch)

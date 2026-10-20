@@ -1,0 +1,6 @@
+# The conformance corpus's execute suites as Pester tests.
+suites: [ "../../../../../conformance/execute/*.yml" ]
+schemaRoot: ../../../../../conformance/schema
+provider: pester
+extensions: [ ../corpus-extension/BddSuite.Corpus.psm1 ]
+contextKeys: [ cluster, target, labId, apiUrl ]

@@ -1,7 +1,7 @@
 # Running suites with each language's own test framework: implementation plan
 
-Status: **stages T0 to T6 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
-[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md)); stages T7-T10 not started. The design, its
+Status: **stages T0 to T7 built 2026-10-19** ([T0](../evidence/test-providers-t0.md),
+[T1](../evidence/test-providers-t1.md), [T2](../evidence/test-providers-t2.md), [T3](../evidence/test-providers-t3.md), [T4](../evidence/test-providers-t4.md), [T5](../evidence/test-providers-t5.md), [T6](../evidence/test-providers-t6.md), [T7](../evidence/test-providers-t7.md)); stages T8-T10 not started. The design, its
 outcomes (O1–O5), decisions (DEC-T01–DEC-T12) and scenarios (E1–E14) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -487,13 +487,13 @@ E7, E9–E12 for TypeScript. Size: 2.5–3.
 Result: D13, D14. Entry: T0 (T1 as reference). Exit evidence: E1, E2, E3, E8,
 E9, E10, E12 for PowerShell. Size: 2.
 
-- [ ] T7.1 Session class and exported functions; run context owns the step runspace.
-- [ ] T7.2 Recorded failures; deep copy of the bag.
-- [ ] T7.3 `Invoke-BddSuiteRun` rebuilt; E1 and E2 for PowerShell; `fixture.append` in the corpus extension, and powershell removed from `capture-isolation`'s `pendingIn`.
-- [ ] T7.4 Plan and `-Generate -Plan`; E3 for PowerShell; the runtime's corpus test runs the manifest's `generate` list, and powershell is removed from its `pendingIn`.
-- [ ] T7.5 Pester template: one `It` per case and row with `<` `>` escaped, tags, guarded skip, NUnit3 output; `-Check`.
-- [ ] T7.6 `samples/workspace/tests/powershell`; E8.
-- [ ] T7.7 E9, E10, E12 for PowerShell.
+- [x] T7.1 Session class and exported functions; run context owns the step runspace.
+- [x] T7.2 Recorded failures; deep copy of the bag.
+- [x] T7.3 `Invoke-BddSuiteRun` rebuilt; E1 and E2 for PowerShell; `fixture.append` in the corpus extension, and powershell removed from `capture-isolation`'s `pendingIn`.
+- [x] T7.4 Plan and `-Generate -Plan`; E3 for PowerShell; the runtime's corpus test runs the manifest's `generate` list, and powershell is removed from its `pendingIn`.
+- [x] T7.5 Pester template: one `It` per case and row with `<` `>` escaped, tags, guarded skip, NUnit3 output; `-Check`.
+- [x] T7.6 `samples/workspace/tests/powershell`; E8.
+- [x] T7.7 E9, E10, E12 for PowerShell.
 
 ### Stage T8: CI and documentation (P1)
 

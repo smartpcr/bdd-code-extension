@@ -314,7 +314,9 @@ tests:
         $dry = Invoke-Probe $suite @{ DryRun = $true }
         $dry.ExitCode | Should -Be 0
         $dry.Suites[0].tests[0].status | Should -Be 'skipped'
-        @($dry.Trace | ForEach-Object { "$($_.phase):$($_.status)" }) | Should -Be @('case:skipped')
+        # A dry run validates and runs nothing, so it traces nothing either
+        # (spec/session.md, rule 10), as every other runtime's dry run.
+        @($dry.Trace).Count | Should -Be 0
     }
 
     It 'runs one named case, and stops between cases when the stop file appears' {

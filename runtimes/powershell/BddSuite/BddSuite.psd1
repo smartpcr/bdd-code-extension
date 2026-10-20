@@ -9,6 +9,13 @@
         # The runner and the extension API.
         'Invoke-BddSuite', 'Import-SuiteExtension', 'New-SuiteComposite', 'Start-SuiteExtension', 'Protect-SuiteText',
         'Get-SuiteCaseLimitSec', 'Initialize-SuiteActionRegistry', 'Import-SuiteActionSource', 'Get-SuiteRunLoad',
+        # The session a test framework drives a suite through (spec/session.md), and the Pester glue.
+        'New-BddSuiteRunContext', 'Open-BddSuiteSession', 'Invoke-BddSuiteSetup', 'Invoke-BddSuiteBeforeEach', 'Invoke-BddSuiteCase',
+        'Invoke-BddSuiteAfterEach', 'Invoke-BddSuiteTeardown', 'Invoke-BddSuiteTest', 'Complete-BddSuiteSession', 'Write-BddSuiteTrace',
+        'Get-BddSuiteTestContext', 'Reset-BddSuiteTestContext', 'Copy-SuiteBagValue',
+        # suiterun generate: the test plan and the Pester tests (spec/test-plan.md).
+        'Invoke-BddSuiteGenerate', 'Read-BddSuiteTestsConfig', 'Select-BddSuiteFile', 'Get-BddSuitePlan', 'ConvertTo-BddSuitePlanJson',
+        'ConvertTo-BddSuitePesterFile', 'Write-BddSuiteGeneratedFile', 'Get-BddSuiteIdentifier', 'Test-BddSuiteOfflineAction', 'ConvertTo-BddSuitePesterText',
         # The command line (suiterun).
         'Invoke-BddSuiteCli', 'Get-BddSuiteCliUsage', 'ConvertFrom-BddSuiteCliArgument', 'Resolve-BddSuiteCliPath',
         'Get-BddSuiteCliCase', 'ConvertTo-BddSuiteCliJson',

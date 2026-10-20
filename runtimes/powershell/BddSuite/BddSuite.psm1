@@ -548,6 +548,8 @@ function New-JUnitXml {
 # ---- The runner -----------------------------------------------------------
 
 . (Join-Path $PSScriptRoot 'Runner.ps1')
+. (Join-Path $PSScriptRoot 'Session.ps1')
+. (Join-Path $PSScriptRoot 'Generate.ps1')
 
 # ---- The command line (suiterun) ------------------------------------------
 

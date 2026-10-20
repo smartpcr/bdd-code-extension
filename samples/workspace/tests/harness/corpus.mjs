@@ -2,7 +2,7 @@
 // test framework's generated tests, and compares what the framework reports
 // with what the suite format requires (docs/test-providers, DEC-T12, T2.10).
 //
-//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest [--only <suite id>] [--keep]
+//   node samples/workspace/tests/harness/corpus.mjs --provider mstest|nunit|xunit|go|rust|node|vitest|jest|pester [--only <suite id>] [--keep]
 //
 // For each execute entry of conformance/run-manifest.yaml (except those pending
 // for the provider's runtime) it runs that suite's generated tests alone, with
@@ -236,9 +236,47 @@ const typescriptAdapter = (name, runFile) => ({
   teardownFailed: (scope, id, rows) => rows.some(row => row.teardown && row.outcome === 'failed'),
 });
 
+// PowerShell: samples/workspace/tests/powershell, whose generate.ps1 writes
+// the Pester tests beside each config and whose Invoke-Tests.ps1 runs them
+// with NUnit3 output (the format that shows a failed teardown, T0).
+const psRoot = path.join(workspace, 'tests', 'powershell');
+const pester = {
+  name: 'pester',
+  runtime: 'powershell',
+  corpusConfig: path.join(psRoot, 'corpus', 'bddsuite.tests.yaml'),
+  sampleConfig: path.join(psRoot, 'shop', 'bddsuite.tests.yaml'),
+  corpusScope: 'corpus',
+  sampleScope: 'shop',
+  build() {
+    run('pwsh', ['-NoProfile', '-File', 'generate.ps1'], { cwd: psRoot, allowFailure: false });
+  },
+  plan(config) {
+    return planIds(run('pwsh', ['-NoProfile', '-File', path.join(repo, 'runtimes', 'powershell', 'suiterun.ps1'), 'generate', '--config', config, '--plan'],
+      { allowFailure: false }).stdout);
+  },
+  reference(file, schemaRoot) {
+    return run('pwsh', ['-NoProfile', '-File', path.join(workspace, 'scripts', 'e2e', 'suiterun.ps1'), 'run', '--schema-root', schemaRoot, '--path', file], { cwd: workspace });
+  },
+  /** One generated file through Invoke-Tests.ps1; rows are its test cases (the It's own name), and a fixture that failed in its TearDown. */
+  runSuite(scope, id, env, scratch) {
+    const xml = path.join(scratch, `pester.${scope}.${id}.xml`);
+    const result = run('pwsh', ['-NoProfile', '-File', 'Invoke-Tests.ps1', '-Path', `${scope}/${id}.Bdd.Tests.ps1`, '-ResultsFile', xml, '-Output', 'None'], { cwd: psRoot, env });
+    const text = fs.existsSync(xml) ? fs.readFileSync(xml, 'utf8') : '';
+    const attr = (tag, name) => decode(tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? '');
+    const rows = [...text.matchAll(/<test-case\b[^>]*>/g)].map(m => ({ name: attr(m[0], 'methodname'), outcome: attr(m[0], 'result') }));
+    const runInfos = [...text.matchAll(/<test-suite\b[^>]*type="TestFixture"[^>]*>/g)].map(m => ({ outcome: attr(m[0], 'result'), text: attr(m[0], 'site') }));
+    return { rows, runInfos, output: result.stdout + result.stderr, seconds: result.seconds };
+  },
+  testName: name => name,
+  outcomeOf: status => ({ passed: 'Passed', failed: 'Failed', error: 'Failed', skipped: 'Skipped' })[status],
+  isTeardownRow: () => false,
+  teardownFailed: (scope, id, rows, runInfos) => runInfos.some(info => info.outcome === 'Failed' && info.text === 'TearDown'),
+};
+
 const adapters = {
   go,
   rust,
+  pester,
   /** node:test with the runtime's JUnit reporter, which keeps the describe's own failure as a test case named after it. */
   node: {
     ...typescriptAdapter('node', (file, junit, env) => run('node', ['--test', '--test-reporter=@bdd-suite/runtime/testing/node-reporter', `--test-reporter-destination=${junit}`, file],

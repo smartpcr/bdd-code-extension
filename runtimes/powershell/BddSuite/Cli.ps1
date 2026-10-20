@@ -12,6 +12,8 @@
                          [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>]
         suiterun list    --path <glob> [--tags a,b] [--test-name <case>]
         suiterun actions [--json]
+        suiterun generate --config <file> [--config <file>...] [--plan] [--check]
+                          [--provider pester] [--out <dir>]
 
     plus --schema-root <dir> on any verb, and every option an extension
     declares as --<name> <value>. --test-name is this runtime's addition: run
@@ -33,11 +35,15 @@ suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|j
                  [--dry-run] [--param name=value] [--trace-file f.json] [--test-name <case>]
 suiterun list    --path <glob> [--tags a,b]
 suiterun actions [--json]
+suiterun generate --config <file> [--config <file>...] [--plan] [--check]
+                  [--provider pester] [--out <dir>]
 '@ -replace "`r", ''
 
-$script:CliVerbs = @('lint', 'run', 'list', 'actions')
+$script:CliVerbs = @('lint', 'run', 'list', 'actions', 'generate')
 $script:CliSwitches = @('--json', '--strict', '--dry-run', '--binding-check')
-$script:CliValued = @('--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--test-name')
+$script:CliValued = @('--path', '--tags', '--results', '--trace-file', '--schema-root', '--binding', '--format', '--param', '--test-name', '--config', '--provider', '--out')
+# generate takes these and no other; no other verb takes them.
+$script:CliGenerateFlags = @('--config', '--plan', '--check', '--provider', '--out')
 
 function ConvertTo-BddSuiteOptionFlag {
     <#
@@ -82,6 +88,7 @@ function ConvertFrom-BddSuiteCliArgument {
         Verb = 'actions'; Path = ''; Tags = [Collections.Generic.List[string]]::new(); Results = ''; TraceFile = ''
         Format = 'nunit3'; Params = [Collections.Generic.List[string]]::new(); Binding = 'powershell'; Json = $false
         Strict = $false; DryRun = $false; BindingCheck = $false; SchemaRoot = ''; TestName = ''; Options = @{}
+        Configs = [Collections.Generic.List[string]]::new(); Plan = $false; Check = $false; Provider = ''; Out = ''
     }
     $all = @($Arguments | Where-Object { $null -ne $_ })
     if (-not $all.Count) { throw [ArgumentException]::new("a verb is needed.`n$usage") }
@@ -91,6 +98,11 @@ function ConvertFrom-BddSuiteCliArgument {
 
     for ($i = 1; $i -lt $all.Count; $i++) {
         $name = [string]$all[$i]
+        if (($parsed.Verb -eq 'generate') -ne ($script:CliGenerateFlags -ccontains $name)) {
+            throw [ArgumentException]::new("$($parsed.Verb) does not take $name.`n$usage")
+        }
+        if ($name -ceq '--plan') { $parsed.Plan = $true; continue }
+        if ($name -ceq '--check') { $parsed.Check = $true; continue }
         if ($script:CliSwitches -ccontains $name) {
             switch -CaseSensitive ($name) {
                 '--json' { $parsed.Json = $true }
@@ -118,6 +130,9 @@ function ConvertFrom-BddSuiteCliArgument {
             '--schema-root' { $parsed.SchemaRoot = $value }
             '--binding' { $parsed.Binding = $value }
             '--test-name' { $parsed.TestName = $value }
+            '--config' { $parsed.Configs.Add($value) }
+            '--provider' { $parsed.Provider = $value }
+            '--out' { $parsed.Out = $value }
             '--format' {
                 if ($value -cne 'nunit3' -and $value -cne 'junit') { throw [ArgumentException]::new("--format is nunit3 or junit, not $value.`n$usage") }
                 $parsed.Format = $value
@@ -129,8 +144,11 @@ function ConvertFrom-BddSuiteCliArgument {
             }
         }
     }
-    # Every verb but actions reads suite files, so it has to be told which.
-    if ($parsed.Verb -ne 'actions' -and -not $parsed.Path) { throw [ArgumentException]::new("$($parsed.Verb) needs --path.`n$usage") }
+    # Every verb but actions and generate reads suite files, so it has to be
+    # told which; generate reads configs.
+    if ($parsed.Verb -eq 'generate') {
+        if (-not $parsed.Configs.Count) { throw [ArgumentException]::new("generate needs --config.`n$usage") }
+    } elseif ($parsed.Verb -ne 'actions' -and -not $parsed.Path) { throw [ArgumentException]::new("$($parsed.Verb) needs --path.`n$usage") }
     return $parsed
 }
 
@@ -255,6 +273,13 @@ function Invoke-BddSuiteCli {
     $code = 0
     try {
         switch ($options.Verb) {
+            'generate' {
+                $generated = Invoke-BddSuiteGenerate -Config $options.Configs.ToArray() -Plan:$options.Plan -Check:$options.Check `
+                    -Provider $options.Provider -Out $options.Out
+                if ($generated.Code -eq 2) { throw $generated.Errors }
+                $code = $generated.Code
+                $text = $generated.Out
+            }
             'actions' {
                 $names = [string[]]@(Get-SuiteActionNames)
                 [Array]::Sort($names, [StringComparer]::Ordinal)
@@ -340,8 +365,20 @@ function Invoke-BddSuiteCli {
         return 2
     }
     if ($text) {
-        $Out.Write("$text`n")
-        $Out.Flush()
+        # A plan is UTF-8 (spec/test-plan.md): on a console whose code page is
+        # another, generate writes its bytes as UTF-8 for the time it prints.
+        $restore = $null
+        if ($options.Verb -eq 'generate' -and [object]::ReferenceEquals($Out, [Console]::Out) -and [Console]::OutputEncoding.WebName -ne 'utf-8') {
+            $restore = [Console]::OutputEncoding
+            [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+            $Out = [Console]::Out
+        }
+        try {
+            $Out.Write("$text`n")
+            $Out.Flush()
+        } finally {
+            if ($restore) { [Console]::OutputEncoding = $restore }
+        }
     }
     return $code
 }

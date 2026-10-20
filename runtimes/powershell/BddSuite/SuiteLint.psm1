@@ -1192,17 +1192,18 @@ function Test-SuiteSemantics {
 
     $found = [Collections.Generic.List[hashtable]]::new()
 
-    # E202: two cases a report cannot tell apart.
-    $seenCase = @{}
+    # E202: two cases a report cannot tell apart. Names compare exactly, as in
+    # every runtime: a PowerShell hashtable would ignore case and refuse
+    # 'places an order' beside 'PLACES AN ORDER', which the others accept.
+    $seenCase = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $caseIndex = 0
     foreach ($case in @($Model.tests)) {
         if ($null -eq $case) { $caseIndex++; continue }
         $name = [string]$case.name
-        if ($seenCase.ContainsKey($name)) {
+        if (-not $seenCase.Add($name)) {
             $found.Add((New-SuiteDiagnostic -Code 'E202' -File $File -Position $Positions["/tests/$caseIndex/name"] -At 'value' `
                         -Message "Case $name is declared twice in this suite."))
         }
-        $seenCase[$name] = $true
         $caseIndex++
     }
 

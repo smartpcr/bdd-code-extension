@@ -7,12 +7,14 @@
     expression table reads four (conformance/README.md). Every runtime's corpus
     test registers them through its extension API, with the values in
     conformance/expressions/context.yaml, which is also what proves a context
-    key reaches lint and the run from an extension.
+    key reaches lint and the run from an extension. It also implements
+    fixture.append (actions/Fixture.ps1), for execute/capture-isolation.yml.
 #>
 
 function Get-SuiteExtension {
     return @{
         Name        = 'corpus'
+        ActionPath  = @('actions')
         ContextKeys = @('cluster', 'target', 'labId', 'apiUrl')
         Start       = {
             param([hashtable]$Options)
