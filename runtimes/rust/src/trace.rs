@@ -6,6 +6,8 @@
 //! cannot carry a number that differs by hardware or a sentence they are free
 //! to word differently.
 
+use std::sync::Arc;
+
 use serde_json::{Map, Value};
 
 /// Where in the run one entry happened.
@@ -117,13 +119,31 @@ impl Entry {
     }
 }
 
+/// What is told of each entry as it is added, for a run observer
+/// (spec/progress.md). It sees the entry; it does not change what is recorded.
+pub type EntryHook = Arc<dyn Fn(&Entry) + Send + Sync>;
+
 /// Everything the run did, in order.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct Trace {
     pub entries: Vec<Entry>,
+    added: Option<EntryHook>,
+}
+
+impl std::fmt::Debug for Trace {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_struct("Trace").field("entries", &self.entries).finish()
+    }
 }
 
 impl Trace {
+    /// An empty trace that tells `added` of each entry as it is added. Each
+    /// operation of a session traces into its own, which no lock guards, so
+    /// the hook is never called under a lock.
+    pub fn observed(added: Option<EntryHook>) -> Self {
+        Trace { entries: Vec::new(), added }
+    }
+
     pub fn add(
         &mut self,
         phase: Phase,
@@ -141,6 +161,9 @@ impl Trace {
             status,
             reason,
         });
+        if let (Some(added), Some(entry)) = (&self.added, self.entries.last()) {
+            added(entry);
+        }
     }
 
     /// An array even when the run did one thing, and empty rather than absent

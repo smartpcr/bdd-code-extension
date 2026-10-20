@@ -151,7 +151,7 @@ pub const DEFAULT_ENV_PREFIX: &str = "BDD_SUITE_";
 pub const CORE_ROOTS: [&str; 6] = ["capture", "param", "var", "row", "timeoutSec", "defaults"];
 
 /// The core's own flags; an extension may not take one.
-const CORE_FLAGS: [&str; 13] = [
+const CORE_FLAGS: [&str; 15] = [
     "--path",
     "--tags",
     "--results",
@@ -165,6 +165,8 @@ const CORE_FLAGS: [&str; 13] = [
     "--strict",
     "--dry-run",
     "--binding-check",
+    "--name",
+    "--progress",
 ];
 
 const THE_CORE: &str = "the core";

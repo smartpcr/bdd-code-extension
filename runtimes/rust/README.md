@@ -5,6 +5,40 @@ reports and the `suiterun` command line, extensible by an outside crate
 (`extension::Extension`). It is held to the conformance corpus in
 `../../conformance/` like every runtime.
 
+## Install
+
+```toml
+[dependencies]
+suiterun = { version = "0.6.10", features = ["testing"] }   # "testing" only for suites as cargo test tests
+
+[build-dependencies]
+suiterun = { version = "0.6.10", features = ["testing"] }   # build.rs generates the suite list
+```
+
+The crate carries the release's version, the VS Code extension's, so every
+runtime of one release agrees. A workspace adds its own actions in a type that
+implements `suiterun::Extension` and builds its own `suiterun` from it:
+
+```rust
+// src/main.rs
+let extensions: Vec<Arc<dyn suiterun::Extension>> = vec![Arc::new(MyExtension)];
+std::process::exit(suiterun::main_with(std::env::args().skip(1).collect(), &mut std::io::stdout(), &mut std::io::stderr(), &extensions));
+```
+
+Its catalog imports the core this crate carries by name, with no copy of the
+spec (`imports: [ "bdd-suite:core" ]`); the core's actions are cut to the
+catalog's own `bindings` list. Besides `lint`, `run`, `list` and `actions`,
+`run` and `list` take `--name glob[,glob]` (cases whose names match, with the
+tag filter) and `run` takes `--progress` (live `StartGroup`/`EndGroup`/`Summary`
+lines for long runs; spec/progress.md). An action that panics fails its step;
+the run goes on, as long as the binary keeps Rust's default unwinding panics
+(`panic = "abort"` ends the process). A library caller gets the same through
+`exec::Options::names` and an `exec::Observer`.
+
+A working consumer that uses only the crate, with its own extension,
+`suiterun` and harness:
+[samples/consumers/rust](https://github.com/smartpcr/bdd-code-extension/tree/main/samples/consumers/rust).
+
 ## Run suites with your test framework
 
 With the `testing` feature, a test crate runs its suites under `cargo test`:

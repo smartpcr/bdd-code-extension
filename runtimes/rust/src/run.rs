@@ -136,7 +136,9 @@ pub fn list(options: &Options) -> Report {
         };
         for case in suite::cases(&model) {
             let tags = suite::case_tags(&model, &case);
-            if !suite::tags_match(&tags, &options.tags) {
+            if !suite::tags_match(&tags, &options.tags)
+                || !suite::name_matches(&suite::text_of(&case, "name"), &options.names)
+            {
                 continue;
             }
             lines.push(format!(
@@ -188,6 +190,8 @@ pub fn run(options: &Options, registry: &Registry) -> Report {
     };
 
     let mut trace = Trace::default();
+    // Live lines while the run goes, for runs that take hours (spec/progress.md).
+    let progress = options.progress.then(|| std::sync::Arc::new(crate::progress::ProgressPrinter::new()));
     let mut suites = Vec::new();
     let mut lines = Vec::new();
     // Once per run, shared by every file, so an extension's state persists
@@ -204,6 +208,10 @@ pub fn run(options: &Options, registry: &Registry) -> Report {
         };
         let settings = exec::Options {
             tags: options.tags.clone(),
+            names: options.names.clone(),
+            observer: progress
+                .clone()
+                .map(|printer| exec::SharedObserver(printer as std::sync::Arc<dyn exec::Observer>)),
             params: options.params.clone(),
             dry_run: options.dry_run,
             record_path: std::env::var(format!("{}RECORD_PATH", registry.env_prefix()))
@@ -231,6 +239,9 @@ pub fn run(options: &Options, registry: &Registry) -> Report {
         suites,
     };
     let failed = exec::failed(&result);
+    if let Some(printer) = &progress {
+        printer.summary();
+    }
 
     if let Some(path) = &options.trace_file {
         if let Some(parent) = std::path::Path::new(path).parent() {

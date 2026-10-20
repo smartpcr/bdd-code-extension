@@ -4,10 +4,10 @@
 //!
 //! ```text
 //! suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-//! suiterun run     --path <glob> [--tags a,b] [--results f.xml]
+//! suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml]
 //!                  [--format nunit3|junit] [--dry-run] [--param n=v] [--trace-file f.json]
-//!                  [--schema-root dir] [any option an extension declares, with its value]
-//! suiterun list    --path <glob> [--tags a,b]
+//!                  [--progress] [--schema-root dir] [any option an extension declares, with its value]
+//! suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 //! suiterun actions [--json]
 //! suiterun generate --config <file> [--config <file>...] [--plan] [--check]
 //!                   [--provider rust] [--out <dir>]
@@ -67,6 +67,13 @@ pub struct Options {
     pub verb: Verb,
     pub path: String,
     pub tags: Vec<String>,
+    /// `--name` globs (`*`, `?`): a case is selected when its name matches any
+    /// of them and the tag filter selects it; none selects every case
+    /// (spec/README.md, docs/packages DEC-P05).
+    pub names: Vec<String>,
+    /// `--progress`: live lines while a run goes, in the shape spec/progress.md
+    /// gives.
+    pub progress: bool,
     pub results: Option<String>,
     pub trace_file: Option<String>,
     pub format: ReportFormat,
@@ -105,6 +112,8 @@ impl Options {
             verb,
             path: String::new(),
             tags: Vec::new(),
+            names: Vec::new(),
+            progress: false,
             results: None,
             trace_file: None,
             format: ReportFormat::NUnit3,
@@ -139,9 +148,9 @@ impl fmt::Display for ArgError {
 
 const USAGE: &str = "\
 suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
-suiterun run     --path <glob> [--tags a,b] [--results f.xml] [--format nunit3|junit]
-                 [--dry-run] [--param name=value] [--trace-file f.json]
-suiterun list    --path <glob> [--tags a,b]
+suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
+                 [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
+suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
 suiterun actions [--json]
 suiterun generate --config <file> [--config <file>...] [--plan] [--check]
                   [--provider rust] [--out <dir>]";
@@ -218,6 +227,13 @@ pub fn parse_with<I: IntoIterator<Item = String>>(arguments: I, registry: &Regis
                     .filter(|tag| !tag.is_empty())
                     .collect();
             }
+            "--name" => {
+                let raw = value("--name")?;
+                options.names.extend(
+                    raw.split(',').map(|pattern| pattern.trim().to_string()).filter(|pattern| !pattern.is_empty()),
+                );
+            }
+            "--progress" => options.progress = true,
             "--results" => options.results = Some(value("--results")?),
             "--trace-file" => options.trace_file = Some(value("--trace-file")?),
             "--schema-root" => options.schema_root = Some(value("--schema-root")?),

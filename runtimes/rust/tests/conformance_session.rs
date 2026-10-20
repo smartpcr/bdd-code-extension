@@ -75,6 +75,11 @@ fn e1_every_execute_entry_through_the_session_in_file_order_and_reversed() {
                 .and_then(Value::as_str)
                 .map(|tags| tags.split(',').map(|tag| tag.trim().to_string()).filter(|tag| !tag.is_empty()).collect())
                 .unwrap_or_default(),
+            names: entry
+                .get("names")
+                .and_then(Value::as_str)
+                .map(|names| names.split(',').map(|name| name.trim().to_string()).filter(|name| !name.is_empty()).collect())
+                .unwrap_or_default(),
             params: entry
                 .get("params")
                 .and_then(Value::as_object)
@@ -83,6 +88,11 @@ fn e1_every_execute_entry_through_the_session_in_file_order_and_reversed() {
             ..Options::default()
         };
 
+        let own_schema = entry
+            .get("schemaRoot")
+            .and_then(Value::as_str)
+            .map(|root| schema::load(&corpus.join(root)).unwrap());
+        let schema = own_schema.as_ref().unwrap_or(&schema);
         let drive = |reversed: bool| -> (Vec<String>, Vec<String>) {
             let context = RunContext::for_run(options.clone(), RunExtensions::new(&registry, &BTreeMap::new()));
             let session = Session::open(&path, suite_model.clone(), &schema, &context, false).unwrap();
@@ -122,7 +132,7 @@ fn e1_every_execute_entry_through_the_session_in_file_order_and_reversed() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 14, "execute entries checked");
-    assert_eq!(pending, 6, "execute entries pending in rust");
+    assert_eq!(checked, 20, "execute entries checked");
+    assert_eq!(pending, 0, "execute entries pending in rust");
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }

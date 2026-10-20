@@ -86,12 +86,17 @@ fn every_validate_entry() {
         // An entry may name an overlay: a small catalog merged over the
         // corpus's, so a rule the catalog drives can be proved without
         // changing the catalog every runtime reads.
+        let own_schema = entry
+            .get("schemaRoot")
+            .and_then(Value::as_str)
+            .map(|root| schema::load(&corpus.join(root)).unwrap());
+        let schema = own_schema.as_ref().unwrap_or(&schema);
         let effective = match entry.get("catalogOverlay").and_then(Value::as_str) {
             Some(relative) => {
                 let overlay = model::load(&std::fs::read_to_string(corpus.join(relative)).unwrap())
                     .unwrap()
                     .value;
-                suiterun::schema::with_overlay(&schema, &overlay).unwrap()
+                suiterun::schema::with_overlay(schema, &overlay).unwrap()
             }
             None => schema.clone(),
         };
@@ -133,7 +138,7 @@ fn every_validate_entry() {
     }
 
     println!("  {} of {checked} validate entries match", checked - failures.len());
-    assert_eq!(checked, 41, "validate entries checked");
+    assert_eq!(checked, 42, "validate entries checked");
     assert!(
         failures.is_empty(),
         "{} of {checked} entries differ:\n{}",
@@ -154,10 +159,14 @@ fn the_same_entries_through_the_program() {
             continue;
         }
         let expectation = expectation_of(&entry);
+        let schema_root = match entry.get("schemaRoot").and_then(Value::as_str) {
+            Some(root) => corpus.join(root),
+            None => common::corpus_schema(),
+        };
         let mut arguments: Vec<String> = vec![
             "lint".into(),
             "--schema-root".into(),
-            common::corpus_schema().to_string_lossy().to_string(),
+            schema_root.to_string_lossy().to_string(),
             "--path".into(),
             corpus.join(entry["suite"].as_str().unwrap()).to_string_lossy().to_string(),
             "--json".into(),

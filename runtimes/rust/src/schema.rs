@@ -167,9 +167,45 @@ pub fn load(schema_root: &Path) -> Result<Schema, String> {
     })
 }
 
+/// The import name of the core this runtime carries: `src/core.catalog.yaml`, a
+/// copy of spec/core.catalog.yaml that a test keeps equal to it (spec/README.md;
+/// docs/packages, DEC-P07). A copy, because a published crate holds only its
+/// own folder.
+pub const CORE_IMPORT: &str = "bdd-suite:core";
+
+/// The embedded core catalog.
+pub fn core_catalog_text() -> &'static str {
+    include_str!("core.catalog.yaml")
+}
+
+/// The core's action entries read through `bdd-suite:core`, each one's
+/// bindings cut to the importing catalog's own list when it has one.
+fn core_entries(importer: &Value, out: &mut Vec<(Value, PathBuf)>) -> Result<(), String> {
+    let core = model::load(core_catalog_text())
+        .map_err(|failure| format!("the embedded core catalog is not YAML: {}", failure.message))?;
+    let keep: Option<Vec<String>> = importer.get("bindings").map(|bindings| string_list(Some(bindings)));
+    for entry in core.value.get("actions").and_then(Value::as_array).into_iter().flatten() {
+        if !entry.is_object() {
+            continue;
+        }
+        let mut held = entry.clone();
+        if let (Some(keep), Some(bindings)) = (&keep, entry.get("bindings").and_then(Value::as_array)) {
+            let cut: Vec<Value> = bindings
+                .iter()
+                .filter(|binding| binding.as_str().is_some_and(|name| keep.iter().any(|kept| kept == name)))
+                .cloned()
+                .collect();
+            held["bindings"] = Value::Array(cut);
+        }
+        out.push((held, PathBuf::from(CORE_IMPORT)));
+    }
+    Ok(())
+}
+
 /// Every action entry of a catalog and of the catalogs it imports, each with
 /// the file that declares it: imports first, depth first in listed order, each
-/// relative to the file that names it; then the catalog's own.
+/// relative to the file that names it; then the catalog's own. The import
+/// `bdd-suite:core` is the embedded core.
 fn catalog_entries(file: &Path, visiting: &mut Vec<PathBuf>, out: &mut Vec<(Value, PathBuf)>) -> Result<(), String> {
     let key = absolute(file);
     if visiting.contains(&key) {
@@ -187,6 +223,10 @@ fn catalog_entries(file: &Path, visiting: &mut Vec<PathBuf>, out: &mut Vec<(Valu
     visiting.push(key.clone());
     let directory = key.parent().map(Path::to_path_buf).unwrap_or_default();
     for raw in string_list(catalog.value.get("imports")) {
+        if raw == CORE_IMPORT {
+            core_entries(&catalog.value, out)?;
+            continue;
+        }
         let imported = directory.join(&raw);
         if !imported.is_file() {
             return Err(format!(

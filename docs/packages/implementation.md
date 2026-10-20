@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K2 built 2026-10-20 and run locally, their CI not yet run ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md)); K3 to K9 not started.** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and run locally, their CI not yet run ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md)); K4 to K9 not started.** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -170,10 +170,11 @@ Priority orders the work; it never weakens a completion condition.
 ### <a id="d9"></a>D9. Rust crate `suiterun` (P1)
 
 * **Result.** A `.crate` that `cargo package` verifies.
-* **How.** Remove `publish = false`; `license`, `repository`, `readme`,
-  `keywords`, `categories`, `rust-version`; `include` (src, the core spec,
-  README, LICENSE); `[package.metadata.docs.rs] features = ["testing"]`.
-  Check that `build.rs` users need nothing outside the crate.
+* **How.** Remove `publish = false`; `license`, `repository`, `homepage`,
+  `readme`, `keywords`, `categories`; `include` (src with the core copy,
+  README, LICENSE); `[package.metadata.docs.rs] features = ["testing"]`; a
+  `LICENSE` copy in the crate folder. `rust-version` is left out until a
+  minimum toolchain is tested. `build.rs` users need nothing outside the crate.
 * **Files.** `runtimes/rust/Cargo.toml`, `packaging/*`.
 * **Depends on.** D4, D14.
 * **Done when.** E1 (Rust), E4, `cargo publish --dry-run`.
@@ -407,14 +408,14 @@ entries; E1 (Go), E3.
 Result: D4, D9, D15 (Rust). Entry: K0. Exit evidence: Rust corpus with the new
 entries; E1 (Rust), E4, `cargo publish --dry-run`.
 
-- [ ] K3.1 `--name` and `--progress` in the CLI; `names` and the `Observer` trait.
-- [ ] K3.2 The progress printer.
-- [ ] K3.3 `catch_unwind` in the worker; panic strategy documented.
-- [ ] K3.4 `include_str!` core; `bdd-suite:core` in the loader.
-- [ ] K3.5 Tests; `cargo test --features testing`; the corpus with D1's entries.
-- [ ] K3.6 `Cargo.toml` metadata, `include`, docs.rs features; `publish = false` removed.
-- [ ] K3.7 Directory registry; E1 (Rust); `cargo publish --dry-run`.
-- [ ] K3.8 `samples/consumers/rust`; E4.
+- [x] K3.1 `--name` and `--progress` in the CLI; `names` and the `Observer` trait.
+- [x] K3.2 The progress printer.
+- [x] K3.3 `catch_unwind` in the worker; panic strategy documented.
+- [x] K3.4 `include_str!` core; `bdd-suite:core` in the loader.
+- [x] K3.5 Tests; `cargo test --features testing`; the corpus with D1's entries.
+- [x] K3.6 `Cargo.toml` metadata, `include`, docs.rs features; `publish = false` removed.
+- [x] K3.7 The crate in a local feed (packed, checked, unpacked); E1 (Rust); `cargo publish --dry-run`.
+- [x] K3.8 `samples/consumers/rust`; E4.
 
 ### Stage K4: TypeScript (P1)
 

@@ -1,0 +1,7 @@
+# The greeter's suites as cargo test tests (spec/test-plan.md). greet.shout is
+# not offline, so loud.yml is guarded.
+suites: [ "../suites/*.yml" ]
+schemaRoot: ../schema
+provider: rust
+extensions: [ greeter::GreeterExtension ]
+offlineActions: [ "core.*", "wait", "greet.say" ]

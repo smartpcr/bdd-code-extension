@@ -448,9 +448,11 @@ tests and local scenarios never count as remote evidence.
 
 ### <a id="e4"></a>E4. Rust: a consumer builds and tests from the packaged crate
 
-* **Given** the `.crate` E1 produced, in a directory registry;
-  `samples/consumers/rust` depending on `suiterun = "<version>"` from it, with
-  the `testing` feature as a build- and dev-dependency.
+* **Given** the `.crate` E1 produced, unpacked in the local feed;
+  `samples/consumers/rust` depending on `suiterun = "<version>"`, with the
+  `testing` feature as a dependency and a build-dependency, built in a copy
+  whose `[patch.crates-io]` names the unpacked crate (a directory registry
+  would have to vendor every dependency as well).
 * **When** `cargo build`, `cargo test`.
 * **Then** `build.rs` generates the harness; trials report the expected
   results; `cargo publish --dry-run` for the crate passes.

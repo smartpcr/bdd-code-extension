@@ -341,6 +341,20 @@ jobs:
       - name: Listing, filters, guarded suites, parallel runs, generation (E6, E9-E12)
         run: node samples/workspace/tests/rust/scenarios.mjs
 
+      # docs/packages, E1 and E4: the crate packed (cargo package builds it from
+      # its packaged files) with exactly its listed contents, a publish dry run,
+      # and a consumer that asks for the crate by version builds its suiterun
+      # and runs its tests on it.
+      - name: The crate, a publish dry run, and a consumer of it alone (E1, E4)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File samples/consumers/rust/run-e4.ps1
+          if ($LASTEXITCODE) { throw 'the Rust consumer failed on the crate' }
+          Push-Location runtimes/rust
+          cargo publish --dry-run --allow-dirty
+          if ($LASTEXITCODE) { throw 'cargo publish --dry-run failed' }
+          Pop-Location
+
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4

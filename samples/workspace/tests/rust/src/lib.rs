@@ -1,7 +1,8 @@
 //! What the conformance corpus needs from a runtime's extension
 //! (conformance/README.md): the context keys its suites read, with the values
-//! of expressions/context.yaml, and fixture.append
-//! (execute/capture-isolation.yml).
+//! of expressions/context.yaml, fixture.append (execute/capture-isolation.yml),
+//! and fixture.throw, which panics (execute/worker-throws.yml,
+//! spec/progress.md).
 
 use std::collections::BTreeMap;
 
@@ -18,7 +19,7 @@ impl Extension for CorpusExtension {
     }
 
     fn actions(&self) -> Vec<Action> {
-        vec![Action::new("fixture.append", fixture_append)]
+        vec![Action::new("fixture.append", fixture_append), Action::new("fixture.throw", fixture_throw)]
     }
 
     fn context_keys(&self) -> Vec<String> {
@@ -51,4 +52,10 @@ fn fixture_append(request: &Request) -> Outcome {
     };
     list.push(request.step.get("item").cloned().unwrap_or(Value::Null));
     Ok(Value::Array(list))
+}
+
+/// fixture.throw: a panic, Rust's most unusual failure.
+fn fixture_throw(request: &Request) -> Outcome {
+    let message = request.step.get("message").and_then(Value::as_str).unwrap_or_default().to_string();
+    panic!("{message}");
 }

@@ -94,6 +94,7 @@ impl<'a> RunContext<'a> {
             params: Vec::new(),
             dry_run: read("DRY_RUN").as_deref() == Some("1"),
             record_path: read("RECORD_PATH"),
+            ..Options::default()
         };
         RunContext {
             options,
@@ -117,6 +118,16 @@ impl<'a> RunContext<'a> {
     /// The trace, when the run is over.
     pub fn into_trace(self) -> Trace {
         self.trace.into_inner().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// An empty trace for one operation, which tells the run's observer of each
+    /// entry as it is added (spec/progress.md); none in a dry run, which traces
+    /// nothing.
+    pub(crate) fn operation_trace(&self) -> Trace {
+        let observer = if self.options.dry_run { None } else { self.options.observer.clone() };
+        Trace::observed(observer.map(|crate::exec::SharedObserver(observer)| {
+            std::sync::Arc::new(move |entry: &crate::trace::Entry| observer.entry(entry)) as crate::trace::EntryHook
+        }))
     }
 
     /// Adds what one operation traced. Each operation traces into its own
@@ -284,7 +295,10 @@ impl<'a> Session<'a> {
         let cases = case_models.iter().map(|case| text_of(case, "name")).collect();
         let selected = case_models
             .iter()
-            .map(|case| suite::tags_match(&suite::case_tags(&model, case), &context.options.tags))
+            .map(|case| {
+                suite::tags_match(&suite::case_tags(&model, case), &context.options.tags)
+                    && suite::name_matches(&text_of(case, "name"), &context.options.names)
+            })
             .collect();
         Ok(Session {
             path: path.to_path_buf(),
@@ -376,7 +390,7 @@ impl<'a> Session<'a> {
             return;
         }
         let mut context = self.new_context(state.scope.clone());
-        let mut done = Trace::default();
+        let mut done = self.context.operation_trace();
         let outcome = exec::run_hook(
             &steps,
             &mut context,
@@ -436,7 +450,7 @@ impl<'a> Session<'a> {
                 state.skip(Kind::DryRun, "Validated only; live execution pending.", None);
             } else {
                 self.prepare(index, &mut state, scope)?;
-                let mut done = Trace::default();
+                let mut done = self.context.operation_trace();
                 let outcome = exec::run_hook(
                     self.hooks.get("beforeEach").map(Vec::as_slice).unwrap_or(&[]),
                     state.context.as_mut().expect("prepared"),
@@ -537,7 +551,7 @@ impl<'a> Session<'a> {
         if state.before_each_failed {
             return;
         }
-        let mut done = Trace::default();
+        let mut done = self.context.operation_trace();
         let mut output = String::new();
         let outcome = exec::run_case_body(
             &self.case_models[index],
@@ -563,7 +577,7 @@ impl<'a> Session<'a> {
         if cleanup.is_empty() {
             return;
         }
-        let mut done = Trace::default();
+        let mut done = self.context.operation_trace();
         let outcome = exec::run_hook(
             &cleanup,
             state.context.as_mut().expect("prepared"),
@@ -617,7 +631,7 @@ impl<'a> Session<'a> {
         }
         let mut after_each_failed = false;
         if state.kind == Kind::Run {
-            let mut done = Trace::default();
+            let mut done = self.context.operation_trace();
             let outcome = exec::run_hook(
                 self.hooks.get("afterEach").map(Vec::as_slice).unwrap_or(&[]),
                 state.context.as_mut().expect("prepared"),
@@ -638,7 +652,7 @@ impl<'a> Session<'a> {
         }
         // A dry run validates and runs nothing, so it traces nothing either.
         if state.kind != Kind::DryRun {
-            let mut done = Trace::default();
+            let mut done = self.context.operation_trace();
             done.add(Phase::Case, Some(&state.name), None, None, state.status, state.reason);
             self.context.record(done);
         }
@@ -668,7 +682,7 @@ impl<'a> Session<'a> {
         }
         let begun = Instant::now();
         let mut context = self.new_context(scope);
-        let mut done = Trace::default();
+        let mut done = self.context.operation_trace();
         let outcome = exec::run_hook(
             &steps,
             &mut context,

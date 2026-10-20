@@ -38,8 +38,10 @@ pub fn core_catalog() -> PathBuf {
 /// The corpus's context keys (conformance/README.md): the core defines none
 /// beyond timeoutSec and defaults, so the corpus declares the ones its suites
 /// and expression table read, with the values of expressions/context.yaml. It
-/// also implements fixture.append, the one fixture action the execute corpus
-/// runs (execute/capture-isolation.yml).
+/// also implements fixture.append (execute/capture-isolation.yml) and
+/// fixture.throw (execute/worker-throws.yml), which panics, Rust's most
+/// unusual failure, so only a worker that catches the unwind turns it into a
+/// failed step (spec/progress.md).
 pub struct CorpusExtension;
 
 impl Extension for CorpusExtension {
@@ -48,7 +50,7 @@ impl Extension for CorpusExtension {
     }
 
     fn actions(&self) -> Vec<Action> {
-        vec![Action::new("fixture.append", fixture_append)]
+        vec![Action::new("fixture.append", fixture_append), Action::new("fixture.throw", fixture_throw)]
     }
 
     fn context_keys(&self) -> Vec<String> {
@@ -83,6 +85,34 @@ fn fixture_append(request: &suiterun::actions::Request) -> suiterun::actions::Ou
     };
     list.push(request.step.get("item").cloned().unwrap_or(Value::Null));
     Ok(Value::Array(list))
+}
+
+fn fixture_throw(request: &suiterun::actions::Request) -> suiterun::actions::Outcome {
+    let message = request.step.get("message").and_then(Value::as_str).unwrap_or_default().to_string();
+    panic!("{message}");
+}
+
+/// A writer that keeps what it is given, for the progress lines a test reads
+/// back (suiterun::progress::set_writer).
+#[derive(Clone, Default)]
+pub struct Captured(pub Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Captured {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Captured {
+    /// The lines written so far.
+    pub fn lines(&self) -> Vec<String> {
+        String::from_utf8_lossy(&self.0.lock().unwrap()).lines().map(str::to_string).collect()
+    }
 }
 
 pub fn corpus_extensions() -> Vec<Arc<dyn Extension>> {

@@ -37,9 +37,34 @@ pub(crate) const DEFAULT_CLEANUP_SEC: i64 = 120;
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     pub tags: Vec<String>,
+    /// `--name` globs; see [`suite::name_matches`].
+    pub names: Vec<String>,
     pub params: Vec<(String, String)>,
     pub dry_run: bool,
     pub record_path: Option<String>,
+    /// Told of each selected case and each trace entry as the run goes
+    /// (spec/progress.md). It never changes what the run does or what the
+    /// trace holds.
+    pub observer: Option<SharedObserver>,
+}
+
+/// Told when a selected case starts and finishes, and of each trace entry as
+/// it is recorded, so a long run can say what it is doing while it does it
+/// (spec/progress.md). An observer sees the run; it cannot change it.
+pub trait Observer: Send + Sync {
+    fn case_started(&self, suite: &str, case: &str);
+    fn case_finished(&self, suite: &str, result: &CaseResult);
+    fn entry(&self, entry: &crate::trace::Entry);
+}
+
+/// An observer as run options hold it.
+#[derive(Clone)]
+pub struct SharedObserver(pub std::sync::Arc<dyn Observer>);
+
+impl std::fmt::Debug for SharedObserver {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("SharedObserver")
+    }
 }
 
 /// The extensions of one run: composed, and started with the run's option
@@ -229,8 +254,22 @@ fn bounded(
         state: run.registry.state_for(action, &run.started),
     };
     let (sender, receiver) = mpsc::channel();
+    let name = action.to_string();
     std::thread::spawn(move || {
-        let _ = sender.send(handler(&request));
+        // A panic is this step's failure, never the end of the run, which would
+        // lose every result and every cleanup still to come (spec/progress.md,
+        // "The action worker"). It needs the default unwinding panic strategy;
+        // under panic = "abort" nothing can catch it.
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(&request)))
+            .unwrap_or_else(|payload| {
+                let said = payload
+                    .downcast_ref::<&str>()
+                    .map(|text| text.to_string())
+                    .or_else(|| payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "a value that is not text".to_string());
+                Err(ActionError::action(format!("{name} panicked: {said}")))
+            });
+        let _ = sender.send(outcome);
     });
     match receiver.recv_timeout(Duration::from_secs(limit_sec as u64)) {
         Ok(outcome) => outcome,
@@ -535,11 +574,22 @@ pub fn run_session(path: &std::path::Path, model: &Value, schema: &Schema, conte
         name: session.name.clone(),
         cases: Vec::new(),
     };
+    // A dry run traces nothing, so its observer hears nothing either.
+    let observer = if context.options.dry_run { None } else { context.options.observer.clone() };
     session.setup();
     for index in 0..session.cases.len() {
+        // Only the cases this run selected are reported (spec/progress.md).
+        let observed = observer.as_ref().filter(|_| session.is_selected(index));
+        if let Some(SharedObserver(observer)) = observed {
+            observer.case_started(&session.name, &session.cases[index]);
+        }
         let mut guard = session.before_each(index)?;
         session.run_case(&mut guard)?;
-        result.cases.push(session.after_each(guard));
+        let finished = session.after_each(guard);
+        if let Some(SharedObserver(observer)) = observed {
+            observer.case_finished(&session.name, &finished);
+        }
+        result.cases.push(finished);
     }
     // A teardown that fails is its own entry rather than a change to the last
     // case's result, because a teardown is not a test and the case it would be

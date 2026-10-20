@@ -1,0 +1,33 @@
+# The greeter's catalog: the core, imported by name (it is the core the
+# installed runtime carries; spec/README.md), and two actions of its own.
+# Regenerate suite.schema.json and suite.schema.md beside it with the spec's
+# Build-Schema.ps1 -Catalog samples/consumers/rust/schema/actions.catalog.yaml.
+catalogVersion: 1
+imports:
+  - bdd-suite:core
+bindings: [rust]
+
+actions:
+  - name: greet.say
+    summary: Greet someone by name, and return the greeting.
+    bindings: [rust]
+    interruptible: true
+    params:
+      - { name: name, type: string, required: true, description: Who is greeted. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        text: { type: string }
+
+  - name: greet.shout
+    summary: Greet someone loudly. It stands for an action that needs a lab, so a suite that uses it is guarded.
+    bindings: [rust]
+    interruptible: true
+    params:
+      - { name: name, type: string, required: true }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        text: { type: string }

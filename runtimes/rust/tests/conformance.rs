@@ -53,34 +53,54 @@ fn every_entry_is_of_a_kind_this_runtime_runs() {
         "  {validate} validate and {execute} execute entries run; {validate_pending} validate and {execute_pending} execute pending in {}",
         common::RUNTIME
     );
-    assert_eq!(validate, 41, "validate entries");
-    assert_eq!(execute, 14, "execute entries");
-    assert_eq!(validate_pending, 1, "validate entries pending");
-    assert_eq!(execute_pending, 6, "execute entries pending");
+    assert_eq!(validate, 42, "validate entries");
+    assert_eq!(execute, 20, "execute entries");
+    assert_eq!(validate_pending, 0, "validate entries pending");
+    assert_eq!(execute_pending, 0, "execute entries pending");
 }
 
 #[test]
-fn every_list_entry_is_pending_here() {
-    // No test here runs `suiterun list --name` yet (docs/packages, K3), so a
-    // list entry that is not pending for this runtime would be skipped in
-    // silence. Each one is reported as pending.
+fn every_list_entry() {
+    // suiterun list with each lists entry's names and tags: the case names it
+    // prints, in order.
     let manifest = common::manifest();
+    let corpus = common::corpus();
     let lists = manifest["lists"].as_array().cloned().unwrap_or_default();
-    let mut not_pending: Vec<String> = Vec::new();
+    let mut checked = 0;
     for entry in &lists {
         if common::pending_here(entry) {
             common::report_pending("list", entry);
-        } else {
-            not_pending.push(entry["suite"].as_str().unwrap_or("(unnamed)").to_string());
+            continue;
         }
+        let suite = entry["suite"].as_str().unwrap();
+        let mut arguments: Vec<String> = vec![
+            "list".into(),
+            "--schema-root".into(),
+            common::corpus_schema().to_string_lossy().to_string(),
+            "--path".into(),
+            corpus.join(suite).to_string_lossy().to_string(),
+        ];
+        for (flag, key) in [("--name", "names"), ("--tags", "tags")] {
+            if let Some(given) = entry.get(key).and_then(Value::as_str) {
+                arguments.extend([flag.to_string(), given.to_string()]);
+            }
+        }
+        let (code, out, err) = common::run_cli(&arguments);
+        let listed: Vec<String> = out
+            .lines()
+            .filter_map(|row| row.find("  ").map(|at| row[at + 2..].trim().to_string()))
+            .collect();
+        let expected: Vec<String> = entry["expected"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|name| name.as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(code, 0, "{suite}: {err}");
+        assert_eq!(listed, expected, "{suite}");
+        checked += 1;
     }
-    assert_eq!(lists.len(), 2, "list entries");
-    assert!(
-        not_pending.is_empty(),
-        "list entries no test here runs, yet not pending in {}: {}",
-        common::RUNTIME,
-        not_pending.join(", ")
-    );
+    assert_eq!(checked, 2, "list entries checked");
 }
 
 /// Every file the manifest names, relative to the corpus.

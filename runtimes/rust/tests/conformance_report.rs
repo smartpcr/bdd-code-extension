@@ -256,6 +256,7 @@ fn three_runs_in_both_formats_canonicalise_to_what_is_stored() {
             params: Vec::new(),
             dry_run: false,
             record_path: None,
+            ..exec::Options::default()
         };
         // Three runs, each canonicalised: all three must be the stored form.
         let mut runs: Vec<String> = Vec::new();

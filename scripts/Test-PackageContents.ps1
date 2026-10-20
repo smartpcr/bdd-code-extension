@@ -8,13 +8,19 @@
     back, so before anything is published each package must hold exactly the
     files its list in packaging/ names (no test, corpus or build output, nothing
     missing) and carry the release version, the license, the README and the
-    repository. The archive's own bookkeeping ([Content_Types].xml, _rels/,
-    package/) is not listed.
+    repository.
 
-    A Go module zip (<feed>/<module>/@v/v<version>.zip) is listed as
-    packaging/runtimes-go.files.txt, without the <module>@<version>/ prefix
-    every entry carries, and must hold go.mod naming the module, a LICENSE and a
-    README.
+      NuGet     <id>.<version>.nupkg          packaging/<id>.files.txt; the
+                                              archive's bookkeeping
+                                              ([Content_Types].xml, _rels/,
+                                              package/) is not listed
+      Go        <feed>/<module>/@v/v<version>.zip
+                                              packaging/runtimes-go.files.txt,
+                                              without the <module>@<version>/
+                                              prefix every entry carries
+      Rust      <name>-<version>.crate        packaging/<name>.files.txt,
+                                              without the <name>-<version>/
+                                              prefix
 
     Exits 0 when the package conforms, 1 with one line per difference when it
     does not.
@@ -25,7 +31,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Package,
-    # Default: packaging/<id>.files.txt, the id read from the package's file name.
+    # Default: packaging/<id>.files.txt, the id read from the package's name.
     [string]$Expected
 )
 
@@ -34,59 +40,100 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $repo = Split-Path -Parent $PSScriptRoot
 $version = (Get-Content (Join-Path $repo 'package.json') -Raw | ConvertFrom-Json).version
+$leaf = Split-Path -Leaf $Package
 $name = [IO.Path]::GetFileNameWithoutExtension($Package)
-$goModule = $name -ceq "v$version" -and $Package -match '[\\/]@v[\\/]'
-if ($goModule) {
-    $id = 'runtimes-go'
-} elseif ($name -notmatch "^(?<id>.+)\.$([regex]::Escape($version))$") {
-    Write-Output "$Package is not named <id>.${version}: every package carries the release version (DEC-P03)."
+$escaped = [regex]::Escape($version)
+
+# What kind of package, its id, and the prefix every entry carries.
+if ($name -ceq "v$version" -and $Package -match '[\\/]@v[\\/]') {
+    $kind, $id, $prefix = 'go', 'runtimes-go', "github.com/smartpcr/bdd-code-extension/runtimes/go@v$version/"
+} elseif ($leaf -match "^(?<id>.+)-$escaped\.crate$") {
+    $kind, $id = 'crate', $Matches.id
+    $prefix = "$id-$version/"
+} elseif ($leaf -match "^(?<id>.+)\.$escaped\.nupkg$") {
+    $kind, $id, $prefix = 'nuget', $Matches.id, ''
+} else {
+    Write-Output "$Package is not a package of version ${version}: every package carries the release version (DEC-P03)."
     exit 1
 }
-if (-not $goModule) { $id = $Matches.id }
 if (-not $Expected) { $Expected = Join-Path $repo "packaging/$id.files.txt" }
 
-$problems = [Collections.Generic.List[string]]::new()
-$archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $Package))
-try {
-    $held = @($archive.Entries | Where-Object { $_.FullName -notmatch '^(\[Content_Types\]\.xml|_rels/|package/)' -and -not $_.FullName.EndsWith('/') } |
-        ForEach-Object { if ($goModule) { $_.FullName } else { [Uri]::UnescapeDataString($_.FullName) } } | Sort-Object)
-    if ($goModule) {
-        $prefix = "github.com/smartpcr/bdd-code-extension/runtimes/go@v$version/"
-        $outside = @($held | Where-Object { -not $_.StartsWith($prefix) })
-        if ($outside) { $problems.Add("holds entries outside $prefix ($($outside[0]))") }
-        $held = @($held | ForEach-Object { $_.Substring([Math]::Min($prefix.Length, $_.Length)) } | Sort-Object)
+# Every file the archive holds, and a way to read one of them as text.
+$files = @{}
+if ($kind -eq 'crate') {
+    # A gzipped tar, read with .NET itself rather than whichever tar is on PATH.
+    $stream = [IO.File]::OpenRead((Resolve-Path $Package))
+    try {
+        $tar = [Formats.Tar.TarReader]::new([IO.Compression.GZipStream]::new($stream, [IO.Compression.CompressionMode]::Decompress))
+        while ($null -ne ($entry = $tar.GetNextEntry())) {
+            if ($entry.EntryType -notin [Formats.Tar.TarEntryType]::RegularFile, [Formats.Tar.TarEntryType]::V7RegularFile) { continue }
+            $text = if ($entry.DataStream) { [IO.StreamReader]::new($entry.DataStream).ReadToEnd() } else { '' }
+            $files[$entry.Name] = $text
+        }
+    } finally {
+        $stream.Dispose()
     }
-    $wanted = @(Get-Content $Expected | Where-Object { $_ -and -not $_.StartsWith('#') } | Sort-Object)
-    foreach ($extra in $held | Where-Object { $wanted -cnotcontains $_ }) { $problems.Add("holds $extra, which $Expected does not list") }
-    foreach ($missing in $wanted | Where-Object { $held -cnotcontains $_ }) { $problems.Add("lacks $missing") }
+} else {
+    $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $Package))
+    try {
+        foreach ($entry in $archive.Entries | Where-Object { -not $_.FullName.EndsWith('/') }) {
+            $path = if ($kind -eq 'nuget') { [Uri]::UnescapeDataString($entry.FullName) } else { $entry.FullName }
+            if ($kind -eq 'nuget' -and $path -match '^(\[Content_Types\]\.xml|_rels/|package/)') { continue }
+            $reader = [IO.StreamReader]::new($entry.Open())
+            try { $files[$path] = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
 
-    $nuspec = $archive.Entries | Where-Object { $_.FullName -like '*.nuspec' } | Select-Object -First 1
-    if ($goModule) {
-        $goMod = $archive.Entries | Where-Object { $_.FullName -ceq "${prefix}go.mod" } | Select-Object -First 1
-        $reader = if ($goMod) { [IO.StreamReader]::new($goMod.Open()) }
-        $text = if ($reader) { try { $reader.ReadToEnd() } finally { $reader.Dispose() } } else { '' }
-        if ($text -notmatch '(?m)^module github\.com/smartpcr/bdd-code-extension/runtimes/go\s*$') { $problems.Add('its go.mod does not name the module') }
-        foreach ($file in 'LICENSE', 'README.md') { if ($held -cnotcontains $file) { $problems.Add("it holds no $file") } }
-    } elseif ($nuspec) {
-        $reader = [IO.StreamReader]::new($nuspec.Open())
-        try { [xml]$document = $reader.ReadToEnd() } finally { $reader.Dispose() }
-        $metadata = $document.package.metadata
+$problems = [Collections.Generic.List[string]]::new()
+$outside = @($files.Keys | Where-Object { -not $_.StartsWith($prefix) })
+if ($outside) { $problems.Add("holds entries outside $prefix ($($outside[0]))") }
+$held = @($files.Keys | ForEach-Object { $_.Substring([Math]::Min($prefix.Length, $_.Length)) } | Sort-Object)
+function Text([string]$Relative) { $files["$prefix$Relative"] }
+
+$wanted = @(Get-Content $Expected | Where-Object { $_ -and -not $_.StartsWith('#') } | Sort-Object)
+foreach ($extra in $held | Where-Object { $wanted -cnotcontains $_ }) { $problems.Add("holds $extra, which $Expected does not list") }
+foreach ($missing in $wanted | Where-Object { $held -cnotcontains $_ }) { $problems.Add("lacks $missing") }
+
+switch ($kind) {
+    'nuget' {
+        $nuspec = $held | Where-Object { $_ -like '*.nuspec' } | Select-Object -First 1
+        if (-not $nuspec) { $problems.Add('it holds no .nuspec'); break }
+        $metadata = ([xml](Text $nuspec)).package.metadata
         if ($metadata.id -cne $id) { $problems.Add("its id is $($metadata.id), not $id") }
         if ($metadata.version -ne $version) { $problems.Add("its version is $($metadata.version), not package.json's $version") }
         if ($metadata.license.'#text' -ne 'MIT') { $problems.Add('it declares no MIT license expression') }
         if (-not $metadata.readme -or $held -cnotcontains $metadata.readme) { $problems.Add('it names no README it holds') }
         if ($metadata.repository.url -ne 'https://github.com/smartpcr/bdd-code-extension') { $problems.Add('it names no repository') }
         if (-not $metadata.description) { $problems.Add('it has no description') }
-    } else {
-        $problems.Add('it holds no .nuspec')
+        $said = 'MIT, README, repository'
     }
-} finally {
-    $archive.Dispose()
+    'go' {
+        if ((Text 'go.mod') -notmatch '(?m)^module github\.com/smartpcr/bdd-code-extension/runtimes/go\s*$') { $problems.Add('its go.mod does not name the module') }
+        foreach ($file in 'LICENSE', 'README.md') { if ($held -cnotcontains $file) { $problems.Add("it holds no $file") } }
+        $said = 'go.mod, LICENSE, README'
+    }
+    'crate' {
+        $manifest = Text 'Cargo.toml'
+        foreach ($rule in @(
+                @("(?m)^name = `"$([regex]::Escape($id))`"", "it is not named $id"),
+                @("(?m)^version = `"$escaped`"", "its version is not package.json's $version"),
+                @('(?m)^license = "MIT"', 'it declares no MIT license'),
+                @('(?m)^repository = "https://github\.com/smartpcr/bdd-code-extension"', 'it names no repository'),
+                @('(?m)^readme = "README\.md"', 'it names no README'),
+                @('(?m)^description = "', 'it has no description'))) {
+            if ($manifest -notmatch $rule[0]) { $problems.Add($rule[1]) }
+        }
+        foreach ($file in 'LICENSE', 'README.md') { if ($held -cnotcontains $file) { $problems.Add("it holds no $file") } }
+        $said = 'MIT, README, LICENSE, repository'
+    }
 }
 
 if ($problems.Count) {
-    Write-Output "$(Split-Path -Leaf $Package):"
+    Write-Output "${leaf}:"
     $problems | ForEach-Object { Write-Output "  $_" }
     exit 1
 }
-Write-Output "$(Split-Path -Leaf $Package): $($held.Count) files as listed, version $version, $(if ($goModule) { 'go.mod, LICENSE, README' } else { 'MIT, README, repository' })"
+Write-Output "${leaf}: $($held.Count) files as listed, version $version, $said"

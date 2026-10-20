@@ -2,8 +2,18 @@
 name = "suiterun"
 version = "0.6.10"
 edition = "2021"
-description = "The Rust runtime of the YAML suite runner: the suite model, lint, execution and reports, extensible by an outside crate. Reads the same suites, catalog and conformance corpus as the other runtimes."
-publish = false
+description = "The Rust runtime of the BDD suite format: lint, run and list YAML suites, the session a test harness drives, reports and the embedded core actions, extensible by an outside crate; with the testing feature, suites as cargo test tests."
+license = "MIT"
+repository = "https://github.com/smartpcr/bdd-code-extension"
+homepage = "https://github.com/smartpcr/bdd-code-extension"
+readme = "README.md"
+keywords = ["bdd", "yaml", "testing", "suite", "gherkin"]
+categories = ["development-tools::testing"]
+# What the crate holds on crates.io (docs/packages, D9, DEC-P11): the library,
+# the suiterun program and the core it embeds (src/core.catalog.yaml), with the
+# README and the license. Not the tests, the examples or their data, which
+# read the conformance corpus outside this folder.
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 # Its own workspace, so the crate builds standalone wherever it is checked out
 # (a consumer's repository may hold a workspace of its own).
@@ -27,3 +37,7 @@ testing = ["dep:libtest-mimic"]
 
 [profile.release]
 opt-level = 2
+
+# docs.rs documents the testing feature too: the harness and build.rs generation.
+[package.metadata.docs.rs]
+features = ["testing"]

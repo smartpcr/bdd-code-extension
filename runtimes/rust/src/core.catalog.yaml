@@ -1,0 +1,101 @@
+# The core actions: the ones every runtime implements and every workspace can
+# use without declaring them. A workspace catalog imports this file and adds
+# its own actions (DEC-S10):
+#
+#   imports:
+#     - <path to this repository>/spec/core.catalog.yaml
+#
+# A validator reads the merged catalog for E104 (unknown action), E105 (unknown
+# parameter), E201 (action the selected binding does not implement) and E302 (a
+# path absent from a capture shape); Build-Schema.ps1 folds it into the
+# workspace's suite.schema.json so an editor offers the same parameters.
+#
+# A capture shape that sets additionalProperties: true is open, and a path into
+# it is not checked.
+catalogVersion: 1
+bindings: [powershell, csharp, go, rust, typescript]
+
+actions:
+  - name: core.noop
+    summary: Do nothing and return that it happened.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    notes: >-
+      What a then step uses when its whole job is to carry a sentence and assert
+      on what earlier steps already captured.
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+
+  - name: core.set
+    summary: Publish a literal value under captureAs.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: value, type: any, required: true }
+    captures:
+      type: any
+      description: Whatever value the step declared.
+
+  - name: core.fail
+    summary: Fail on purpose with a chosen message.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: message, type: string, default: 'core.fail: failed on purpose' }
+    captures:
+      type: any
+      description: Nothing; the step always fails.
+
+  - name: core.sleep
+    summary: Sleep for a number of seconds, interruptibly.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    params:
+      - { name: seconds, type: number, default: 1 }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sleptSec: { type: number }
+
+  - name: core.record
+    summary: Append one marker to the run trace, so a phase order can be asserted.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    notes: >-
+      The trace file is named by the runtime's record environment variable (BDD_SUITE_RECORD_PATH by default).
+      Without it the marker is only returned.
+    params:
+      - { name: marker, type: string, required: true }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        marker: { type: string }
+
+  - name: wait
+    summary: Sleep for a number of seconds, or poll a step until a condition holds.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    notes: >-
+      The poll is bounded by the step's own timeoutSec, which every step carries
+      since Y2.3, so this action declares no limit of its own. The poll loop
+      itself is interruptible; a forStep whose action is not is only as
+      cancellable as that action, which is why the nested step carries its own
+      entry in this catalog.
+    params:
+      - { name: seconds, type: integer, description: Sleep this long and return. Ignored when forStep is present. }
+      - { name: forStep, type: object, ref: step, description: The step to run on every poll. }
+      - { name: until, type: object, ref: assert, description: The condition that ends the poll successfully. }
+      - { name: intervalSec, type: integer, default: 10, description: Seconds between polls. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        waitedSec: { type: integer, description: Present for a plain sleep. }
+        waited: { type: boolean, description: Present when a poll condition was met. }
+        elapsedSec: { type: integer, description: Present when a poll condition was met. }
+

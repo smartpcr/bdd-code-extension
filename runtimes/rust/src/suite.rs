@@ -436,6 +436,13 @@ pub fn tags_match(case_tags: &[String], filter: &[String]) -> bool {
     filter.is_empty() || case_tags.iter().any(|tag| filter.contains(tag))
 }
 
+/// Whether a case name matches any `--name` glob; none matches every case. The
+/// same glob a `--path` takes (`*`, `?`, the whole name), so `*apply*` means
+/// one thing everywhere.
+pub fn name_matches(case_name: &str, patterns: &[String]) -> bool {
+    patterns.is_empty() || patterns.iter().any(|pattern| crate::paths::matches_glob(pattern, case_name))
+}
+
 /// Every tag that applies to a case: its own and the suite's.
 pub fn case_tags(model: &Value, case: &Value) -> Vec<String> {
     let mut tags: Vec<String> = array_of(case, "tags")

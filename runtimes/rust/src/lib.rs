@@ -24,6 +24,7 @@ pub mod generate;
 pub mod extension;
 pub mod model;
 pub mod paths;
+pub mod progress;
 pub mod report;
 pub mod run;
 pub mod schema;

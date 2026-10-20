@@ -11,17 +11,20 @@
       nuget    Bdd.Suite and Bdd.Suite.Testing (.nupkg and .snupkg), Release
       goproxy  the Go module github.com/smartpcr/bdd-code-extension/runtimes/go at
                v<version>, in the module proxy's layout, for GOPROXY=file:///...
+      cargo    the crate suiterun-<version>.crate (cargo package, which builds
+               it from its packaged files), and the same unpacked beside it,
+               which a consumer's [patch.crates-io] can name
 
     Each package is checked with Test-PackageContents.ps1 against its list in
     packaging/ (the Go zip is also made, and so checked, by golang.org/x/mod/zip).
     Exits 1 when a pack or a check fails.
 
 .EXAMPLE
-    pwsh -File scripts/local-feeds.ps1 -Language csharp, go
+    pwsh -File scripts/local-feeds.ps1 -Language csharp, go, rust
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('csharp', 'go')][string[]]$Language = @('csharp', 'go'),
+    [ValidateSet('csharp', 'go', 'rust')][string[]]$Language = @('csharp', 'go', 'rust'),
     [string]$Out
 )
 
@@ -59,6 +62,31 @@ foreach ($language in $Language) {
             & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Test-PackageContents.ps1') -Package (Join-Path $module "@v/$version.zip")
             if ($LASTEXITCODE) { throw 'the Go module zip does not hold what packaging/runtimes-go.files.txt lists' }
             Write-Output "goproxy feed: $feed"
+        }
+        'rust' {
+            $feed = Join-Path $Out 'cargo'
+            $version = (Get-Content (Join-Path $repo 'package.json') -Raw | ConvertFrom-Json).version
+            New-Item -ItemType Directory -Force -Path $feed | Out-Null
+            Get-ChildItem $feed -Filter 'suiterun-*' | Remove-Item -Recurse -Force
+            Push-Location (Join-Path $repo 'runtimes/rust')
+            try {
+                # --allow-dirty: a feed is built from the working tree, committed or not.
+                cargo package --allow-dirty --quiet
+                if ($LASTEXITCODE) { throw 'cargo package failed' }
+            } finally {
+                Pop-Location
+            }
+            $crate = Join-Path $feed "suiterun-$version.crate"
+            Copy-Item (Join-Path $repo "runtimes/rust/target/package/suiterun-$version.crate") $crate
+            & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Test-PackageContents.ps1') -Package $crate
+            if ($LASTEXITCODE) { throw "suiterun-$version.crate does not hold what packaging/suiterun.files.txt lists" }
+            $stream = [IO.File]::OpenRead($crate)
+            try {
+                [Formats.Tar.TarFile]::ExtractToDirectory([IO.Compression.GZipStream]::new($stream, [IO.Compression.CompressionMode]::Decompress), $feed, $true)
+            } finally {
+                $stream.Dispose()
+            }
+            Write-Output "cargo feed: $feed"
         }
     }
 }
