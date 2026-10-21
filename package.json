@@ -2,7 +2,7 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "publisher": "asz",
   "license": "MIT",
   "repository": {

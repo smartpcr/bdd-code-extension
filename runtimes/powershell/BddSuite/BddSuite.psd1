@@ -1,6 +1,6 @@
 @{
     RootModule        = 'BddSuite.psm1'
-    ModuleVersion     = '0.7.3'
+    ModuleVersion     = '0.7.4'
     GUID              = '5d0f8a3e-6b2c-4f0e-9a51-3c7e2b9d4a10'
     Author            = 'bdd-code-extension contributors'
     Description       = 'The PowerShell runtime of the BDD suite format: suite model, lint, step execution, expressions, assertions, report comparison, the action registry, the core actions and the generic runner (Invoke-BddSuite), extensible by modules (README.md).'

@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.7.3
+## 0.7.4
+
+The first release to the public registries: `Bdd.Suite` and
+`Bdd.Suite.Testing` on nuget.org, `@bdd-suite/runtime` on npm, `suiterun` on
+crates.io. 0.7.3 was published to crates.io and GitHub Packages only (npm
+asked for a one-time password, and the release was stopped there); it has no
+GitHub release.
+
+* **Release pipeline:** a version nuget.org refuses as a duplicate is
+  reported as skipped, not published; the setup check finds `NUGET_USER` on
+  the `release` environment.
 
 * **Release pipeline:** `verify-registries` (E11): after a release to the
   public registries, each consumer sample runs on a fresh runner with no

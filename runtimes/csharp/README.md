@@ -3,8 +3,8 @@
 ## Install
 
 ```xml
-<PackageReference Include="Bdd.Suite" Version="0.7.3" />          <!-- your extension and your suiterun -->
-<PackageReference Include="Bdd.Suite.Testing" Version="0.7.3" />  <!-- your suites as tests -->
+<PackageReference Include="Bdd.Suite" Version="0.7.4" />          <!-- your extension and your suiterun -->
+<PackageReference Include="Bdd.Suite.Testing" Version="0.7.4" />  <!-- your suites as tests -->
 ```
 
 Releases are on this repository's GitHub Packages feed, and attached to each
