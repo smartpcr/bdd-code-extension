@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 built and run locally, not committed ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md)); K7 to K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 committed (`93f8417`), K7 built and run locally, not committed; neither pushed ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md)); K7.9 (E10 on a pull request) waits for a push, K8 and K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -465,14 +465,14 @@ extension; E9; unit tests at 100%; `npm run install:local`.
 Result: D16, D17. Entry: K1–K6. Exit evidence: E10 green on a pushed pull
 request branch (pushed only when the user asks); the READMEs reviewed.
 
-- [ ] K7.1 `scripts/pack-all.ps1` and `scripts/local-feeds.ps1` for all five.
-- [ ] K7.2 CI `packages` job (E1 for all, uploads the artifact).
-- [ ] K7.3 CI `consumers` matrix (E2–E6 from the artifact).
-- [ ] K7.4 `publish-nuget`, `publish-npm`, `publish-crates`, `publish-psgallery` jobs, dry run on pull requests, `--skip-duplicate`/exists checks.
-- [ ] K7.5 The `release` job needs them; release notes list each package and its registry link; the Go tag after them.
-- [ ] K7.6 actionlint and the workflow parse check.
-- [ ] K7.7 READMEs per package; root README "Install"; CHANGELOG.
-- [ ] K7.8 `docs/packages/migrating.md` (copy to package; update2 as the worked example).
+- [x] K7.1 `scripts/pack-all.ps1` and `scripts/local-feeds.ps1` for all five.
+- [x] K7.2 CI `packages` job (E1 for all, uploads the artifact).
+- [x] K7.3 CI `consumers` matrix (E2–E6 from the artifact).
+- [x] K7.4 `publish-nuget`, `publish-npm`, `publish-crates`, `publish-psgallery` jobs, dry run on pull requests, `--skip-duplicate`/exists checks.
+- [x] K7.5 The `release` job needs them; release notes list each package and its registry link; the Go tag after them.
+- [x] K7.6 actionlint and the workflow parse check.
+- [x] K7.7 READMEs per package; root README "Install"; CHANGELOG.
+- [x] K7.8 `docs/packages/migrating.md` (copy to package; update2 as the worked example).
 - [ ] K7.9 E10 on a pull request (needs a push: the user's call).
 
 ### Stage K8: the first public release (P1, remote)
@@ -548,5 +548,5 @@ it was done, never the secrets.
 | nuget.org | Add a trusted publishing policy for the same repository, workflow and environment; optionally request the ID prefix reservation `Bdd.Suite`. |
 | crates.io | After the first manual or token publish of `suiterun` (crates.io needs the crate to exist), add a trusted publisher for the same workflow and environment. |
 | PowerShell Gallery | Create an API key scoped to push `BddSuite`; store it as the `release` environment secret `PSGALLERY_API_KEY`. |
-| GitHub | Create the environment `release` with the user as required reviewer; restrict it to `main`. |
+| GitHub | Create the environment `release` with the user as required reviewer; restrict it to `main`. Set the repository variable `NUGET_USER` to the nuget.org account the trusted publishing policy belongs to (`NuGet/login` asks for it), and, last, `PUBLIC_REGISTRIES` to `true`: until then the publish jobs never run and every release goes to this repository and its GitHub Packages feed only. |
 | Go | Nothing: proxy.golang.org reads the tag. |

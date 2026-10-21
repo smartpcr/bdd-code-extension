@@ -1,14 +1,19 @@
 # Build, test and package the extension on every push to main and every pull
 # request; release it when a push to main carries a new version.
 #
-# Releasing is automatic: bump `version` in package.json and push to main.
-# When the build passes and no tag v<version> exists yet, the release job
-# creates the GitHub release v<version> (which creates the tag) with the very
-# .vsix this run built and tested and its SHA-256, and tags the Go module
-# runtimes/go/v<version> at the same commit. Nothing is published to a
-# marketplace, so the job needs no credentials beyond the run's own token. A
-# push that keeps the version only builds and tests. Re-running a failed
-# release is safe: an existing GitHub release gets its files replaced.
+# Releasing is automatic: bump `version` in package.json (npm run set-version)
+# and push to main. When every gate passes and no tag v<version> exists yet:
+# the runtime packages, packed once by the packages job and proved by the
+# consumers matrix, go to this repository's GitHub Packages feed (C#) and,
+# when the repository variable PUBLIC_REGISTRIES is 'true', to nuget.org, npm,
+# crates.io and the PowerShell Gallery in the release environment; then the
+# release job creates the GitHub release v<version> (which creates the tag)
+# with the very .vsix this run built and tested, its SHA-256 and every package
+# file, and tags the Go module runtimes/go/v<version> at the same commit
+# (docs/packages, D16, DEC-P10). Every publish step skips a version its
+# registry has, and an existing GitHub release gets its files replaced, so a
+# failed release is finished by running it again. A pull request, or a push
+# that keeps the version, builds, tests and dry-runs the publishing (E10).
 #
 # The extension builds and its demo and integration suite run on Windows, where
 # it is developed and used; both are self-contained (the integration suite runs
@@ -244,16 +249,6 @@ jobs:
             if ($LASTEXITCODE) { throw "a scenario failed under $provider" }
           }
 
-      # docs/packages, E1 and E2: Bdd.Suite and Bdd.Suite.Testing packed into a
-      # local feed with exactly their listed contents, and a consumer that
-      # references only those packages builds its suiterun and runs its suites
-      # under MSTest, NUnit and xUnit.
-      - name: The C# packages, and a consumer of them alone (E1, E2)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File samples/consumers/csharp/run-e2.ps1
-          if ($LASTEXITCODE) { throw 'the C# consumer failed on the packages' }
-
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4
@@ -295,15 +290,6 @@ jobs:
       - name: Filters, listing, guarded suites, parallel runs, generation (E5, E9-E12)
         run: node samples/workspace/tests/go/scenarios.mjs
 
-      # docs/packages, E1 and E3: the module written as a version into a local
-      # file GOPROXY with exactly its listed contents, and a consumer that
-      # requires only that version builds its suiterun and runs its tests.
-      - name: The Go module, and a consumer of it alone (E1, E3)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File samples/consumers/go/run-e3.ps1
-          if ($LASTEXITCODE) { throw 'the Go consumer failed on the module' }
-
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4
@@ -340,20 +326,6 @@ jobs:
 
       - name: Listing, filters, guarded suites, parallel runs, generation (E6, E9-E12)
         run: node samples/workspace/tests/rust/scenarios.mjs
-
-      # docs/packages, E1 and E4: the crate packed (cargo package builds it from
-      # its packaged files) with exactly its listed contents, a publish dry run,
-      # and a consumer that asks for the crate by version builds its suiterun
-      # and runs its tests on it.
-      - name: The crate, a publish dry run, and a consumer of it alone (E1, E4)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File samples/consumers/rust/run-e4.ps1
-          if ($LASTEXITCODE) { throw 'the Rust consumer failed on the crate' }
-          Push-Location runtimes/rust
-          cargo publish --dry-run --allow-dirty
-          if ($LASTEXITCODE) { throw 'cargo publish --dry-run failed' }
-          Pop-Location
 
       - name: Keep the reports and traces
         if: always()
@@ -404,15 +376,6 @@ jobs:
             node samples/workspace/tests/typescript/scenarios.mjs --provider "$provider"
           done
 
-      # docs/packages, E1 and E5: the package packed with exactly its listed
-      # contents, and a consumer that installs only that tarball builds its
-      # suiterun and runs its tests on it.
-      - name: The npm package, and a consumer of it alone (E1, E5)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File samples/consumers/typescript/run-e5.ps1
-          if ($LASTEXITCODE) { throw 'the TypeScript consumer failed on the package' }
-
       - name: Keep the reports and traces
         if: always()
         uses: actions/upload-artifact@v4
@@ -452,12 +415,6 @@ jobs:
 
       - name: Filters, discovery, guarded suites, generation (E8, E9, E10, E12)
         run: node samples/workspace/tests/powershell/scenarios.mjs
-
-      - name: The PowerShell module, and a consumer of it alone (E1, E6)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File samples/consumers/powershell/run-e6.ps1
-          if ($LASTEXITCODE) { throw 'the PowerShell consumer failed on the module' }
 
       - name: Keep the reports and traces
         if: always()
@@ -530,6 +487,19 @@ jobs:
           }
           git diff --exit-code -- runtimes
 
+  # docs/packages, K7.6: the workflow parses and lints clean, shell scripts included.
+  workflow:
+    name: The workflow lints clean (actionlint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: actionlint 1.7.7 (with shellcheck, which the runner has)
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
   version:
     name: Is this version released?
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -551,17 +521,21 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # docs/packages, D16 for this repository's own channels (the user's decision,
-  # 2026-10-20: the GitHub repository and its package feed for now, the public
-  # registries later). One job packs the C# packages and the Rust crate and
-  # checks each one's contents (E1) on every run; on a release the NuGet
-  # packages go to GitHub Packages, and every package file is attached to the
-  # GitHub release with the .vsix. Both happen before the release and the Go
-  # tag exist, so a release never names a package that is not there (DEC-P10).
+  # docs/packages, D16. Every package is packed once, on every run, and checked
+  # against its expected contents (E1); the consumers matrix proves each from
+  # those very files (E2 to E6). On a release the C# packages go to this
+  # repository's GitHub Packages feed and every package file to the GitHub
+  # release (the user's decision, 2026-10-20: the repository and its feed
+  # first). The public registries (nuget.org, npm, crates.io, the Gallery) are
+  # published only when the repository variable PUBLIC_REGISTRIES is 'true',
+  # in the release environment; until then, and on every pull request, their
+  # publish steps run as a dry run (E10). Everything is published before the
+  # GitHub release and the Go tag exist, so a release never names a package
+  # that is not there (DEC-P10).
   packages:
-    name: The C# packages, the Rust crate, the npm package and the PowerShell module, packed and checked (E1)
+    name: Every package, packed once and checked (E1)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
@@ -569,48 +543,197 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtimes/go/go.mod
+          cache-dependency-path: runtimes/go/go.sum
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
 
-      - name: Pack, and check every package against packaging/
+      # Publish-PSResource needs the YAML module the BddSuite manifest requires;
+      # local-feeds puts the same module into the file repository beside BddSuite.
+      - name: The YAML module the PowerShell module requires
+        shell: pwsh
+        run: Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
+
+      - name: Pack every package into the local feeds, check each against packaging/, and gather the release's files
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path out/packages | Out-Null
-          dotnet pack runtimes/csharp/Bdd.Suite.sln -c Release -o out/packages --nologo
-          if ($LASTEXITCODE) { throw 'dotnet pack failed' }
-          Push-Location runtimes/rust
-          cargo package --allow-dirty
-          if ($LASTEXITCODE) { throw 'cargo package failed' }
-          Pop-Location
-          Copy-Item runtimes/rust/target/package/suiterun-*.crate out/packages/
-          Push-Location runtimes/typescript
-          npm ci --no-audit --no-fund
-          if ($LASTEXITCODE) { throw 'npm ci failed' }
-          npm pack --pack-destination ../../out/packages
-          if ($LASTEXITCODE) { throw 'npm pack failed' }
-          Pop-Location
-          # Publish-PSResource into a file repository makes the module's package.
-          Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
-          pwsh -NoProfile -File scripts/local-feeds.ps1 -Language powershell -Out out/feeds
-          if ($LASTEXITCODE) { throw 'the PowerShell module did not pack' }
-          Copy-Item out/feeds/psresource/BddSuite.*.nupkg out/packages/
-          foreach ($package in Get-ChildItem out/packages -Include '*.nupkg', '*.crate', '*.tgz' -Recurse) {
-            pwsh -NoProfile -File scripts/Test-PackageContents.ps1 -Package $package.FullName
-            if ($LASTEXITCODE) { throw "$($package.Name) does not hold what packaging/ lists" }
-          }
+          pwsh -NoProfile -File scripts/pack-all.ps1
+          if ($LASTEXITCODE) { throw 'packing failed' }
 
       - name: Keep the packages
         uses: actions/upload-artifact@v4
         with:
           name: packages
-          path: out/packages/*
+          path: artifacts/packages/*
           if-no-files-found: error
+
+      # The feeds the consumers install from, so they prove the files above, not a pack of their own.
+      - name: Keep the local feeds
+        uses: actions/upload-artifact@v4
+        with:
+          name: feeds
+          path: artifacts/feeds
+          if-no-files-found: error
+
+  consumers:
+    name: ${{ matrix.label }} consumer from the packages alone (${{ matrix.scenario }})
+    needs: packages
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { language: csharp, label: 'C#', scenario: E2, os: windows-latest, script: samples/consumers/csharp/run-e2.ps1 }
+          - { language: go, label: Go, scenario: E3, os: ubuntu-latest, script: samples/consumers/go/run-e3.ps1 }
+          - { language: rust, label: Rust, scenario: E4, os: ubuntu-latest, script: samples/consumers/rust/run-e4.ps1 }
+          - { language: typescript, label: TypeScript, scenario: E5, os: ubuntu-latest, script: samples/consumers/typescript/run-e5.ps1 }
+          - { language: powershell, label: PowerShell, scenario: E6, os: windows-latest, script: samples/consumers/powershell/run-e6.ps1 }
+    steps:
+      - uses: actions/checkout@v5
+
+      - if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: runtimes/go/go.mod
+          cache-dependency-path: runtimes/go/go.sum
+
+      - if: matrix.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
+      - if: matrix.language == 'typescript'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - if: matrix.language == 'powershell'
+        name: Pester 5 or later
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: feeds
+          path: artifacts/feeds
+
+      - name: The consumer, from the feeds alone
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ${{ matrix.script }} -NoPack
+          if ($LASTEXITCODE) { throw 'the ${{ matrix.label }} consumer failed on the packages' }
+
+  # E10: on a pull request, or a push that is no release, each public registry's
+  # publish step runs as a dry run and reports what it would publish. Nothing
+  # reaches a registry: no credential is given, and dotnet nuget push and the
+  # Gallery publish are not called at all (scripts/publish/Publish-Package.ps1).
+  publish-dry-run:
+    name: Publish to ${{ matrix.registry }}, dry run (E10)
+    needs: [packages, version]
+    # version runs only on a push to main: on a pull request it is skipped, which would skip this job too.
+    if: ${{ !cancelled() && needs.packages.result == 'success' && (github.event_name == 'pull_request' || needs.version.outputs.release != 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        registry: [nuget, npm, crates, psgallery]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages
+
+      - name: What would be published, and what the registry already has
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/publish/Publish-Package.ps1 -Registry ${{ matrix.registry }} -DryRun
+          if ($LASTEXITCODE) { throw 'the ${{ matrix.registry }} dry run failed' }
+
+  # D16, DEC-P10: the public registries, after every gate and the release
+  # environment's approval, each step skipping a version its registry has.
+  # Off until the repository variable PUBLIC_REGISTRIES is 'true' and the
+  # registries are set up (docs/packages/implementation.md, section 6).
+  publish:
+    name: Publish to ${{ matrix.registry }}
+    needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
+      providers-rust, providers-typescript, providers-powershell, divergence, integration, workflow, version, packages, consumers]
+    if: needs.version.outputs.release == 'true' && vars.PUBLIC_REGISTRIES == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      # Trusted publishing: npm, nuget.org and crates.io exchange the run's OIDC token for a short-lived key.
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        registry: [crates, npm, nuget, psgallery]
+    steps:
+      - uses: actions/checkout@v5
+
+      - if: matrix.registry == 'npm'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # npm trusted publishing needs npm 11.5.1 or later.
+      - if: matrix.registry == 'npm'
+        run: npm install --global npm@latest
+
+      - if: matrix.registry == 'nuget'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - if: matrix.registry == 'nuget'
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - if: matrix.registry == 'crates'
+        uses: dtolnay/rust-toolchain@stable
+
+      - if: matrix.registry == 'crates'
+        id: crates
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages
+
+      - name: Publish (a version the registry has is skipped)
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          pwsh -NoProfile -File scripts/publish/Publish-Package.ps1 -Registry ${{ matrix.registry }}
+          if ($LASTEXITCODE) { throw 'publishing to ${{ matrix.registry }} failed' }
 
   publish-github-packages:
     name: Push Bdd.Suite and Bdd.Suite.Testing to GitHub Packages
     needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
-      providers-rust, providers-typescript, providers-powershell, divergence, integration, version, packages]
+      providers-rust, providers-typescript, providers-powershell, divergence, integration, workflow, version, packages, consumers]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -640,8 +763,10 @@ jobs:
   release:
     name: Release v${{ needs.version.outputs.version }}
     needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
-      providers-rust, providers-typescript, providers-powershell, divergence, integration, version, packages, publish-github-packages]
-    if: needs.version.outputs.release == 'true'
+      providers-rust, providers-typescript, providers-powershell, divergence, integration, workflow, version, packages, consumers,
+      publish-github-packages, publish]
+    # publish is skipped while the public registries are off; every other need must have passed.
+    if: ${{ !cancelled() && needs.version.outputs.release == 'true' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
     concurrency:
       group: release
@@ -651,6 +776,8 @@ jobs:
     env:
       TAG: v${{ needs.version.outputs.version }}
       VSIX: bdd-suite-${{ needs.version.outputs.version }}.vsix
+      # 'true' once the publish jobs put the packages on the public registries.
+      PUBLIC: ${{ vars.PUBLIC_REGISTRIES }}
     steps:
       # Only the files the release notes read the runtime versions from.
       - uses: actions/checkout@v5
@@ -691,6 +818,20 @@ jobs:
             echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | this release's asset ${tick}bdd-suite-runtime-$ts.tgz${tick}: ${tick}npm install <its URL>${tick} | $ts (lint API $api) |"
             echo "| PowerShell module ${tick}BddSuite${tick} | this release's asset ${tick}BddSuite.$ps.nupkg${tick}, in a folder registered with ${tick}Register-PSResourceRepository${tick}: ${tick}Install-PSResource BddSuite${tick} (powershell-yaml from the Gallery); or this tag, ${tick}runtimes/powershell/BddSuite${tick} | $ps |"
             echo
+            # D16: each package on its public registry, once the publish jobs put it there.
+            if [ "$PUBLIC" = true ]; then
+              echo "### On the public registries"
+              echo
+              echo "| Package | Registry page |"
+              echo "| --- | --- |"
+              echo "| ${tick}Bdd.Suite${tick} $rs | https://www.nuget.org/packages/Bdd.Suite/$rs |"
+              echo "| ${tick}Bdd.Suite.Testing${tick} $rs | https://www.nuget.org/packages/Bdd.Suite.Testing/$rs |"
+              echo "| ${tick}@bdd-suite/runtime${tick} $ts | https://www.npmjs.com/package/@bdd-suite/runtime/v/$ts |"
+              echo "| ${tick}suiterun${tick} $rs | https://crates.io/crates/suiterun/$rs |"
+              echo "| ${tick}BddSuite${tick} $ps | https://www.powershellgallery.com/packages/BddSuite/$ps |"
+              echo "| Go module | https://pkg.go.dev/github.com/${GITHUB_REPOSITORY}/runtimes/go@$TAG |"
+              echo
+            fi
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
 

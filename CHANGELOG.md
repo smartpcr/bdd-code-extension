@@ -12,8 +12,26 @@
   (`${extension}` and `${catalogPath}` in the setting), and *Suite: Regenerate
   the schema* runs it; a warning when the workspace pins bdd-suite packages of
   another release.
+* **Release pipeline:** every package is packed once (`scripts/pack-all.ps1`)
+  and checked, and each language's consumer sample is built and run from
+  those files alone (a `consumers` matrix, E2 to E6); publishing to nuget.org,
+  npm, crates.io and the PowerShell Gallery (`scripts/publish`) runs as a
+  dry run on every pull request and for real, in the `release` environment,
+  once the repository variable `PUBLIC_REGISTRIES` is `true`; the release
+  notes then link each registry page; actionlint checks the workflow
+  (docs/packages, stage K7).
+* **Docs:** "The runtime packages" in the README; moving a repository from a
+  copy of a runtime to its package, update2 as the example
+  (docs/packages/migrating.md).
 
 ## 0.7.1
+
+* **PowerShell:** the `BddSuite` module as a package, attached to the GitHub
+  release as `BddSuite.<version>.nupkg` (`Install-PSResource` from a folder
+  repository), with `--name`/`-Name`, `--progress`/`-Progress` and its run
+  observer, `bdd-suite:core`, `suiterun.ps1` and `Invoke-BddSuite.ps1` inside
+  the module (forwarders at the old paths), and any error a step raises
+  failing that step only (docs/packages, stage K5).
 
 * **TypeScript:** `@bdd-suite/runtime` as a package, attached to the GitHub
   release as `bdd-suite-runtime-<version>.tgz` (`npm install <its URL>`), with

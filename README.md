@@ -150,6 +150,26 @@ To try it without a workspace of your own, see
 [A self-contained demo](#a-self-contained-demo). To build it from source, see
 [Build, test and release](#build-test-and-release).
 
+### The runtime packages
+
+Your workspace's actions run on a runtime per language, which it takes as a
+package of the same release as the extension (every package carries the
+extension's version). Each release carries them; the public registries follow
+once they are set up.
+
+| Language | Package | Install |
+| --- | --- | --- |
+| C# | `Bdd.Suite`, `Bdd.Suite.Testing` | From GitHub Packages, `https://nuget.pkg.github.com/smartpcr/index.json` (a token with `read:packages`), or the release's `.nupkg` files in a folder feed: `<PackageReference Include="Bdd.Suite.Testing" Version="0.7.1" />` ([runtimes/csharp](runtimes/csharp/README.md)) |
+| Go | `github.com/smartpcr/bdd-code-extension/runtimes/go` | `go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.1` ([runtimes/go](runtimes/go/README.md)) |
+| Rust | `suiterun` | A git dependency on the tag, or the release's `suiterun-<version>.crate` ([runtimes/rust](runtimes/rust/README.md)) |
+| TypeScript | `@bdd-suite/runtime` | `npm install <the release's bdd-suite-runtime-<version>.tgz URL>` ([runtimes/typescript](runtimes/typescript/README.md)) |
+| PowerShell | `BddSuite` | The release's `BddSuite.<version>.nupkg` in a folder you register: `Install-PSResource BddSuite -Version 0.7.1` ([runtimes/powershell](runtimes/powershell/README.md)) |
+
+Each language has a working consumer that uses only its package, its own
+extension and binding program, and its suites as tests:
+[samples/consumers](samples/consumers). Moving a workspace from a copy of a
+runtime to its package: [docs/packages/migrating.md](docs/packages/migrating.md).
+
 ## The BDD Suite language mode
 
 A suite is YAML, and a `.yml` file can be opened as plain YAML or as a **BDD
@@ -372,25 +392,42 @@ From the source repository, with Node.js 24:
 * each runtime's unit tests and the whole conformance corpus (TypeScript, Go,
   Rust and C# on Linux, PowerShell on Windows);
 * the divergence check: a defect injected into the Go and TypeScript runtimes
-  must fail their corpus.
+  must fail their corpus;
+* every runtime package packed once and checked, and each consumer sample
+  (`samples/consumers`) built and run from those packages alone;
+* the publish dry run for each public registry, and actionlint on the workflow.
 
 **Releasing is automatic.** Bump the version and push it to `main`:
 
 ```powershell
 npm version patch --no-git-tag-version   # or minor / major; edits package.json and package-lock.json
-git commit -am "release 0.4.3"
+npm run set-version                      # every runtime manifest, lock and consumer pin to the same version
+git commit -am "release 0.7.2"
 git push origin main
 ```
 
-When that push's build passes and no tag `v<version>` exists yet, the same CI
-run releases the very `.vsix` it built and tested: it creates the GitHub
-release `v<version>` (and with it the tag) with the `.vsix`, its `.sha256`,
-the runtime versions and generated release notes, and tags the Go module
-`runtimes/go/v<version>` at the same commit. Nothing is published to a
-marketplace, so the release needs no credentials or repository variables. A
-push that keeps the version only builds and tests, and a pull request never
-releases. Re-running a failed release is safe: an existing GitHub release gets
-its files replaced.
+When every gate of that push passes and no tag `v<version>` exists yet, the
+same CI run releases what it built and tested (docs/packages, D16):
+
+1. the `packages` job has packed every runtime package once
+   (`scripts/pack-all.ps1`) and checked each against `packaging/`, and the
+   `consumers` matrix has built and run each consumer sample from those very
+   files (E2 to E6);
+2. `Bdd.Suite` and `Bdd.Suite.Testing` go to this repository's GitHub
+   Packages feed; when the repository variable `PUBLIC_REGISTRIES` is `true`,
+   every package also goes to nuget.org, npm, crates.io and the PowerShell
+   Gallery, in the `release` environment (set up once, as
+   [docs/packages/implementation.md](docs/packages/implementation.md#6-operator-setup-before-the-first-release)
+   says);
+3. the GitHub release `v<version>` (and with it the tag) gets the `.vsix`, its
+   `.sha256`, every package file, the runtime versions and generated notes;
+4. the Go module is tagged `runtimes/go/v<version>` at the same commit.
+
+Every publish step first asks its registry and skips a version it has, and an
+existing GitHub release gets its files replaced, so a release that failed
+part-way is finished by running it again. A pull request, or a push that keeps
+the version, builds and tests and dry-runs the publishing: each registry says
+what it would publish, and nothing reaches one (E10).
 
 ## Design and plan
 
