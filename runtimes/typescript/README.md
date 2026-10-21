@@ -8,12 +8,22 @@ the conformance corpus in `../../conformance/` like every runtime.
 ## Install
 
 ```text
-npm install --save-dev @bdd-suite/runtime@0.7.1
+npm install --save-dev @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@0.7.2
 ```
 
-The package is not on the npm registry yet: until it is, install the tarball a
-release carries (`bdd-suite-runtime-<version>.tgz`) or one `npm pack` makes in
-`runtimes/typescript`. It carries the release's version, the VS Code
+The package is not on npmjs.com yet. This repository's GitHub Packages
+registry has it as `@smartpcr/bdd-suite-runtime` (that registry takes only the
+owner's scope); the alias above installs it under its own name, so every
+`import ... from '@bdd-suite/runtime'` stays as it is. It needs the scope in
+your `.npmrc`, with a token with `read:packages`:
+
+```text
+@smartpcr:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Or install the tarball a release carries (`bdd-suite-runtime-<version>.tgz`)
+or one `npm pack` makes in `runtimes/typescript`. It carries the release's version, the VS Code
 extension's, so every runtime of one release agrees, and needs Node.js 24.
 
 A workspace adds its own actions in an `Extension` and builds its own

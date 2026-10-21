@@ -645,7 +645,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        registry: [nuget, npm, crates, psgallery]
+        registry: [github, nuget, npm, crates, psgallery]
     steps:
       - uses: actions/checkout@v5
 
@@ -661,7 +661,9 @@ jobs:
       - name: What would be published, and what the registry already has
         shell: pwsh
         run: |
-          pwsh -NoProfile -File scripts/publish/Publish-Package.ps1 -Registry ${{ matrix.registry }} -DryRun
+          # github: the owner's GitHub Packages registries, prepared (renamed, amended) and not pushed.
+          if ('${{ matrix.registry }}' -eq 'github') { pwsh -NoProfile -File scripts/publish/Publish-GitHubPackages.ps1 -DryRun }
+          else { pwsh -NoProfile -File scripts/publish/Publish-Package.ps1 -Registry ${{ matrix.registry }} -DryRun }
           if ($LASTEXITCODE) { throw 'the ${{ matrix.registry }} dry run failed' }
 
   # D16, DEC-P10: the public registries, after every gate and the release
@@ -731,7 +733,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'publishing to ${{ matrix.registry }} failed' }
 
   publish-github-packages:
-    name: Push Bdd.Suite and Bdd.Suite.Testing to GitHub Packages
+    name: Push the C# packages, the PowerShell module and the npm package to GitHub Packages
     needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
       providers-rust, providers-typescript, providers-powershell, divergence, integration, workflow, version, packages, consumers]
     if: needs.version.outputs.release == 'true'
@@ -741,24 +743,34 @@ jobs:
       contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v5
+
       - uses: actions/download-artifact@v4
         with:
           name: packages
-          path: packages
+          path: artifacts/packages
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
 
-      # The feed of the repository's owner; the run's own token may write to it.
-      # A version the feed already holds is skipped, so a release can be run
-      # again. GitHub Packages has no symbol server: the .snupkg files go to the
-      # GitHub release instead, and so does the PowerShell module (BddSuite.*.nupkg).
-      - name: Push (a version the feed already has is skipped)
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      # The registries of the repository's owner; the run's own token may write
+      # to them. Bdd.Suite, Bdd.Suite.Testing and BddSuite (its nuspec given
+      # this repository's URL) on the NuGet feed, @bdd-suite/runtime as
+      # @<owner>/bdd-suite-runtime on the npm registry, which takes only the
+      # owner's scope. A version a registry holds is skipped, so a release can
+      # be run again. No symbol server: the .snupkg files go to the release.
+      - name: Push (a version the registry already has is skipped)
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          dotnet nuget push "packages/Bdd.Suite*.nupkg" \
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-            --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate --no-symbols
+          pwsh -NoProfile -File scripts/publish/Publish-GitHubPackages.ps1
+          if ($LASTEXITCODE) { throw 'pushing to GitHub Packages failed' }
 
   release:
     name: Release v${{ needs.version.outputs.version }}
@@ -815,8 +827,8 @@ jobs:
             echo "| Go module ${tick}github.com/${GITHUB_REPOSITORY}/runtimes/go${tick} | the tag ${tick}runtimes/go/$TAG${tick}: ${tick}go get github.com/${GITHUB_REPOSITORY}/runtimes/go@$TAG${tick} | $TAG |"
             echo "| C# ${tick}Bdd.Suite${tick}, ${tick}Bdd.Suite.Testing${tick} | GitHub Packages, ${tick}https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json${tick} (a token with read:packages), and this release's assets | $rs |"
             echo "| Rust crate ${tick}suiterun${tick} | this release's asset ${tick}suiterun-$rs.crate${tick}, or a git dependency on this tag | $rs |"
-            echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | this release's asset ${tick}bdd-suite-runtime-$ts.tgz${tick}: ${tick}npm install <its URL>${tick} | $ts (lint API $api) |"
-            echo "| PowerShell module ${tick}BddSuite${tick} | this release's asset ${tick}BddSuite.$ps.nupkg${tick}, in a folder registered with ${tick}Register-PSResourceRepository${tick}: ${tick}Install-PSResource BddSuite${tick} (powershell-yaml from the Gallery); or this tag, ${tick}runtimes/powershell/BddSuite${tick} | $ps |"
+            echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | GitHub Packages as ${tick}@${GITHUB_REPOSITORY_OWNER}/bdd-suite-runtime${tick} (${tick}npm install @bdd-suite/runtime@npm:@${GITHUB_REPOSITORY_OWNER}/bdd-suite-runtime@$ts${tick}, the ${tick}@${GITHUB_REPOSITORY_OWNER}${tick} scope at ${tick}https://npm.pkg.github.com${tick} with a token with read:packages), or this release's asset ${tick}bdd-suite-runtime-$ts.tgz${tick} | $ts (lint API $api) |"
+            echo "| PowerShell module ${tick}BddSuite${tick} | GitHub Packages, the same NuGet feed as C# (${tick}Register-PSResourceRepository${tick} it, then ${tick}Install-PSResource BddSuite${tick} with a token with read:packages; powershell-yaml from the Gallery), or this release's asset ${tick}BddSuite.$ps.nupkg${tick} | $ps |"
             echo
             # D16: each package on its public registry, once the publish jobs put it there.
             if [ "$PUBLIC" = true ]; then

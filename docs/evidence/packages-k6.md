@@ -2,10 +2,10 @@
 
 Plan: [docs/packages/implementation.md](../packages/implementation.md#stage-k6-the-core-spec-and-the-vs-code-extension-p1).
 Recorded 2026-10-20 on Windows 11, Node.js 24, VS Code Insiders, PowerShell
-7.6.7 with powershell-yaml 0.4.12, on top of `7abf7c8`, uncommitted.
-**Status: built; locally accepted (E8 for the extension, E9 in the
-development host and from the installed `.vsix`); CI not run for K6**
-(nothing pushed; nothing published).
+7.6.7 with powershell-yaml 0.4.12, on top of `7abf7c8`; committed as
+`93f8417`. **Status: built; accepted locally (E8 for the extension, E9 in the
+development host and from the installed `.vsix`) and in CI (run
+39521711937).** Nothing published.
 
 ## What was built
 
@@ -72,6 +72,9 @@ to [K5](packages-k5.md)); the generator's is K0's.
   (`powershell`) a C#-only workspace would otherwise see `E201` on every one
   of its own actions. The status bar says so.
 
-## Open
+## CI
 
-* **CI** for K6, including the `consumer` session in the integration job.
+Pushed as `93f8417` with K7 (`0ef6036`); CI run 39521711937 green. Its
+integration job ran every session on GitHub's Windows runner, the `consumer`
+session's three E9 tests and the worktree's renamed-library test among them;
+`build` ran the unit tests at 100%.

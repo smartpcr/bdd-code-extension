@@ -7,7 +7,7 @@
   -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <BddSuiteVersion Condition="'$(BddSuiteVersion)' == ''">0.7.1</BddSuiteVersion>
+    <BddSuiteVersion Condition="'$(BddSuiteVersion)' == ''">0.7.2</BddSuiteVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Bdd.Suite" Version="$(BddSuiteVersion)" />

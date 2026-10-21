@@ -13,16 +13,20 @@ Requirements: PowerShell 7.2 or later (tested on 7.6.7), the
 
 ## Install
 
+From this repository's GitHub Packages feed (the C# packages' feed; a token
+with `read:packages`):
+
 ```powershell
-Register-PSResourceRepository -Name bdd-suite -Uri <a folder holding BddSuite.0.7.1.nupkg> -Trusted
-Install-PSResource BddSuite -Version 0.7.1 -Repository bdd-suite, PSGallery
+$token = Get-Credential -UserName <your GitHub user> -Message 'a token with read:packages'
+Register-PSResourceRepository -Name bdd-suite -Uri https://nuget.pkg.github.com/smartpcr/index.json -Trusted
+Install-PSResource BddSuite -Version 0.7.2 -Repository bdd-suite, PSGallery -Credential $token
 Import-Module BddSuite
 ```
 
-The module is not on the PowerShell Gallery yet: until it is, a release
-carries it as `BddSuite.<version>.nupkg`; save it in a folder and register
-that folder, as above (`powershell-yaml`, which the module requires, comes
-from the Gallery). It carries the release's version, the VS Code extension's,
+Or from a release's file: save `BddSuite.<version>.nupkg` in a folder and
+register that folder as the repository instead. The module is not on the
+PowerShell Gallery yet; `powershell-yaml`, which it requires, comes from the
+Gallery either way. It carries the release's version, the VS Code extension's,
 so every runtime of one release agrees. `scripts/local-feeds.ps1 -Language
 powershell` builds the same package from a checkout.
 
@@ -31,7 +35,7 @@ with `suiterun.ps1`, `Invoke-BddSuite.ps1`, the core catalog and the license
 inside it. A workspace's own `suiterun.ps1` imports the module by name:
 
 ```powershell
-#Requires -Modules @{ ModuleName = 'BddSuite'; RequiredVersion = '0.7.1' }
+#Requires -Modules @{ ModuleName = 'BddSuite'; RequiredVersion = '0.7.2' }
 Import-Module BddSuite -DisableNameChecking
 exit (Invoke-BddSuiteCli -Arguments $args -Extension @(Join-Path $PSScriptRoot 'My/My.psm1'))
 ```

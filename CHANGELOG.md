@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.2
 
 * **VS Code extension:** lints with the TypeScript runtime it carries when the
   workspace has no TypeScript binding library, so a C#-only (or any) workspace
@@ -20,6 +20,14 @@
   once the repository variable `PUBLIC_REGISTRIES` is `true`; the release
   notes then link each registry page; actionlint checks the workflow
   (docs/packages, stage K7).
+* **GitHub Packages:** a release also pushes the PowerShell module `BddSuite`
+  to the NuGet feed (its nuspec given this repository's URL, so the package is
+  linked to it) and the npm package as `@smartpcr/bdd-suite-runtime` (that
+  registry takes only the owner's scope; `npm install
+  @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@<version>` keeps the
+  name), beside `Bdd.Suite` and `Bdd.Suite.Testing`
+  (`scripts/publish/Publish-GitHubPackages.ps1`, dry-run on every pull
+  request).
 * **Docs:** "The runtime packages" in the README; moving a repository from a
   copy of a runtime to its package, update2 as the example
   (docs/packages/migrating.md).

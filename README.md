@@ -159,11 +159,11 @@ once they are set up.
 
 | Language | Package | Install |
 | --- | --- | --- |
-| C# | `Bdd.Suite`, `Bdd.Suite.Testing` | From GitHub Packages, `https://nuget.pkg.github.com/smartpcr/index.json` (a token with `read:packages`), or the release's `.nupkg` files in a folder feed: `<PackageReference Include="Bdd.Suite.Testing" Version="0.7.1" />` ([runtimes/csharp](runtimes/csharp/README.md)) |
-| Go | `github.com/smartpcr/bdd-code-extension/runtimes/go` | `go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.1` ([runtimes/go](runtimes/go/README.md)) |
+| C# | `Bdd.Suite`, `Bdd.Suite.Testing` | From GitHub Packages, `https://nuget.pkg.github.com/smartpcr/index.json` (a token with `read:packages`), or the release's `.nupkg` files in a folder feed: `<PackageReference Include="Bdd.Suite.Testing" Version="0.7.2" />` ([runtimes/csharp](runtimes/csharp/README.md)) |
+| Go | `github.com/smartpcr/bdd-code-extension/runtimes/go` | `go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.2` ([runtimes/go](runtimes/go/README.md)) |
 | Rust | `suiterun` | A git dependency on the tag, or the release's `suiterun-<version>.crate` ([runtimes/rust](runtimes/rust/README.md)) |
-| TypeScript | `@bdd-suite/runtime` | `npm install <the release's bdd-suite-runtime-<version>.tgz URL>` ([runtimes/typescript](runtimes/typescript/README.md)) |
-| PowerShell | `BddSuite` | The release's `BddSuite.<version>.nupkg` in a folder you register: `Install-PSResource BddSuite -Version 0.7.1` ([runtimes/powershell](runtimes/powershell/README.md)) |
+| TypeScript | `@bdd-suite/runtime` | From GitHub Packages as `@smartpcr/bdd-suite-runtime`, under its own name: `npm install @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@0.7.2` (an `.npmrc` with `@smartpcr:registry=https://npm.pkg.github.com` and a token); or the release's `.tgz` ([runtimes/typescript](runtimes/typescript/README.md)) |
+| PowerShell | `BddSuite` | From GitHub Packages, the C# feed: `Register-PSResourceRepository` it, then `Install-PSResource BddSuite` with a token; or the release's `BddSuite.<version>.nupkg` in a folder you register ([runtimes/powershell](runtimes/powershell/README.md)) |
 
 Each language has a working consumer that uses only its package, its own
 extension and binding program, and its suites as tests:

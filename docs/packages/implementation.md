@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 committed (`93f8417`), K7 built and run locally, not committed; neither pushed ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md)); K7.9 (E10 on a pull request) waits for a push, K8 and K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10 ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md)); K8 and K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -473,7 +473,7 @@ request branch (pushed only when the user asks); the READMEs reviewed.
 - [x] K7.6 actionlint and the workflow parse check.
 - [x] K7.7 READMEs per package; root README "Install"; CHANGELOG.
 - [x] K7.8 `docs/packages/migrating.md` (copy to package; update2 as the worked example).
-- [ ] K7.9 E10 on a pull request (needs a push: the user's call).
+- [x] K7.9 E10 on a pull request (needs a push: the user's call).
 
 ### Stage K8: the first public release (P1, remote)
 
@@ -505,16 +505,16 @@ user; nothing pushed unless asked.
 
 | Scenario | Proves | Deliverables | Stage(s) | Status |
 | --- | --- | --- | --- | --- |
-| [E1](design.md#e1) | O1 | D7–D11, D17 | K1–K5, K7 | not run |
-| [E2](design.md#e2) | O1, O2 | D7, D15 | K1 | not run |
-| [E3](design.md#e3) | O1 | D11, D15 | K2 | not run |
-| [E4](design.md#e4) | O1 | D9, D15 | K3 | not run |
-| [E5](design.md#e5) | O1 | D8, D15 | K4 | not run |
-| [E6](design.md#e6) | O1 | D10, D15 | K5 | not run |
-| [E7](design.md#e7) | O3 | D1–D6 | K1–K5 | not run |
-| [E8](design.md#e8) | O4 | D1–D6, D12 | K1–K6 | not run |
-| [E9](design.md#e9) | O6 | D12, D13 | K6 | not run |
-| [E10](design.md#e10) | O5 | D14, D16 | K7 | not run |
+| [E1](design.md#e1) | O1 | D7–D11, D17 | K1–K5, K7 | passed: the `packages` job (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1); locally per stage |
+| [E2](design.md#e2) | O1, O2 | D7, D15 | K1 | passed: `consumers` (C#) from the packed feeds (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E3](design.md#e3) | O1 | D11, D15 | K2 | passed: `consumers` (Go) (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E4](design.md#e4) | O1 | D9, D15 | K3 | passed: `consumers` (Rust) (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E5](design.md#e5) | O1 | D8, D15 | K4 | passed: `consumers` (TypeScript) (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E6](design.md#e6) | O1 | D10, D15 | K5 | passed: `consumers` (PowerShell) (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E7](design.md#e7) | O3 | D1–D6 | K1–K5 | passed: the corpus's names, progress and worker entries in every runtime job, pending in none (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E8](design.md#e8) | O4 | D1–D6, D12 | K1–K6 | passed: `core-import` in every runtime job, the generator's tests in `spec`, the extension's unit tests in `build` (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
+| [E9](design.md#e9) | O6 | D12, D13 | K6 | passed: the integration job's `consumer` session (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1); locally from the installed .vsix |
+| [E10](design.md#e10) | O5 | D14, D16 | K7 | passed: `packages`, `consumers`, `publish-dry-run` (four registries) and `workflow` green; `publish`, `publish-github-packages` and `release` skipped, nothing published (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
 | [E11](design.md#e11) | O1, O5 | D7–D11, D16 | K8 | not run; remote, needs the user's approval |
 | [E12](design.md#e12) | O3, O4 | D18 | K9 | not run; other repository |
 

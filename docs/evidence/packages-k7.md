@@ -1,10 +1,12 @@
 # Stage K7 evidence: pipeline and documentation
 
 Plan: [docs/packages/implementation.md](../packages/implementation.md#stage-k7-pipeline-and-documentation-p1).
-Recorded 2026-10-20 on Windows 11, on top of `93f8417` (K6), uncommitted.
-**Status: built; run locally (pack-all, the four publish dry runs, E5 from
-the packed feeds, actionlint with shellcheck); E10 not run** (it needs a
-pull request, so a push: the user's call). Nothing published.
+Recorded 2026-10-20 on Windows 11, on top of `93f8417` (K6); committed and
+pushed by the user as `0ef6036`. **Status: built; run locally (pack-all, the
+four publish dry runs, E5 from the packed feeds, actionlint with shellcheck);
+E10 passed in CI (run 39521711937).** Nothing published. After E10, at the
+user's request: the PowerShell module and the npm package on GitHub Packages
+too (below), uncommitted, not yet in CI.
 
 ## What was built
 
@@ -35,7 +37,7 @@ pull request, so a push: the user's call). Nothing published.
 | K7.6 actionlint | done | Clean, with shellcheck. |
 | K7.7 READMEs, root Install, CHANGELOG | written | For the user's review (D17's "done when"). The runtime READMEs are K1 to K5's. |
 | K7.8 `migrating.md` | written | For the user's review. |
-| K7.9 E10 on a pull request | **open** | Needs a push. |
+| K7.9 E10 | **passed** | CI run 39521711937 (below). |
 
 ## Runs
 
@@ -46,9 +48,45 @@ pull request, so a push: the user's call). Nothing published.
 | `samples/consumers/typescript/run-e5.ps1 -NoPack` (the one package K6 changed) | E5 passed, from the feeds `pack-all` wrote |
 | actionlint 1.7.7 on `ci.yml`, with shellcheck 0.10.0 | no findings |
 
-The other consumers (E2, E3, E4, E6) were not run again: their packages did
-not change since they passed in K1 to K5; the `consumers` matrix runs all five
-on the next push.
+The other consumers (E2, E3, E4, E6) were not run again locally: their
+packages did not change since they passed in K1 to K5.
+
+## E10 in CI
+
+The user pushed K6 and K7 to `main` (`0ef6036`), keeping version 0.7.1, which
+is released: E10's "a push that keeps the version". Run 39521711937 succeeded:
+
+| Job | Result |
+| --- | --- |
+| Is this version released? | success: 0.7.1 is released, so no release |
+| `workflow` (actionlint 1.7.7 with the runner's shellcheck) | success |
+| `packages`: every package packed once and checked (E1) | success |
+| `consumers`: C# (E2, Windows), Go (E3), Rust (E4), TypeScript (E5), PowerShell (E6, Windows), each from the `feeds` artifact | 5 of 5 success |
+| `publish-dry-run`: nuget, npm, crates, psgallery | 4 of 4 success. nuget: "would push" both C# packages; npm: `npm publish --dry-run` to `https://registry.npmjs.org/`, 69 files, and npmjs.com answered that `@bdd-suite/runtime` 0.7.1 does not exist; crates: `cargo publish --dry-run`, upload aborted; psgallery: "would publish" |
+| Every runtime, provider, spec, divergence, build and integration job | success (the integration job's `consumer` session: E9's three tests) |
+| `publish`, `publish-github-packages`, `release` | skipped: nothing reached a registry |
+
+## After E10: the PowerShell module and the npm package on GitHub Packages
+
+The user asked for both on the repository's GitHub Packages, "under
+@smartpcr/*" (2026-10-20). GitHub Packages had only `Bdd.Suite` and
+`Bdd.Suite.Testing`: its npm registry takes only the owner's scope, and the
+module's nuspec, as `Publish-PSResource` writes it, names no repository.
+
+| Where | What |
+| --- | --- |
+| `scripts/publish/Publish-GitHubPackages.ps1` (new) | The C# packages as before; `BddSuite.<v>.nupkg` with a `<repository type="git" url="https://github.com/<repo>">` added to its nuspec, to the same NuGet feed; the npm tarball unpacked, renamed `@<owner>/bdd-suite-runtime`, its `publishConfig` (npmjs.com's provenance) dropped, published to `https://npm.pkg.github.com` without running its scripts, after `npm view` says the version is not there. `-DryRun` prepares both and pushes nothing; `-Keep` leaves them in a folder. |
+| `.github/workflows/ci.yml` | `publish-github-packages` runs the script (checkout, .NET, Node.js); `publish-dry-run` gains a `github` entry. The release notes' TypeScript and PowerShell rows name GitHub Packages and the alias. actionlint clean with shellcheck. |
+| `README.md`, `runtimes/typescript/README.md`, `runtimes/powershell/README.md`, `CHANGELOG.md` | How to install each from GitHub Packages: npm through the alias `@bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@<v>` and a scoped `.npmrc`; the module through `Register-PSResourceRepository` on the feed and a credential. |
+
+| Run | Result |
+| --- | --- |
+| `Publish-GitHubPackages.ps1 -DryRun -Keep <scratch>` | exit 0: "would push" the three NuGet packages; the module's nuspec names `https://github.com/smartpcr/bdd-code-extension`; `npm publish --dry-run` of `@smartpcr/bdd-suite-runtime` 0.7.1, 69 files, to `https://npm.pkg.github.com/` |
+| The amended `BddSuite.0.7.1.nupkg`, `Save-PSResource` from a folder repository with powershell-yaml, imported in a fresh pwsh | 0.7.1 from the saved folder |
+| The renamed `package.json` | name `@smartpcr/bdd-suite-runtime`, version 0.7.1, no `publishConfig`, exports `.`, `./cli`, `./extension`, `./testing`, `./testing/node-reporter` |
+
+They appear on GitHub Packages with the next release (0.7.1 is released); the
+first real push is that release's `publish-github-packages` job.
 
 ## Findings
 
@@ -67,8 +105,8 @@ on the next push.
 
 ## Open
 
-* **E10** on a pull request: the `packages`, `consumers`, `publish-dry-run`
-  and `workflow` jobs in CI.
+* **The GitHub Packages addition** in CI (its `github` dry run on the next
+  push) and for real with the next release.
 * **The user's review** of the READMEs and `migrating.md`.
 * **The public registries** stay off until the operator setup is done and
   `PUBLIC_REGISTRIES` is set; then E11 (K8).
