@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10, then released as 0.7.2 (run 39524058263); K8 tooling built, E11 waiting on the operator setup ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md), [K8](../evidence/packages-k8.md)); K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10, then released as 0.7.2 (run 39524058263); K8 done: 0.7.5 on nuget.org (as Smartpcr.BddSuite*), npm and crates.io, E11 passed for those and Go; the PowerShell Gallery not set up ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md), [K8](../evidence/packages-k8.md)); K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -482,11 +482,11 @@ Result: E11. Entry: K7; the operator setup in
 user's go-ahead for this version. Exit evidence: E11's run ID, each registry
 URL, and the clean-install job's results.
 
-- [ ] K8.1 The user completes the operator setup; recorded (no secrets in the record).
-- [ ] K8.2 Version bump with `scripts/set-version.mjs`; merged to main by the user.
-- [ ] K8.3 The user approves the `release` environment; the publish jobs run.
-- [ ] K8.4 The clean-install job runs E2–E6's consumers from the public registries.
-- [ ] K8.5 Evidence recorded; any failure fixed forward and the bad version handled as in design section 5.
+- [x] K8.1 The user completes the operator setup; recorded (no secrets in the record).
+- [x] K8.2 Version bump with `scripts/set-version.mjs`; merged to main by the user.
+- [x] K8.3 The user approves the `release` environment; the publish jobs run.
+- [x] K8.4 The clean-install job runs E2–E6's consumers from the public registries.
+- [x] K8.5 Evidence recorded; any failure fixed forward and the bad version handled as in design section 5.
 
 ### Stage K9: update2 adoption (P2, other repository)
 
@@ -515,7 +515,7 @@ user; nothing pushed unless asked.
 | [E8](design.md#e8) | O4 | D1–D6, D12 | K1–K6 | passed: `core-import` in every runtime job, the generator's tests in `spec`, the extension's unit tests in `build` (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
 | [E9](design.md#e9) | O6 | D12, D13 | K6 | passed: the integration job's `consumer` session (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1); locally from the installed .vsix |
 | [E10](design.md#e10) | O5 | D14, D16 | K7 | passed: `packages`, `consumers`, `publish-dry-run` (four registries) and `workflow` green; `publish`, `publish-github-packages` and `release` skipped, nothing published (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
-| [E11](design.md#e11) | O1, O5 | D7–D11, D16 | K8 | not run; remote, needs the user's approval |
+| [E11](design.md#e11) | O1, O5 | D7–D11, D16 | K8 | passed in CI for nuget.org, npm, crates.io and Go with 0.7.5 (run 39535436620, green); the PowerShell Gallery not set up, open |
 | [E12](design.md#e12) | O3, O4 | D18 | K9 | not run; other repository |
 
 ## 5. Effort

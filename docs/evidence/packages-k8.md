@@ -101,6 +101,33 @@ docs. Assemblies, namespaces and projects keep `Bdd.Suite`.
 
 0.7.5 is the first release CI publishes to nuget.org under the new IDs.
 
+## 0.7.5: E11 on every public registry
+
+Run 39535436620 (`96a49a3`). Attempt 1: npm and crates.io published; nuget.org
+refused with **403** ("does not have permission to access the specified
+package"): the trusted publishing policy still named `Bdd.Suite` and
+`Bdd.Suite.Testing`, and the short-lived key covers only the policy's
+packages. The user changed the policy's pattern to `smartpcr*`. Attempt 2
+(the failed job re-run, approved): nuget.org answered `Created` for both
+packages and their symbols; then the release and the Go tag.
+
+| Registry | 0.7.5 | E11 |
+| --- | --- | --- |
+| nuget.org | `Smartpcr.BddSuite`, `Smartpcr.BddSuite.Testing` (served 211 s after the push, after nuget.org's validation) | CI: **passed**; and `run-e2.ps1 -FromRegistry` locally: passed, 15 checks, the cached package's source `https://api.nuget.org/v3/index.json`, MSTest, NUnit and xUnit |
+| npm | `@bdd-suite/runtime`, with provenance | CI: **passed** (the fixed wait and lock read) |
+| crates.io | `suiterun` | CI: **passed** |
+| proxy.golang.org | the module, by the tag `runtimes/go/v0.7.5` | CI: **passed** |
+| GitHub Packages | all four, the C# ones under the new IDs | |
+| GitHub release v0.7.5 | nine files; notes link the registry pages | |
+
+E11 holds for nuget.org, npm, crates.io and Go. The PowerShell Gallery is not
+set up (no `PSGALLERY_API_KEY`; not in `PUBLIC_REGISTRIES`) and stays open.
+
+**After the first publishes** (the user): add the trusted publisher on npm
+(`@bdd-suite/runtime`) and crates.io (`suiterun`), then delete `NPM_TOKEN` and
+`CRATES_IO_TOKEN` and revoke both tokens; optionally ask nuget.org to reserve
+the prefix `Smartpcr.BddSuite`.
+
 ## What the user does, in order
 
 1. The registry accounts, as section 6 of the plan lists: the npm org
