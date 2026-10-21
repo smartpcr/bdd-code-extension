@@ -20,6 +20,10 @@
     default; a machine that reaches nuget.org only through a mirror passes the
     mirror. The local feed stays the only source of a Bdd.Suite package.
 
+    -FromRegistry (E11): nothing is packed and there is no local feed; the
+    packages restore from -Upstream (nuget.org), and the check is that the
+    cached Bdd.Suite says it came from there.
+
     Exits 0 when every check passes, 1 naming each that failed.
 
 .EXAMPLE
@@ -29,8 +33,10 @@
 param(
     [switch]$NoPack,
     [ValidateSet('MsTest', 'NUnit', 'XUnit')][string[]]$Framework = @('MsTest', 'NUnit', 'XUnit'),
-    [string]$Upstream = 'https://api.nuget.org/v3/index.json'
+    [string]$Upstream = 'https://api.nuget.org/v3/index.json',
+    [switch]$FromRegistry
 )
+if ($FromRegistry) { $NoPack = $true }
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -55,8 +61,14 @@ Check (-not $leaks) "no project file points into the repository ($(@($leaks).Pat
 # nuget.config with the upstream given: the committed one names nuget.org.
 $config = Join-Path $here 'artifacts/nuget.config'
 New-Item -ItemType Directory -Force -Path (Split-Path $config) | Out-Null
-(Get-Content (Join-Path $here 'nuget.config') -Raw).Replace('https://api.nuget.org/v3/index.json', $Upstream).Replace('../../../artifacts/feeds/nuget', (Join-Path $repo 'artifacts/feeds/nuget')) |
-    Set-Content $config
+if ($FromRegistry) {
+    # The registry alone, for every package.
+    "<?xml version=`"1.0`" encoding=`"utf-8`"?>`n<configuration>`n  <packageSources>`n    <clear />`n    <add key=`"nuget.org`" value=`"$Upstream`" />`n  </packageSources>`n</configuration>`n" |
+        Set-Content $config
+} else {
+    (Get-Content (Join-Path $here 'nuget.config') -Raw).Replace('https://api.nuget.org/v3/index.json', $Upstream).Replace('../../../artifacts/feeds/nuget', (Join-Path $repo 'artifacts/feeds/nuget')) |
+        Set-Content $config
+}
 $restore = "-p:RestoreConfigFile=$config"
 
 $env:NUGET_PACKAGES = Join-Path $here 'artifacts/nuget-packages'
@@ -66,7 +78,14 @@ try {
     $built = dotnet build Greeter.Suite.Cli -p:BddSuiteVersion=$version $restore --nologo -v q 2>&1
     Check ($LASTEXITCODE -eq 0) "the binding program restores and builds$(if ($LASTEXITCODE) { ":`n$($built -join "`n")" })"
     $cached = Test-Path (Join-Path $env:NUGET_PACKAGES "bdd.suite/$version/lib/net10.0/Bdd.Suite.dll")
-    Check $cached "Bdd.Suite $version came from the local feed into this consumer's cache"
+    if ($FromRegistry) {
+        # NuGet records where each cached package came from.
+        $metadata = Join-Path $env:NUGET_PACKAGES "bdd.suite/$version/.nupkg.metadata"
+        $source = if (Test-Path $metadata) { (Get-Content $metadata -Raw | ConvertFrom-Json).source } else { '' }
+        Check ($cached -and $source -eq $Upstream) "Bdd.Suite $version came from $Upstream into this consumer's cache (its source: $source)"
+    } else {
+        Check $cached "Bdd.Suite $version came from the local feed into this consumer's cache"
+    }
 
     $program = Join-Path $here 'artifacts/bin/Greeter.Suite.Cli/Debug/net10.0/suiterun.dll'
     $lint = dotnet $program lint --schema-root schema --path 'suites/*.yml' 2>&1

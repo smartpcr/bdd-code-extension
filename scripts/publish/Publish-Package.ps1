@@ -14,8 +14,10 @@
                  NUGET_API_KEY, the short-lived key NuGet/login gives a trusted
                  publisher. dotnet has no dry run: a dry run pushes nothing.
       npm        @bdd-suite/runtime to npmjs.com: npm publish <tarball>
-                 --provenance --access public, by npm trusted publishing.
-                 Dry run: npm publish --dry-run.
+                 --provenance --access public, by npm trusted publishing, or,
+                 for the first publish (a trusted publisher is set on a package
+                 that exists), with NODE_AUTH_TOKEN, the release
+                 environment's NPM_TOKEN. Dry run: npm publish --dry-run.
       crates     suiterun to crates.io: cargo publish in runtimes/rust, with
                  CARGO_REGISTRY_TOKEN from crates.io trusted publishing.
                  Dry run: cargo publish --dry-run.

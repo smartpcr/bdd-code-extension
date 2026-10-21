@@ -20,13 +20,17 @@
        Invoke-Pester: every case passes but the guarded one, which skips; all
        pass with BDD_SUITE_ALLOW_GUARDED=1; a full-name filter selects one case.
 
+    -FromRegistry (E11): no local repository; Save-PSResource takes BddSuite
+    and powershell-yaml from the PowerShell Gallery.
+
     Exits 0 when every check passes, 1 naming each that failed.
 
 .EXAMPLE
     pwsh -File samples/consumers/powershell/run-e6.ps1
 #>
 [CmdletBinding()]
-param([switch]$NoPack)
+param([switch]$NoPack, [switch]$FromRegistry)
+if ($FromRegistry) { $NoPack = $true }
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -56,12 +60,17 @@ Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $work, $modules | Out-Null
 Get-ChildItem $here -Force | Where-Object { $_.Name -notin 'artifacts', 'tests' } | Copy-Item -Destination $work -Recurse
 
-$name = 'bdd-suite-e6-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
-Register-PSResourceRepository -Name $name -Uri $feed -Trusted
-try {
-    Save-PSResource -Name BddSuite -Version $version -Repository $name -Path $modules -TrustRepository -Quiet
-} finally {
-    Unregister-PSResourceRepository -Name $name
+if ($FromRegistry) {
+    # The PowerShell Gallery, BddSuite and the powershell-yaml it requires.
+    Save-PSResource -Name BddSuite -Version $version -Repository PSGallery -Path $modules -TrustRepository -Quiet
+} else {
+    $name = 'bdd-suite-e6-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+    Register-PSResourceRepository -Name $name -Uri $feed -Trusted
+    try {
+        Save-PSResource -Name BddSuite -Version $version -Repository $name -Path $modules -TrustRepository -Quiet
+    } finally {
+        Unregister-PSResourceRepository -Name $name
+    }
 }
 Check ((Test-Path (Join-Path $modules "BddSuite/$version/BddSuite.psd1")) -and (Test-Path (Join-Path $modules 'powershell-yaml'))) "Save-PSResource installs BddSuite $version and powershell-yaml from the repository"
 

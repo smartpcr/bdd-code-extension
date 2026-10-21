@@ -682,6 +682,9 @@ jobs:
       contents: read
       # Trusted publishing: npm, nuget.org and crates.io exchange the run's OIDC token for a short-lived key.
       id-token: write
+    env:
+      # A step's if cannot read a secret; it reads the environment.
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -713,7 +716,11 @@ jobs:
       - if: matrix.registry == 'crates'
         uses: dtolnay/rust-toolchain@stable
 
-      - if: matrix.registry == 'crates'
+      # crates.io's trusted publishing is set on a crate that exists: until
+      # then (the first publish) the release environment's CRATES_IO_TOKEN
+      # stands in, and the OIDC exchange is skipped. Delete the secret once the
+      # trusted publisher is set.
+      - if: matrix.registry == 'crates' && env.CRATES_IO_TOKEN == ''
         id: crates
         uses: rust-lang/crates-io-auth-action@v1
 
@@ -726,8 +733,13 @@ jobs:
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token || env.CRATES_IO_TOKEN }}
           PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+          # npm's first publish: trusted publishing is set on a package that
+          # exists, so the first one uses the release environment's NPM_TOKEN
+          # (the .npmrc setup-node wrote reads it). Delete the secret once the
+          # trusted publisher is set; without it npm uses the run's OIDC token.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pwsh -NoProfile -File scripts/publish/Publish-Package.ps1 -Registry ${{ matrix.registry }}
           if ($LASTEXITCODE) { throw 'publishing to ${{ matrix.registry }} failed' }
@@ -878,3 +890,65 @@ jobs:
             echo "::error::$go_tag is at $existing, but $TAG is at $release_sha."
             exit 1
           fi
+
+  # E11 (docs/packages, K8): after a release to the public registries, a fresh
+  # runner with no local feed and no runtimes/ (the checkout holds the consumer
+  # samples and the publish scripts only) waits until each registry serves the
+  # version, then builds and runs that language's consumer from it.
+  verify-registries:
+    name: ${{ matrix.label }} consumer from ${{ matrix.registry }} (E11)
+    needs: [version, release]
+    if: needs.version.outputs.release == 'true' && vars.PUBLIC_REGISTRIES == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { language: csharp, label: 'C#', registry: nuget, os: windows-latest, script: samples/consumers/csharp/run-e2.ps1 }
+          - { language: go, label: Go, registry: go, os: ubuntu-latest, script: samples/consumers/go/run-e3.ps1 }
+          - { language: rust, label: Rust, registry: crates, os: ubuntu-latest, script: samples/consumers/rust/run-e4.ps1 }
+          - { language: typescript, label: TypeScript, registry: npm, os: ubuntu-latest, script: samples/consumers/typescript/run-e5.ps1 }
+          - { language: powershell, label: PowerShell, registry: psgallery, os: windows-latest, script: samples/consumers/powershell/run-e6.ps1 }
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            samples/consumers
+            scripts/publish
+
+      - if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: samples/consumers/go/go.mod
+          cache: false
+
+      - if: matrix.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
+      - if: matrix.language == 'typescript'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - if: matrix.language == 'powershell'
+        name: Pester 5 or later
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Wait until ${{ matrix.registry }} serves the version (60 minutes at most)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/publish/Wait-Published.ps1 -Registry ${{ matrix.registry }}
+          if ($LASTEXITCODE) { throw '${{ matrix.registry }} does not serve the version' }
+
+      - name: The consumer, from ${{ matrix.registry }} alone
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ${{ matrix.script }} -FromRegistry
+          if ($LASTEXITCODE) { throw 'the ${{ matrix.label }} consumer failed on ${{ matrix.registry }}' }

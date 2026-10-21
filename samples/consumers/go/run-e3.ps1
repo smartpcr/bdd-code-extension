@@ -21,6 +21,10 @@
     -Bootstrap copies the generated files back here instead of comparing them,
     for the first run or after a deliberate change to the generator.
 
+    -FromRegistry (E11): no local feed; the module comes from
+    proxy.golang.org alone (the release's tag), checked against the checksum
+    database as any consumer's go checks it.
+
     Exits 0 when every check passes, 1 naming each that failed.
 
 .EXAMPLE
@@ -29,8 +33,11 @@
 [CmdletBinding()]
 param(
     [switch]$NoPack,
-    [switch]$Bootstrap
+    [switch]$Bootstrap,
+    # E11: the module from proxy.golang.org, with the checksum database, and no local feed.
+    [switch]$FromRegistry
 )
+if ($FromRegistry) { $NoPack = $true }
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -76,13 +83,23 @@ $environment = @{
     GOWORK     = 'off'
     GOTOOLCHAIN = 'local'
 }
+if ($FromRegistry) {
+    # The public proxy alone, and the checksum database checks the module as any consumer's go would.
+    $environment.GOPROXY = 'https://proxy.golang.org'
+    $environment.GONOSUMDB = ''
+}
 foreach ($key in $environment.Keys) { $saved[$key] = [Environment]::GetEnvironmentVariable($key); Set-Item "env:$key" $environment[$key] }
 Push-Location $work
 try {
     $tidy = go mod tidy 2>&1
-    Check ($LASTEXITCODE -eq 0) "go mod tidy resolves the module from the local feed$(if ($LASTEXITCODE) { ":`n$($tidy -join "`n")" })"
+    Check ($LASTEXITCODE -eq 0) "go mod tidy resolves the module from $(if ($FromRegistry) { 'proxy.golang.org' } else { 'the local feed' })$(if ($LASTEXITCODE) { ":`n$($tidy -join "`n")" })"
     $cachedZip = Join-Path $environment.GOMODCACHE "cache/download/$module/@v/$version.zip"
-    Check ((Test-Path $cachedZip) -and (Get-FileHash $cachedZip).Hash -eq (Get-FileHash $feedZip).Hash) "the module in this consumer's cache is the zip in the local feed"
+    if ($FromRegistry) {
+        $resolved = (go list -m -json $module | ConvertFrom-Json).Version
+        Check ((Test-Path $cachedZip) -and $resolved -eq $version) "the module $resolved came from proxy.golang.org, checked against the checksum database"
+    } else {
+        Check ((Test-Path $cachedZip) -and (Get-FileHash $cachedZip).Hash -eq (Get-FileHash $feedZip).Hash) "the module in this consumer's cache is the zip in the local feed"
+    }
 
     $generated = go generate ./... 2>&1
     Check ($LASTEXITCODE -eq 0) "go generate ./...$(if ($LASTEXITCODE) { ":`n$($generated -join "`n")" })"

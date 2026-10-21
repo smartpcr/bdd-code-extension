@@ -17,13 +17,17 @@
        guarded one, which skips; all pass with BDD_SUITE_ALLOW_GUARDED=1; a
        name pattern selects one case.
 
+    -FromRegistry (E11): no tarball; @bdd-suite/runtime at the release version
+    from npmjs.com, which the lock file then names.
+
     Exits 0 when every check passes, 1 naming each that failed.
 
 .EXAMPLE
     pwsh -File samples/consumers/typescript/run-e5.ps1
 #>
 [CmdletBinding()]
-param([switch]$NoPack)
+param([switch]$NoPack, [switch]$FromRegistry)
+if ($FromRegistry) { $NoPack = $true }
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -53,8 +57,16 @@ Get-ChildItem $here -Force | Where-Object { $_.Name -notin 'artifacts', 'node_mo
 
 Push-Location $work
 try {
-    $installed = npm install --no-audit --no-fund --save-dev $tarball 2>&1
-    Check ($LASTEXITCODE -eq 0) "npm install of the tarball$(if ($LASTEXITCODE) { ":`n$($installed -join "`n")" })"
+    if ($FromRegistry) {
+        # npmjs.com by name: a machine's own npm configuration may name a mirror.
+        $installed = npm install --no-audit --no-fund --save-dev "@bdd-suite/runtime@$version" --registry https://registry.npmjs.org/ 2>&1
+        Check ($LASTEXITCODE -eq 0) "npm install of @bdd-suite/runtime@$version from npmjs.com$(if ($LASTEXITCODE) { ":`n$($installed -join "`n")" })"
+        $resolved = (Get-Content 'package-lock.json' -Raw | ConvertFrom-Json).packages.'node_modules/@bdd-suite/runtime'.resolved
+        Check ("$resolved" -like 'https://registry.npmjs.org/@bdd-suite/runtime/-/runtime-*.tgz') "the lock resolves it from npmjs.com ($resolved)"
+    } else {
+        $installed = npm install --no-audit --no-fund --save-dev $tarball 2>&1
+        Check ($LASTEXITCODE -eq 0) "npm install of the tarball$(if ($LASTEXITCODE) { ":`n$($installed -join "`n")" })"
+    }
     $runtime = Get-Item 'node_modules/@bdd-suite/runtime'
     $packed = Get-Content 'node_modules/@bdd-suite/runtime/package.json' -Raw | ConvertFrom-Json
     Check ($packed.version -eq $version -and -not $runtime.LinkType -and -not (Test-Path 'node_modules/@bdd-suite/runtime/src')) "node_modules holds the packed @bdd-suite/runtime $($packed.version), not a link to the repository"

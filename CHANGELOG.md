@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+* **Release pipeline:** `verify-registries` (E11): after a release to the
+  public registries, each consumer sample runs on a fresh runner with no
+  local feed and no `runtimes/`, from its registry alone (`-FromRegistry`),
+  once `scripts/publish/Wait-Published.ps1` finds the version served;
+  `scripts/publish/Test-ReleaseSetup.ps1` says which part of the operator
+  setup is missing (docs/packages, stage K8).
+
 ## 0.7.2
 
 * **VS Code extension:** lints with the TypeScript runtime it carries when the

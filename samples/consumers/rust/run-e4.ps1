@@ -17,13 +17,17 @@
     5. cargo test: every case passes but the guarded one, which is ignored; all
        pass with BDD_SUITE_ALLOW_GUARDED=1; --exact selects one case.
 
+    -FromRegistry (E11): no local feed and no patch; suiterun comes from
+    crates.io, and cargo metadata proves it.
+
     Exits 0 when every check passes, 1 naming each that failed.
 
 .EXAMPLE
     pwsh -File samples/consumers/rust/run-e4.ps1
 #>
 [CmdletBinding()]
-param([switch]$NoPack)
+param([switch]$NoPack, [switch]$FromRegistry)
+if ($FromRegistry) { $NoPack = $true }
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -50,11 +54,13 @@ $work = Join-Path $scratch 'work'
 Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path (Join-Path $work '.cargo') | Out-Null
 Get-ChildItem $here -Force | Where-Object { $_.Name -notin 'artifacts', 'target', 'Cargo.lock' } | Copy-Item -Destination $work -Recurse
-@"
+if (-not $FromRegistry) {
+    @"
 # Written by run-e4.ps1: the crate cargo package produced, in place of crates.io's.
 [patch.crates-io]
 suiterun = { path = '$($unpacked -replace '\\', '/')' }
 "@ | Set-Content (Join-Path $work '.cargo/config.toml')
+}
 
 $saved = $env:CARGO_TARGET_DIR
 $env:CARGO_TARGET_DIR = Join-Path $scratch 'target'
@@ -65,7 +71,12 @@ try {
     $metadata = cargo metadata --format-version 1 --quiet | ConvertFrom-Json
     $used = $metadata.packages | Where-Object { $_.name -eq 'suiterun' }
     $from = [IO.Path]::GetFullPath((Split-Path $used.manifest_path))
-    Check ($used.version -eq $version -and $from -eq [IO.Path]::GetFullPath($unpacked)) "suiterun $($used.version) is the packaged crate ($from)"
+    if ($FromRegistry) {
+        # crates.io's sparse index, or its git index on an older cargo.
+        Check ($used.version -eq $version -and $used.source -match '^(sparse\+https://index\.crates\.io/|registry\+https://github\.com/rust-lang/crates\.io-index)') "suiterun $($used.version) came from crates.io ($($used.source))"
+    } else {
+        Check ($used.version -eq $version -and $from -eq [IO.Path]::GetFullPath($unpacked)) "suiterun $($used.version) is the packaged crate ($from)"
+    }
 
     $program = Join-Path $env:CARGO_TARGET_DIR 'debug/suiterun'
     $lint = & $program lint --schema-root schema --path 'suites/*.yml' 2>&1

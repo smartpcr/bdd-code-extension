@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10 ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md)); K8 and K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10, then released as 0.7.2 (run 39524058263); K8 tooling built, E11 waiting on the operator setup ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md), [K8](../evidence/packages-k8.md)); K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -544,9 +544,9 @@ it was done, never the secrets.
 
 | Registry | Setup |
 | --- | --- |
-| npmjs.com | Create the org `bdd-suite`; add a trusted publisher for `smartpcr/bdd-code-extension`, workflow `ci.yml`, environment `release`. |
+| npmjs.com | Create the org `bdd-suite` (the free plan: public packages only). A trusted publisher is set on a package that exists, so the first publish uses a short-lived granular token with write access to the org, stored as the `release` environment secret `NPM_TOKEN`; after that release, add the trusted publisher on `@bdd-suite/runtime` (`smartpcr/bdd-code-extension`, workflow `ci.yml`, environment `release`) and delete the token and the secret. |
 | nuget.org | Add a trusted publishing policy for the same repository, workflow and environment; optionally request the ID prefix reservation `Bdd.Suite`. |
-| crates.io | After the first manual or token publish of `suiterun` (crates.io needs the crate to exist), add a trusted publisher for the same workflow and environment. |
+| crates.io | Sign in with GitHub and verify the account's email. A trusted publisher is set on a crate that exists, so the first publish uses a short-lived API token (scopes publish-new and publish-update, crate `suiterun`) stored as the `release` environment secret `CRATES_IO_TOKEN`; after that release, add the trusted publisher on `suiterun` (the same repository, workflow and environment), revoke the token and delete the secret. |
 | PowerShell Gallery | Create an API key scoped to push `BddSuite`; store it as the `release` environment secret `PSGALLERY_API_KEY`. |
 | GitHub | Create the environment `release` with the user as required reviewer; restrict it to `main`. Set the repository variable `NUGET_USER` to the nuget.org account the trusted publishing policy belongs to (`NuGet/login` asks for it), and, last, `PUBLIC_REGISTRIES` to `true`: until then the publish jobs never run and every release goes to this repository and its GitHub Packages feed only. |
 | Go | Nothing: proxy.golang.org reads the tag. |
