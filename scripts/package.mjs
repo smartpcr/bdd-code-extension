@@ -41,14 +41,19 @@ function zipEntries(buf) {
 const entries = zipEntries(fs.readFileSync(vsix));
 const inExtension = entries.filter(e => e.startsWith('extension/')).map(e => e.slice('extension/'.length));
 const required = ['dist/extension.js', 'dist/lintWorker.js', 'package.json', 'readme.md', 'language-configuration.json',
-  'syntaxes/bdd-suite.tmLanguage.json', 'syntaxes/bdd-suite.injection.tmLanguage.json'];
+  'syntaxes/bdd-suite.tmLanguage.json', 'syntaxes/bdd-suite.injection.tmLanguage.json',
+  // docs/packages, D12 and D13: the bundled runtime, the core and its generator.
+  'dist/runtime/index.mjs', 'spec/core.catalog.yaml', 'spec/Build-Schema.ps1', 'spec/suite.core.json', 'spec/diagnostics.md'];
+// Of spec/, only those four: the rest (the corpus schemas, the docs) stays in the repository.
+const specAllowed = new Set(required.filter(r => r.startsWith('spec/')));
 const problems = [
   // vsce stores the README as readme.md.
   ...required.filter(r => !inExtension.some(e => e.toLowerCase() === r.toLowerCase())).map(r => `missing ${r}`),
   ...(inExtension.some(e => e.startsWith('templates/')) ? [] : ['missing templates/']),
   ...inExtension.filter(e => e.startsWith('.')).map(e => `must not contain ${e}`),
-  ...inExtension.filter(e => /^(src|test|out-test|docs|scripts|artifacts|node_modules)\//.test(e) || e.endsWith('.map'))
+  ...inExtension.filter(e => /^(src|test|out-test|docs|scripts|artifacts|node_modules|runtimes)\//.test(e) || e.endsWith('.map'))
     .map(e => `must not contain ${e}`),
+  ...inExtension.filter(e => e.startsWith('spec/') && !specAllowed.has(e)).map(e => `must not contain ${e}`),
 ];
 console.log(`\n${path.basename(vsix)}: ${fs.statSync(vsix).size} bytes, sha256 ${sha256}`);
 console.log(`${inExtension.length} files under extension/:\n  ${inExtension.join('\n  ')}`);
@@ -56,4 +61,4 @@ if (problems.length) {
   console.error(`B9.1-1 failed:\n  ${problems.join('\n  ')}`);
   process.exit(1);
 }
-console.log('B9.1-1: the package holds dist/extension.js, dist/lintWorker.js, templates/, package.json and README.md, and nothing under src/ or test/.');
+console.log('B9.1-1: the package holds dist/extension.js, dist/lintWorker.js, the bundled runtime, the core and its generator, templates/, package.json and README.md, and nothing under src/, test/ or runtimes/.');

@@ -12,6 +12,9 @@
 //              while samples/workspace is not committed.
 //   untrusted  opens the sample with workspace trust enabled and not granted,
 //              in its own user data.
+//   consumer   opens a scratch copy of samples/consumers/csharp in the default
+//              layout, with no TypeScript binding (harness/consumer.ts; E9 of
+//              docs/packages).
 // BDD_SESSIONS=a,b narrows the sessions; BDD_FILES=x,y the test files.
 //
 // Before VS Code starts, the sample's bindings are built once (harness/sample.ts):
@@ -37,6 +40,7 @@ import * as path from 'path';
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath, runTests } from '@vscode/test-electron';
 import { oracleFile, prepareSample } from './harness/corpus';
 import { repo, sampleRoot } from './harness/sample';
+import { createConsumerWorkspace, removeConsumerWorkspace } from './harness/consumer';
 import { createWorktree, removeWorktree } from './harness/worktree';
 
 
@@ -46,7 +50,7 @@ const SCENARIOS: Record<string, string> = {
   'navigation.test.ts': 'E-B3', 'references.test.ts': 'E-B4', 'completion.test.ts': 'E-B5', 'scaffold.test.ts': 'E-B6',
   'coverage.test.ts': 'E-B7', 'coverageDrift.test.ts': 'E-B7', 'watch.test.ts': 'E-B8', 'testing.test.ts': 'E-B9',
   'testingCancel.test.ts': 'E-B9', 'lintFailures.test.ts': 'E-B11', 'worker.test.ts': 'E-B11', 'liveLint.test.ts': 'E-B14',
-  'latency.test.ts': 'E-B14', 'trust.test.ts': 'E-B15',
+  'latency.test.ts': 'E-B14', 'trust.test.ts': 'E-B15', 'consumer.test.ts': 'E9 (packages)',
 };
 
 function argValue(name: string): string | undefined {
@@ -113,6 +117,8 @@ async function main(): Promise<void> {
     { name: 'empty', folder: () => fs.mkdtempSync(path.join(os.tmpdir(), 'bdd-suite-empty-')),
       cleanup: f => fs.rmSync(f, { recursive: true, force: true }) },
     { name: 'worktree', folder: createWorktree, cleanup: removeWorktree },
+    // E9 (docs/packages): a C#-only consumer with default settings, linted by the bundled runtime.
+    { name: 'consumer', folder: createConsumerWorkspace, cleanup: removeConsumerWorkspace },
     // Its own user data, so the trust it grants never reaches another session.
     { name: 'untrusted', folder: () => root },
   ];

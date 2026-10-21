@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+* **VS Code extension:** lints with the TypeScript runtime it carries when the
+  workspace has no TypeScript binding library, so a C#-only (or any) workspace
+  gets live lint with default settings; the status bar says *lint bundled
+  runtime* (docs/packages, stage K6).
+* **VS Code extension:** `imports: [ bdd-suite:core ]` resolves to the core
+  the extension carries, each core action's bindings cut to the catalog's own;
+  the default `bddSuite.schemaGenerator` is the `Build-Schema.ps1` it carries
+  (`${extension}` and `${catalogPath}` in the setting), and *Suite: Regenerate
+  the schema* runs it; a warning when the workspace pins bdd-suite packages of
+  another release.
+
 ## 0.7.1
 
 * **TypeScript:** `@bdd-suite/runtime` as a package, attached to the GitHub

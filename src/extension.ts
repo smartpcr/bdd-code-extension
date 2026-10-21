@@ -3,7 +3,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { bundledFiles } from './config/bundled';
 import { catalogSourceGlobs, readSettings, servingLayout, WorkspaceLayout } from './config/layout';
+import { pinnedVersions, versionWarning } from './config/packageVersions';
 import { createTrustGate } from './config/trust';
 import { resolveCatalog } from './core/catalog';
 import { LintResults } from './core/diagnostics';
@@ -31,7 +33,7 @@ import { killAll, liveChildren } from './tools/runTool';
  * The catalog's open buffer wins over the disk and its imports are read from disk,
  * as the indexer reads them, so the two agree and a rebuild settles.
  */
-function catalogSourcesOf(file: string): Record<string, string[]> | undefined {
+function catalogSourcesOf(file: string, coreFile: string): Record<string, string[]> | undefined {
   const open = vscode.workspace.textDocuments.find(d => d.uri.scheme === 'file' && fileKey(d.uri.fsPath) === fileKey(file));
   const read = (f: string) => {
     try {
@@ -41,7 +43,7 @@ function catalogSourcesOf(file: string): Record<string, string[]> | undefined {
     }
   };
   const text = open ? open.getText() : read(file);
-  return text === undefined ? undefined : resolveCatalog(text, fileKey(file), read).sources;
+  return text === undefined ? undefined : resolveCatalog(text, fileKey(file), read, coreFile).sources;
 }
 
 /** The window's one lint worker (plan 2.4b); terminated by deactivate(). */
@@ -113,6 +115,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       });
   };
 
+  // A workspace pinning bdd-suite packages of another release is told once per window (docs/packages, D12).
+  const warned = new Set<string>();
+  const warnOfOtherRelease = (layout: WorkspaceLayout) => {
+    const list = (dir: string) => {
+      try {
+        return fs.readdirSync(dir);
+      } catch {
+        return [];
+      }
+    };
+    const read = (f: string) => {
+      try {
+        return fs.readFileSync(f, 'utf8');
+      } catch {
+        return undefined;
+      }
+    };
+    const own = String((context.extension.packageJSON as { version?: unknown }).version);
+    const warning = versionWarning(own, pinnedVersions([layout.folder, layout.root], list, read));
+    if (!warning || warned.has(layout.folder + warning)) return;
+    warned.add(layout.folder + warning);
+    log(`BDD026 ${warning}`);
+    void vscode.window.showWarningMessage(`Suite Authoring: ${warning}`);
+  };
+
   const build = async (): Promise<void> => {
     for (const d of session) d.dispose();
     session = [];
@@ -131,10 +158,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       for (const m of messages) log(m);
       // The catalog's own bindingSources say where each binding's registrations are, over the settings.
       const catalogFile = path.resolve(folder.uri.fsPath, settings.catalogPath);
-      const sources = catalogSourcesOf(catalogFile);
-      const layout = WorkspaceLayout.create(folder.uri.fsPath, settings, storage, p => fs.existsSync(p), sources);
+      const sources = catalogSourcesOf(catalogFile, bundledFiles(context.extensionPath).core);
+      const layout = WorkspaceLayout.create(folder.uri.fsPath, settings, storage, p => fs.existsSync(p), sources, context.extensionPath);
       if (!layout) continue;
       log(`Root: ${layout.root}  Catalog: ${layout.catalogPath}`);
+      warnOfOtherRelease(layout);
       for (const s of sources ? catalogSourceGlobs(layout.folder, layout.catalogPath, sources).skipped : []) {
         log(`BDD025 bindingSources ${s}: outside the workspace folder; not indexed.`);
       }

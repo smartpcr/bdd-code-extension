@@ -109,6 +109,9 @@ export function parseCatalog(text: string, file: string): Catalog {
   return catalog;
 }
 
+/** The import that names the core the extension carries (spec/README.md; docs/packages, DEC-P07). */
+export const CORE_IMPORT = 'bdd-suite:core';
+
 /**
  * A workspace catalog with everything it imports (DEC-S10): the imported
  * catalogs' actions first, depth first in listed order and each import
@@ -117,8 +120,13 @@ export function parseCatalog(text: string, file: string): Catalog {
  * declared. A name declared twice, an import cycle, a missing or broken import
  * is an error at the root catalog's import that leads to it; the first
  * declaration is used. Never throws.
+ *
+ * `bdd-suite:core` is `coreFile`, the core the extension carries: through it
+ * each core action's bindings are cut to the importing catalog's own
+ * `bindings` list when it has one, and the core's binding names are not added,
+ * as every runtime reads it. Without `coreFile` it is a missing import.
  */
-export function resolveCatalog(text: string, file: string, read: (file: string) => string | undefined): Catalog {
+export function resolveCatalog(text: string, file: string, read: (file: string) => string | undefined, coreFile?: string): Catalog {
   const catalog = parseCatalog(text, file);
   const own = catalog.actions;
   catalog.actions = new Map();
@@ -133,8 +141,15 @@ export function resolveCatalog(text: string, file: string, read: (file: string) 
     declaredIn.set(action.name, from);
     catalog.actions.set(action.name, from === fileKey(file) ? action : { ...action, file: from });
   };
-  const visit = (rel: string, fromFile: string, range: Range, chain: string[]): void => {
-    const target = fileKey(path.resolve(path.dirname(fromFile), rel));
+  const visit = (rel: string, fromFile: string, fromBindings: string[] | undefined, range: Range, chain: string[]): void => {
+    const core = rel === CORE_IMPORT;
+    if (core && coreFile === undefined) {
+      catalog.errors.push({ code: 'BDD024', message: `Imported catalog ${CORE_IMPORT} is not available here.`, range });
+      return;
+    }
+    // Through bdd-suite:core, the importer's own bindings are what the core is cut to.
+    const narrow = core ? fromBindings : undefined;
+    const target = fileKey(core ? coreFile! : path.resolve(path.dirname(fromFile), rel));
     if (chain.includes(target)) {
       catalog.errors.push({ code: 'BDD023', message: `Catalog import cycle: ${[...chain, target].join(' -> ')}`, range });
       return;
@@ -147,14 +162,16 @@ export function resolveCatalog(text: string, file: string, read: (file: string) 
     }
     const imported = parseCatalog(importedText, target);
     for (const e of imported.errors) catalog.errors.push({ ...e, message: `${rel}: ${e.message}`, range });
-    for (const next of importsOf(importedText)) visit(next.value, target, range, [...chain, target]);
+    const next = importsOf(importedText);
+    for (const n of next.entries) visit(n.value, target, next.bindings, range, [...chain, target]);
     catalog.imports!.push(target);
     if (imported.ownSources) importedSources.push({ from: target, sources: imported.ownSources });
-    for (const b of imported.bindings) if (!catalog.bindings.includes(b)) catalog.bindings.push(b);
-    for (const a of imported.actions.values()) add(a, target, range);
+    if (!narrow) for (const b of imported.bindings) if (!catalog.bindings.includes(b)) catalog.bindings.push(b);
+    for (const a of imported.actions.values()) add(narrow ? { ...a, bindings: a.bindings.filter(b => narrow.includes(b)) } : a, target, range);
   };
   const importedSources: { from: string; sources: Record<string, string[]> }[] = [];
-  for (const entry of importsOf(text)) visit(entry.value, file, entry.range, [fileKey(file)]);
+  const rootImports = importsOf(text);
+  for (const entry of rootImports.entries) visit(entry.value, file, rootImports.bindings, entry.range, [fileKey(file)]);
   for (const a of own.values()) add(a, fileKey(file), a.nameRange);
   catalog.sources = mergeSources(file, [...(catalog.ownSources ? [{ from: file, sources: catalog.ownSources }] : []), ...importedSources]);
   return catalog;
@@ -178,11 +195,18 @@ export function mergeSources(rootFile: string, list: { from: string; sources: Re
   return Object.keys(merged).length ? merged : undefined;
 }
 
-/** A catalog's `imports` entries, each with its range. */
-function importsOf(text: string): { value: string; range: Range }[] {
+/**
+ * A catalog's `imports` entries, each with its range, and its own `bindings`
+ * list (undefined when it has none), which bdd-suite:core is cut to.
+ */
+function importsOf(text: string): { entries: { value: string; range: Range }[]; bindings?: string[] } {
   const y = parseYaml(text);
-  if (y.error) return [];
-  return itemsOf(y.doc.contents, 'imports').filter(isScalar).map(n => ({ value: String(n.value), range: y.range(n as Node) }));
+  if (y.error) return { entries: [] };
+  const bindings = valueOf(y.doc.contents, 'bindings');
+  return {
+    entries: itemsOf(y.doc.contents, 'imports').filter(isScalar).map(n => ({ value: String(n.value), range: y.range(n as Node) })),
+    bindings: bindings === undefined ? undefined : stringItems(bindings),
+  };
 }
 
 /** Dotted paths of a capture shape, to `depth` levels; an open level ends with `*`. */

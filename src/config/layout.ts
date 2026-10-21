@@ -3,6 +3,7 @@
 // No vscode import, so it is unit-tested in Node.
 import * as path from 'path';
 import { fileKey } from '../core/paths';
+import { BundledFiles, bundledFiles, expandArgv } from './bundled';
 import { BindingSettings, DEFAULT_BINDINGS, DEFAULT_SETTINGS, Settings } from './defaults';
 
 /** Nearest ancestor of `start` (inclusive) holding test/e2e/schema, the rule every suiterun uses. */
@@ -177,6 +178,10 @@ export class WorkspaceLayout {
     readonly settings: Settings,
     /** The catalog's `bindingSources` this layout applied, as the catalog wrote them; a change means a rebuild. */
     readonly catalogSources?: Record<string, string[]>,
+    /** What the extension carries (bundled.ts); undefined where no install folder is known (unit tests). */
+    readonly bundled?: BundledFiles,
+    /** bddSuite.schemaGenerator with ${extension} and ${catalogPath} filled in. */
+    readonly schemaGenerator: string[] = settings.schemaGenerator,
   ) {}
 
   /**
@@ -186,7 +191,7 @@ export class WorkspaceLayout {
    * settings do not have.
    */
   static create(folder: string, settings: Settings, storagePath: string,
-    exists: (p: string) => boolean, catalogSources?: Record<string, string[]>): WorkspaceLayout | undefined {
+    exists: (p: string) => boolean, catalogSources?: Record<string, string[]>, extensionPath?: string): WorkspaceLayout | undefined {
     const catalogPath = fileKey(path.resolve(folder, settings.catalogPath));
     if (!exists(catalogPath)) return undefined;
     const root = findRepositoryRoot(path.dirname(catalogPath), exists);
@@ -205,6 +210,7 @@ export class WorkspaceLayout {
       build: b.build && { ...b.build, command: b.build.command.split('${storage}').join(quoted) },
     }));
     return new WorkspaceLayout(fileKey(folder), fileKey(root), catalogPath, settings.suiteGlobs,
-      settings.exclude, bindings, settings, catalogSources);
+      settings.exclude, bindings, settings, catalogSources, extensionPath === undefined ? undefined : bundledFiles(extensionPath),
+      expandArgv(settings.schemaGenerator, catalogPath, extensionPath));
   }
 }

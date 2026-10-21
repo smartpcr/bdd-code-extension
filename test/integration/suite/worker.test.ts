@@ -28,9 +28,11 @@ describe('B8.1 the lint worker, and E-B11 for the typescript library', function 
       await within(10_000, () => !a.lintWorker.current);
     }
     try {
+      // No library in the workspace: the runtime the extension carries lints instead (docs/packages, DEC-P08).
       const missing = await lint(uri());
-      assert.strictEqual(missing.status, 'Lint: typescript not built');
-      assert.strictEqual(a.lintWorker.workerCount, 0, 'no library, no worker');
+      assert.strictEqual(missing.outcome, 'published', missing.status);
+      assert.strictEqual(a.status.text, 'Suite: lint bundled runtime (no binding check)');
+      assert.ok(shown(uri()).some(x => x.sig.startsWith('E301')), 'the bundled runtime finds the format\'s findings');
       const built = await vscode.commands.executeCommand<boolean>('bddSuite.buildLintTool');
       assert.strictEqual(built, true);
       assert.ok(fs.existsSync(lib));
@@ -59,8 +61,8 @@ describe('B8.1 the lint worker, and E-B11 for the typescript library', function 
   }
 
   const CREATE = 'export function createLinter(options) {';
+  // A library renamed away is no break any more: the bundled runtime lints (the test after these).
   const breaks: [string, (text: string) => string | undefined, string][] = [
-    ['the library renamed away', () => undefined, 'Lint: typescript not built'],
     ['apiVersion 2.0.0', t => (t.includes("export * from '@bdd-suite/runtime';") ? `${t}\nexport const apiVersion = '2.0.0';\n` : t),
       'Lint: the typescript library speaks API 2.0.0; this extension speaks 1.x'],
     ['lint() loops forever', t => t.replace(CREATE, `${CREATE} return { invalidate() { }, lint(request) { for (;;) { } } };`), 'Lint timed out after 5 s'],
@@ -113,6 +115,29 @@ describe('B8.1 the lint worker, and E-B11 for the typescript library', function 
       assert.strictEqual(a.status.text, 'Suite: lint typescript -> powershell');
     });
   }
+
+  it('E9 (packages) the library renamed away: the bundled runtime lints, without the binding check; restoring it brings the library back', async () => {
+    const a = await api();
+    const lib = typeScriptLibrary();
+    fs.renameSync(lib, `${lib}.away`);
+    try {
+      await within(10_000, () => !a.lintWorker.current);
+      const e = await typeAndWait();
+      assert.deepStrictEqual([e.outcome, e.live], ['published', true], e.status);
+      assert.strictEqual(a.status.text, 'Suite: lint bundled runtime (no binding check)');
+      const d = shown(uri());
+      assert.ok(d.some(x => x.sig.startsWith('E301')) && d.every(x => !x.message.startsWith('[stale] ')), JSON.stringify(d));
+      assert.ok(d.every(x => !x.sig.startsWith('E201')), 'no binding check');
+    } finally {
+      fs.renameSync(`${lib}.away`, lib);
+    }
+    const doc = await open(uri());
+    const saved = nextLint(uri().fsPath, 30_000, x => x.outcome === 'published' || x.outcome === 'failed');
+    await doc.save();
+    const s = await saved;
+    assert.strictEqual(s.outcome, 'published', s.status);
+    assert.strictEqual(a.status.text, 'Suite: lint typescript -> powershell');
+  });
 
   after(async () => {
     await vscode.workspace.getConfiguration('bddSuite').update('lintTool', undefined, W);

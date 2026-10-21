@@ -390,6 +390,10 @@ No step may break these. Reviews cite them by number.
 13. **INV-13.** The extension and the TypeScript binding share no code. The
     extension reaches the binding only through `createLinter()` and the
     `suiterun` program; the binding imports nothing from the extension.
+    Since docs/packages D13 the extension also carries the runtime, built
+    from this checkout as a bundle of its own (`dist/runtime/index.mjs`),
+    which the lint worker loads through the same `createLinter()` when the
+    workspace has no TypeScript library; no extension module imports it.
 
 The TypeScript binding (B7) has its own invariants, numbered `TS-n`, which its
 code and tests cite:

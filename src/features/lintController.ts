@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResolvedBinding } from '../config/layout';
+import { lintLibrary } from '../config/bundled';
 import { TrustGate } from '../config/trust';
 import { Debouncer } from '../core/debounce';
 import { LintResults, parseLintOutput, Published, RawDiagnostic, selectOverlays, tokenEnd, toZeroBased } from '../core/diagnostics';
@@ -42,7 +43,8 @@ export function failureText(tool: string, result: ToolResult | { kind: 'bad'; de
 
 /** What a back end makes of one lint. */
 type BackendOutcome =
-  | { kind: 'diagnostics'; raw: RawDiagnostic[] }
+  // bundled: linted by the runtime the extension carries (DEC-P08).
+  | { kind: 'diagnostics'; raw: RawDiagnostic[]; bundled?: boolean }
   | { kind: 'failed'; status: string; detail: string; notBuilt: boolean }
   | { kind: 'cancelled' }
   | { kind: 'superseded' };
@@ -93,15 +95,20 @@ class ProgramBackend implements LintBackend {
   }
 }
 
-/** B8's path: the binding's library in the lint worker, with the editor's unsaved text as overlays. */
+/**
+ * B8's path: the binding's library in the lint worker, with the editor's unsaved text as overlays.
+ * With no TypeScript library in the workspace, the runtime the extension carries (DEC-P08); it
+ * checks the format, not the target binding, which only a binding's own program can answer.
+ */
 class WorkerBackend implements LintBackend {
   readonly live = true;
-  constructor(private readonly host: LintWorkerHost, private readonly overlays: () => Record<string, string>) {}
+  constructor(private readonly host: LintWorkerHost, private readonly overlays: () => Record<string, string>,
+    private readonly runtime: () => string | undefined) {}
 
   async lint(job: LintJob): Promise<BackendOutcome> {
-    const libraryPath = path.resolve(job.root, job.binding.library!);
+    const { path: libraryPath, bundled } = lintLibrary(path.resolve(job.root, job.binding.library!), job.binding.name, this.runtime(), p => fs.existsSync(p));
     const r = await this.host.lint(job.key, libraryPath, job.root, {
-      paths: [job.key], binding: job.target, bindingCheck: true, strict: false, overlays: this.overlays(),
+      paths: [job.key], binding: job.target, bindingCheck: !bundled, strict: false, overlays: this.overlays(),
     }, { live: job.live });
     if (r.kind === 'superseded') return r;
     if (r.kind === 'failure') {
@@ -114,7 +121,7 @@ class WorkerBackend implements LintBackend {
       return { kind: 'failed', status: failureText(job.binding.name, { kind: 'bad', detail: parsed.detail }),
         detail: `Lint output was not diagnostics (${parsed.detail})\n  library: ${libraryPath}`, notBuilt: false };
     }
-    return { kind: 'diagnostics', raw: parsed.value };
+    return { kind: 'diagnostics', raw: parsed.value, bundled };
   }
 }
 
@@ -144,7 +151,7 @@ export class LintController implements vscode.Disposable {
     readonly workerHost: LintWorkerHost,
   ) {
     this.programBackend = new ProgramBackend(gate);
-    this.workerBackend = new WorkerBackend(workerHost, () => this.overlays());
+    this.workerBackend = new WorkerBackend(workerHost, () => this.overlays(), () => indexer.layout.bundled?.runtime);
     const schemaDir = path.join(indexer.layout.root, 'test', 'e2e', 'schema');
     const watchers = [
       vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(schemaDir, 'suite.schema.json')),
@@ -264,7 +271,8 @@ export class LintController implements vscode.Disposable {
     if (this.disposed) return done({ file: key, outcome: 'superseded' });
     const changed = this.results.replace(key, r.raw.map(d => toZeroBased(d, layout.root)));
     this.publish(changed);
-    this.status.setOk(this.tool, this.target);
+    if (r.bundled) this.status.setBundled();
+    else this.status.setOk(this.tool, this.target);
     return done({ file: key, outcome: 'published' });
   }
 

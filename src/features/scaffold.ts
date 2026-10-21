@@ -135,6 +135,7 @@ export function registerScaffoldCommands(host: ScaffoldHost): vscode.Disposable[
   return [
     vscode.commands.registerCommand('bddSuite.declareAction', (uri?: vscode.Uri, name?: string) => declareAction(host, uri, name)),
     vscode.commands.registerCommand('bddSuite.implementAction', (action?: string, binding?: string) => implementAction(host, action, binding)),
+    vscode.commands.registerCommand('bddSuite.regenerateSchema', (uri?: vscode.Uri) => regenerateSchema(host, uri)),
   ];
 }
 
@@ -154,6 +155,29 @@ function template(host: ScaffoldHost, ix: FolderIndexer, name: string): string {
   return fs.readFileSync(own && fs.existsSync(own) ? own : path.join(host.extensionPath, 'templates', name), 'utf8');
 }
 
+/** bddSuite.schemaGenerator in the workspace root (by default the Build-Schema.ps1 the extension carries, D12); its output goes to the log. */
+async function runGenerator(host: ScaffoldHost, ix: FolderIndexer): Promise<{ ok: boolean; generator: string }> {
+  const run = await runTool({ argv: ix.layout.schemaGenerator, cwd: ix.layout.root, timeoutMs: SCHEMA_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES },
+    undefined, { gate: () => host.gate.canRunWorkspaceCode(), maxStderr: MAX_STDERR_BYTES });
+  const generator = run.kind === 'exited' ? `exit ${run.code}` : run.kind === 'failure' ? `${run.reason}: ${run.detail}` : 'cancelled';
+  if (run.kind === 'exited') host.log((run.stdout + run.stderrTail).trimEnd());
+  return { ok: run.kind === 'exited' && run.code === 0, generator };
+}
+
+/** *Regenerate the schema*: the generator for the catalog of the active editor's folder, or of the only folder. */
+async function regenerateSchema(host: ScaffoldHost, uri?: vscode.Uri): Promise<ScaffoldResult> {
+  const at = uri ?? vscode.window.activeTextEditor?.document.uri;
+  const ix = (at && host.owner(at)) ?? (host.indexers().length === 1 ? host.indexers()[0] : undefined);
+  if (!ix) return report(host, refused('Regenerate the schema: open a suite or the catalog of the folder to regenerate.'));
+  const { ok, generator } = await runGenerator(host, ix);
+  const schema = path.relative(ix.layout.root, path.join(path.dirname(ix.layout.catalogPath), 'suite.schema.json'));
+  return report(host, {
+    ok, files: [],
+    message: ok ? `Regenerate the schema: ${schema} was regenerated from ${path.relative(ix.layout.root, ix.layout.catalogPath)}.`
+      : `Regenerate the schema: the schema generator did not finish (${generator}); see the Suite Authoring log.`,
+  });
+}
+
 /** Applies the edits as one WorkspaceEdit (one undo), saves the files it changed, and runs the schema generator. */
 async function applyAndGenerate(host: ScaffoldHost, ix: FolderIndexer, edits: FileEdit[], label: string): Promise<ScaffoldResult> {
   const edit = new vscode.WorkspaceEdit();
@@ -171,11 +195,7 @@ async function applyAndGenerate(host: ScaffoldHost, ix: FolderIndexer, edits: Fi
   if (!await vscode.workspace.applyEdit(edit)) return report(host, refused(`${label}: the edit was not applied.`));
   for (const doc of docs.values()) await doc.save();
   const files = [...new Set(edits.map(e => e.file))];
-  const run = await runTool({ argv: ix.layout.settings.schemaGenerator, cwd: ix.layout.root, timeoutMs: SCHEMA_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES },
-    undefined, { gate: () => host.gate.canRunWorkspaceCode(), maxStderr: MAX_STDERR_BYTES });
-  const generator = run.kind === 'exited' ? `exit ${run.code}` : run.kind === 'failure' ? `${run.reason}: ${run.detail}` : 'cancelled';
-  if (run.kind === 'exited') host.log((run.stdout + run.stderrTail).trimEnd());
-  const ok = run.kind === 'exited' && run.code === 0;
+  const { ok, generator } = await runGenerator(host, ix);
   const changed = files.map(f => path.relative(ix.layout.root, f)).join(', ');
   return report(host, {
     ok, files, generator,

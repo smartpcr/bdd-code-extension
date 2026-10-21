@@ -22,6 +22,11 @@ export class SuiteStatusBar implements vscode.Disposable {
     this.show(`Suite: lint ${tool} -> ${target}`, false);
   }
 
+  /** Linted by the runtime the extension carries: the workspace has no TypeScript library (DEC-P08). */
+  setBundled(): void {
+    this.show('Suite: lint bundled runtime (no binding check)', false);
+  }
+
   setFailure(text: string): void {
     this.show(text, true);
   }

@@ -5,8 +5,11 @@
 // then checked against its own action's branch. A generated union of every
 // action would report every branch it did not take; this way one step is
 // never checked against another action's parameters.
-import { createRequire } from 'node:module';
 import type { ErrorObject, ValidateFunction } from 'ajv';
+// A CommonJS module: node gives an ES module its module.exports, which is the
+// class with itself as .default; an import, not createRequire, so a bundler
+// (the VS Code extension's esbuild, DEC-P08) carries it too.
+import ajv2020 from 'ajv/dist/2020.js';
 import { Diagnostic, error } from '../diag.js';
 import { at, Document, escape } from '../model.js';
 import { Schema } from '../schema.js';
@@ -14,8 +17,7 @@ import { nearest } from '../spelling.js';
 import { allSteps, StepEntry, stepLists, textOf } from '../walk.js';
 import { isMap, toPlain } from '../value.js';
 
-const require = createRequire(import.meta.url);
-const Ajv2020 = require('ajv/dist/2020.js') as typeof import('ajv/dist/2020.js').default;
+const Ajv2020 = ajv2020.default;
 
 type Failure =
   | { kind: 'required'; pointer: string; name: string }

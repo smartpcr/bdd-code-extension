@@ -210,6 +210,40 @@ test('resolveCatalog: imports first, depth first; each imported action keeps its
   assert.deepStrictEqual(c.errors, []);
 });
 
+// docs/packages, E8 (the extension): bdd-suite:core is the core the extension carries.
+const SPEC_CORE = path.resolve(__dirname, '../../../spec/core.catalog.yaml');
+const fromDisk = (f: string) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : undefined);
+
+test('E8 resolveCatalog: bdd-suite:core is the bundled core, each core action cut to the importer\'s bindings, as a path import otherwise', () => {
+  const own = `bindings: [csharp]\nactions:\n${entry('shop.order', '[csharp]')}`;
+  const byName = resolveCatalog(`catalogVersion: 1\nimports: [ bdd-suite:core ]\n${own}`, k('actions.catalog.yaml'), fromDisk, SPEC_CORE);
+  const byPath = resolveCatalog(`catalogVersion: 1\nimports: [ ${JSON.stringify(SPEC_CORE)} ]\n${own}`, k('actions.catalog.yaml'), fromDisk);
+  assert.deepStrictEqual([byName.errors, byPath.errors], [[], []]);
+  assert.deepStrictEqual([...byName.actions.keys()], [...byPath.actions.keys()]);
+  assert.deepStrictEqual(byName.imports, byPath.imports, 'the same file: navigation opens the bundled core');
+  for (const [name, action] of byPath.actions) {
+    const narrowed = name === 'shop.order' ? action.bindings : action.bindings.filter(b => b === 'csharp');
+    assert.deepStrictEqual({ ...byName.actions.get(name)!, bindings: undefined }, { ...action, bindings: undefined }, name);
+    assert.deepStrictEqual(byName.actions.get(name)!.bindings, narrowed, name);
+  }
+  assert.deepStrictEqual(byName.actions.get('wait')!.bindings, ['csharp']);
+  assert.deepStrictEqual(byName.bindings, ['csharp'], "the core's binding names are not added");
+  assert.ok(byPath.bindings.length > 1, 'a path import is read as written');
+});
+
+test('E8 resolveCatalog: bdd-suite:core whole for an importer with no bindings; cut by the catalog that names it; missing without a bundled core', () => {
+  const whole = resolveCatalog('catalogVersion: 1\nimports: [ bdd-suite:core ]\n', k('actions.catalog.yaml'), fromDisk, SPEC_CORE);
+  const path_ = resolveCatalog(`catalogVersion: 1\nimports: [ ${JSON.stringify(SPEC_CORE)} ]\n`, k('actions.catalog.yaml'), fromDisk);
+  assert.deepStrictEqual([...whole.actions.values()].map(a => a.bindings), [...path_.actions.values()].map(a => a.bindings));
+  assert.deepStrictEqual(whole.bindings, path_.bindings);
+  const read = (f: string) => (fileKey(f) === k('team.yaml') ? 'catalogVersion: 1\nimports: [ bdd-suite:core ]\nbindings: [go]\n' : fromDisk(f));
+  const nested = resolveCatalog('catalogVersion: 1\nimports: [ team.yaml ]\nbindings: [rust]\n', k('actions.catalog.yaml'), read, SPEC_CORE);
+  assert.deepStrictEqual(nested.actions.get('wait')!.bindings, ['go'], 'cut to the bindings of the catalog that imports the core');
+  assert.deepStrictEqual(nested.bindings, ['rust', 'go']);
+  const missing = resolveCatalog('catalogVersion: 1\nimports: [ bdd-suite:core ]\n', k('actions.catalog.yaml'), fromDisk);
+  assert.deepStrictEqual(missing.errors.map(e => `${e.code} ${e.message}`), ['BDD024 Imported catalog bdd-suite:core is not available here.']);
+});
+
 test('resolveCatalog: a name declared twice, a cycle, a missing import and a broken one are errors at the root import', () => {
   const read = files({
     'core.yaml': `catalogVersion: 1\nactions:\n${entry('core.set')}`,

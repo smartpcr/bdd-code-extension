@@ -404,9 +404,11 @@
             "-NoProfile",
             "-NonInteractive",
             "-File",
-            "test/e2e/schema/Build-Schema.ps1"
+            "${extension}/spec/Build-Schema.ps1",
+            "-Catalog",
+            "${catalogPath}"
           ],
-          "description": "Command that regenerates suite.schema.json after a catalog edit.",
+          "description": "Command that regenerates suite.schema.json after a catalog edit, run in the workspace root. `${extension}` is the extension's folder (the default runs the spec's Build-Schema.ps1 it carries) and `${catalogPath}` the catalog.",
           "items": {
             "type": "string"
           }
@@ -496,6 +498,11 @@
       {
         "command": "bddSuite.implementAction",
         "title": "Implement action in binding...",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.regenerateSchema",
+        "title": "Regenerate the schema",
         "category": "Suite"
       },
       {

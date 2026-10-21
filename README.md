@@ -62,6 +62,18 @@ binding your suites are meant to run with (lint reports the actions it does not
 implement, `E201`), and **`bddSuite.lintTool`** is the binding whose code lints
 (you can lint with the fastest one while targeting another).
 
+**No binding of your own needed to lint.** The extension carries the
+TypeScript runtime of its own version: while the workspace has no TypeScript
+binding library (the default lint tool's), it lints with that, as you type,
+and the status bar says *lint bundled runtime*. It checks the format; the
+target-binding check (`E201`) needs a binding's own program. It also carries
+the core catalog, so a catalog can write `imports: [ bdd-suite:core ]`
+instead of copying the spec, and the schema generator, `Build-Schema.ps1`,
+which `bddSuite.schemaGenerator` runs by default (also on demand: *Suite:
+Regenerate the schema*). When the workspace pins bdd-suite packages of
+another release (`Directory.Packages.props`, `go.mod`, `Cargo.toml`,
+`package.json`, or a PowerShell `RequiredVersion`), it says so.
+
 ## Workspace layout
 
 The extension activates in a workspace folder that contains the action catalog
@@ -276,7 +288,7 @@ framework are under `samples/workspace/tests/`.
 | `bddSuite.suiteGlobs` | `["test/e2e/**/*.yml"]` | Candidate suite files; a file is a suite when it has a top-level `suite:` key or is imported by one |
 | `bddSuite.exclude` | `**/{node_modules,bin,obj,target,artifacts,.git}/**` | Files never indexed |
 | `bddSuite.bindings` | the five bindings | Per binding: source globs, the patterns that find registrations, the program, its build command and (TypeScript) its library |
-| `bddSuite.schemaGenerator` | `pwsh ... Build-Schema.ps1` | Regenerates `suite.schema.json` after a catalog edit |
+| `bddSuite.schemaGenerator` | `pwsh ... ${extension}/spec/Build-Schema.ps1 -Catalog ${catalogPath}` | Regenerates `suite.schema.json` after a catalog edit, with the generator the extension carries; `${extension}` is the extension's folder, `${catalogPath}` the catalog |
 | `bddSuite.inlayHints.bindings` | `true` | Show which bindings implement each step's action |
 | `bddSuite.codeLens.implement` | `true` | Above a step whose action is missing in a language: where, with *Implement in C#/Go/Rust* (or *Declare action* when the catalog lacks it) one click away |
 | `bddSuite.templatesDir` | empty | A workspace directory whose files override the stub templates |

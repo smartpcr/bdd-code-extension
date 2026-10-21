@@ -3,9 +3,10 @@
 Plan: [docs/packages/implementation.md](../packages/implementation.md#stage-k5-powershell-p1).
 Recorded 2026-10-20 on Windows 11, PowerShell 7.6.7, PSResourceGet 1.2.0,
 Pester 5.7.1, powershell-yaml 0.4.12, on top of `3eafdd0` (the 0.7.1 release
-commits), uncommitted. **Status: built; locally accepted (E1 and E6 for
-PowerShell, E7 and E8 for PowerShell); CI not run for K5** (nothing pushed;
-nothing published).
+commits). **Status: built; locally accepted (E1 and E6 for PowerShell, E7 and
+E8 for PowerShell); in CI with the 0.7.1 release** (`f0357aa`, with the
+Pester 6 fix `7abf7c8`, run 39517172892, green; `BddSuite.0.7.1.nupkg` is a
+release asset).
 
 ## What was built
 

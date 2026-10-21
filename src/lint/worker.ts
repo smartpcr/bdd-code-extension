@@ -1,6 +1,7 @@
 // The lint worker thread (plan 2.4b items 4-7, B8.1). It loads the TypeScript
-// binding's library from the workspace, never from the extension (INV-13), and
-// answers one message at a time; the library is synchronous.
+// binding's library from the workspace (INV-13), or, when the workspace has
+// none, the runtime the extension carries (docs/packages, DEC-P08), and answers
+// one message at a time; the library is synchronous.
 import { parentPort, workerData } from 'worker_threads';
 import { pathToFileURL } from 'url';
 import type { HostMessage, WorkerMessage } from './protocol';

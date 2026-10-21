@@ -15,6 +15,12 @@ out/**
 .gitignore
 .github/**
 spec/**
+# The core and its schema generator travel with the extension (docs/packages, D12):
+# bdd-suite:core reads core.catalog.yaml, and the default schemaGenerator runs Build-Schema.ps1.
+!spec/core.catalog.yaml
+!spec/Build-Schema.ps1
+!spec/suite.core.json
+!spec/diagnostics.md
 conformance/**
 runtimes/**
 samples/**

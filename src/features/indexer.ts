@@ -110,7 +110,7 @@ export class FolderIndexer implements vscode.Disposable {
     const key = fileKey(file);
     if (!kind) return;
     if (kind.kind === 'catalog') {
-      const c = resolveCatalog(text, key, readSync);
+      const c = resolveCatalog(text, key, readSync, this.layout.bundled?.core);
       this.index.updateCatalog(c);
       this.publish(this.catalogDiagnostics, key, c.errors);
       this.watchImports(c.imports ?? []);

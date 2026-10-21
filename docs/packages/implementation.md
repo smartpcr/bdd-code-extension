@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 in CI with the 0.7.1 release, K5 built and run locally, not committed ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md)); K6 to K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 built and run locally, not committed ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md)); K7 to K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -451,14 +451,14 @@ Result: D12, D13. Entry: K1–K5 (every runtime resolves `bdd-suite:core`), K4
 (the runtime is packable). Exit evidence: E8 in five runtimes and the
 extension; E9; unit tests at 100%; `npm run install:local`.
 
-- [ ] K6.1 `Build-Schema.ps1` resolves `bdd-suite:core`; its tests.
-- [ ] K6.2 The extension's catalog index resolves it; unit tests.
-- [ ] K6.3 `.vscodeignore` and packaging keep the spec in the `.vsix`; the B9.1 file-count check updated.
-- [ ] K6.4 `bddSuite.schemaGenerator` defaults to the bundled generator.
-- [ ] K6.5 The version-mismatch warning; unit tests.
-- [ ] K6.6 esbuild bundles the runtime; the lint worker falls back to it; the status bar says which.
-- [ ] K6.7 Integration test: E9 in a scratch C#-only workspace.
-- [ ] K6.8 E8 across runtimes and the extension; unit tests at 100%; `npm run install:local`.
+- [x] K6.1 `Build-Schema.ps1` resolves `bdd-suite:core`; its tests.
+- [x] K6.2 The extension's catalog index resolves it; unit tests.
+- [x] K6.3 `.vscodeignore` and packaging keep the spec in the `.vsix`; the B9.1 file-count check updated.
+- [x] K6.4 `bddSuite.schemaGenerator` defaults to the bundled generator.
+- [x] K6.5 The version-mismatch warning; unit tests.
+- [x] K6.6 esbuild bundles the runtime; the lint worker falls back to it; the status bar says which.
+- [x] K6.7 Integration test: E9 in a scratch C#-only workspace.
+- [x] K6.8 E8 across runtimes and the extension; unit tests at 100%; `npm run install:local`.
 
 ### Stage K7: pipeline and documentation (P1)
 
