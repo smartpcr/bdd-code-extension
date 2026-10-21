@@ -89,6 +89,7 @@ $items = switch ($Registry) {
 $mode = if ($DryRun) { 'dry run' } else { 'publish' }
 Write-Output "$Registry ($mode), version ${version}:"
 foreach ($item in $items) {
+    $duplicate = $false
     $published = Test-Published $item.Uri
     if ($published) {
         Write-Output "  $($item.Name) is already published; skipped."
@@ -100,7 +101,11 @@ foreach ($item in $items) {
         'nuget' {
             if ($DryRun) { Write-Output "  would push $leaf (and its .snupkg) to nuget.org"; break }
             if (-not $env:NUGET_API_KEY) { throw 'NUGET_API_KEY is not set: the NuGet/login step gives it.' }
-            Invoke-Native "dotnet nuget push $leaf" { dotnet nuget push $item.File --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate }
+            $said = dotnet nuget push $item.File --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate 2>&1
+            $said | ForEach-Object { Write-Output "    $_" }
+            if ($LASTEXITCODE) { throw "dotnet nuget push $leaf failed (exit $LASTEXITCODE)" }
+            # --skip-duplicate turns nuget.org's 409 into success: say so, rather than "published".
+            if ("$said" -match 'already exists at feed') { Write-Output "  $($item.Name): nuget.org already holds this version (Conflict); skipped."; $duplicate = $true }
         }
         'npm' {
             # npmjs.com by name: a machine's own npm configuration may name a mirror.
@@ -124,5 +129,5 @@ foreach ($item in $items) {
             Publish-PSResource -NupkgPath $item.File -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
         }
     }
-    if (-not $DryRun) { Write-Output "  published $($item.Name)." }
+    if (-not $DryRun -and -not $duplicate) { Write-Output "  published $($item.Name)." }
 }

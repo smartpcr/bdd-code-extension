@@ -46,10 +46,15 @@ Report ($secrets -contains 'PSGALLERY_API_KEY') 'the release environment secret 
 Write-Output "  $(if ($secrets -contains 'NPM_TOKEN') { 'set    ' } else { 'not set' })  NPM_TOKEN, for npm's first publish (delete it once the package has its trusted publisher)"
 Write-Output "  $(if ($secrets -contains 'CRATES_IO_TOKEN') { 'set    ' } else { 'not set' })  CRATES_IO_TOKEN, for crates.io's first publish (likewise)"
 
+# The publish job runs in the release environment, so NUGET_USER may be the repository's or the environment's.
 $nugetUser = Get-Api "repos/$Repository/actions/variables/NUGET_USER"
-Report ($null -ne $nugetUser) 'the repository variable NUGET_USER (the nuget.org account of the trusted publishing policy)'
+if (-not $nugetUser) { $nugetUser = Get-Api "repos/$Repository/environments/release/variables/NUGET_USER" }
+Report ($null -ne $nugetUser) 'the variable NUGET_USER, of the repository or the release environment (the nuget.org account of the trusted publishing policy)'
+# The version job, which runs in no environment, reads PUBLIC_REGISTRIES: it must be the repository's.
 $public = Get-Api "repos/$Repository/actions/variables/PUBLIC_REGISTRIES"
-Report ([bool]"$($public.value)".Trim()) "the repository variable PUBLIC_REGISTRIES (true, or a list such as nuget,npm,crates), set last (now: $(if ($public) { $public.value } else { 'not set' }))"
+$inEnvironment = Get-Api "repos/$Repository/environments/release/variables/PUBLIC_REGISTRIES"
+$note = if ($inEnvironment -and -not $public) { '; it is set on the release environment, where the version job cannot read it' } else { '' }
+Report ([bool]"$($public.value)".Trim()) "the repository variable PUBLIC_REGISTRIES (true, or a list such as nuget,npm,crates), set last (now: $(if ($public) { $public.value } else { 'not set' })$note)"
 
 Write-Output 'For the registries'' owner to confirm (not visible from here):'
 Write-Output '  npmjs.com     the org bdd-suite; a trusted publisher for this repository, workflow ci.yml, environment release'
