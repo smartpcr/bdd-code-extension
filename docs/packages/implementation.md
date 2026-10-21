@@ -1,6 +1,6 @@
 # Publishing the runtimes as packages: implementation plan
 
-Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10, then released as 0.7.2 (run 39524058263); K8 done: 0.7.5 on nuget.org (as Smartpcr.BddSuite*), npm and crates.io, E11 passed for those and Go; the PowerShell Gallery not set up ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md), [K8](../evidence/packages-k8.md)); K9 not started. 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
+Status: **designed 2026-10-20; stages K0 to K3 built 2026-10-20 and in CI with the 0.7.0 release, K4 and K5 in CI with the 0.7.1 release, K6 and K7 pushed (`93f8417`, `0ef6036`) and green in CI run 39521711937, which is E10, then released as 0.7.2 (run 39524058263); K8 done: 0.7.5 on nuget.org (as Smartpcr.BddSuite*), npm and crates.io, E11 passed for those and Go; the PowerShell Gallery not set up; K9 done on an update2 branch, uncommitted ([K0](../evidence/packages-k0.md), [K1](../evidence/packages-k1.md), [K2](../evidence/packages-k2.md), [K3](../evidence/packages-k3.md), [K4](../evidence/packages-k4.md), [K5](../evidence/packages-k5.md), [K6](../evidence/packages-k6.md), [K7](../evidence/packages-k7.md), [K8](../evidence/packages-k8.md), [K9](../evidence/packages-k9.md)). 0.7.0 is released to this repository and its GitHub Packages feed, not to the public registries (the user's choice, 2026-10-20).** The outcomes (O1–O6),
 decisions (DEC-P01–DEC-P11) and scenarios (E1–E12) are in
 [design.md](design.md). This plan says how each outcome is built, in what
 order, and what evidence closes each step.
@@ -493,13 +493,13 @@ URL, and the clean-install job's results.
 Result: D18. Entry: K8. Exit evidence: E12 on an update2 branch, handed to the
 user; nothing pushed unless asked.
 
-- [ ] K9.1 An update2 worktree and branch; its restore sources reach nuget.org (or its internal feed's upstream).
-- [ ] K9.2 `Directory.Packages.props` gains `Bdd.Suite` and `Bdd.Suite.Testing`; project references swapped; `runtime/` removed.
-- [ ] K9.3 `Bdd.Suite.Patches.UnitTest` removed; its cases now live upstream (K1.5).
-- [ ] K9.4 The catalog imports `bdd-suite:core`; the core copy and the junction instructions removed; `.vscode/settings.json` uses the default generator.
-- [ ] K9.5 `UPSTREAM.md` and `docs/bdd/*` updated (requests 6.1–6.3, 6.6 closed with the version).
-- [ ] K9.6 Its build, `Urp.Bvt.Suite.UnitTest`, `Urp.Bvt.Suite.MsTest`; its suiterun with `--name` and `--progress`; counts equal the copy's.
-- [ ] K9.7 Evidence recorded in both repositories; the branch handed to the user.
+- [x] K9.1 An update2 worktree and branch; its restore sources reach nuget.org (or its internal feed's upstream).
+- [x] K9.2 `Directory.Packages.props` gains `Bdd.Suite` and `Bdd.Suite.Testing` (now `Smartpcr.BddSuite*` 0.7.5: nuget.org reserves `Bdd.Suite`); project references swapped; `runtime/` removed.
+- [x] K9.3 `Bdd.Suite.Patches.UnitTest` removed; its cases now live upstream (K1.5).
+- [x] K9.4 The catalog imports `bdd-suite:core`; the core copy and the junction instructions removed; `.vscode/settings.json` uses the default generator.
+- [x] K9.5 `UPSTREAM.md` and `docs/bdd/*` updated (requests 6.1–6.3, 6.6 closed with the version).
+- [x] K9.6 Its build, `Urp.Bvt.Suite.UnitTest`, `Urp.Bvt.Suite.MsTest`; its suiterun with `--name` and `--progress`; counts equal the copy's.
+- [x] K9.7 Evidence recorded in both repositories; the branch handed to the user.
 
 ## 4. Acceptance index
 
@@ -516,7 +516,7 @@ user; nothing pushed unless asked.
 | [E9](design.md#e9) | O6 | D12, D13 | K6 | passed: the integration job's `consumer` session (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1); locally from the installed .vsix |
 | [E10](design.md#e10) | O5 | D14, D16 | K7 | passed: `packages`, `consumers`, `publish-dry-run` (four registries) and `workflow` green; `publish`, `publish-github-packages` and `release` skipped, nothing published (CI run 39521711937 on `0ef6036`, a push keeping 0.7.1) |
 | [E11](design.md#e11) | O1, O5 | D7–D11, D16 | K8 | passed in CI for nuget.org, npm, crates.io and Go with 0.7.5 (run 39535436620, green); the PowerShell Gallery not set up, open |
-| [E12](design.md#e12) | O3, O4 | D18 | K9 | not run; other repository |
+| [E12](design.md#e12) | O3, O4 | D18 | K9 | passed locally on update2 branch `users/xiaodoli/bdd-suite-0.7.5` (same counts as the copy, lint, `--name`, `--progress`, FullEnvTests); then restored from update2's own feed after the user's push of the 0.7.5 `.nupkg` files (211 passed, 45 skipped) |
 
 ## 5. Effort
 
