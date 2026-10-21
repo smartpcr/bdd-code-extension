@@ -4,9 +4,10 @@
 # Releasing is automatic: bump `version` in package.json (npm run set-version)
 # and push to main. When every gate passes and no tag v<version> exists yet:
 # the runtime packages, packed once by the packages job and proved by the
-# consumers matrix, go to this repository's GitHub Packages feed (C#) and,
-# when the repository variable PUBLIC_REGISTRIES is 'true', to nuget.org, npm,
-# crates.io and the PowerShell Gallery in the release environment; then the
+# consumers matrix, go to this repository's GitHub Packages (NuGet and npm)
+# and to the public registries the repository variable PUBLIC_REGISTRIES names
+# (true for all of nuget.org, npm, crates.io and the PowerShell Gallery, or a
+# list such as nuget,npm,crates) in the release environment; then the
 # release job creates the GitHub release v<version> (which creates the tag)
 # with the very .vsix this run built and tested, its SHA-256 and every package
 # file, and tags the Go module runtimes/go/v<version> at the same commit
@@ -507,8 +508,18 @@ jobs:
     outputs:
       version: ${{ steps.check.outputs.version }}
       release: ${{ steps.check.outputs.release }}
+      # The public registries a release publishes to, and the consumers that prove them (scripts/publish/registries.mjs).
+      registries: ${{ steps.registries.outputs.registries }}
+      verify: ${{ steps.registries.outputs.verify }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: The public registries (the repository variable PUBLIC_REGISTRIES)
+        id: registries
+        env:
+          PUBLIC_REGISTRIES: ${{ vars.PUBLIC_REGISTRIES }}
+        run: node scripts/publish/registries.mjs
+
       - id: check
         run: |
           version=$(node -p "require('./package.json').version")
@@ -527,8 +538,9 @@ jobs:
   # repository's GitHub Packages feed and every package file to the GitHub
   # release (the user's decision, 2026-10-20: the repository and its feed
   # first). The public registries (nuget.org, npm, crates.io, the Gallery) are
-  # published only when the repository variable PUBLIC_REGISTRIES is 'true',
-  # in the release environment; until then, and on every pull request, their
+  # published to only as the repository variable PUBLIC_REGISTRIES names them
+  # (true for all, or a list), in the release environment; otherwise, and on
+  # every pull request, their
   # publish steps run as a dry run (E10). Everything is published before the
   # GitHub release and the Go tag exist, so a release never names a package
   # that is not there (DEC-P10).
@@ -668,13 +680,14 @@ jobs:
 
   # D16, DEC-P10: the public registries, after every gate and the release
   # environment's approval, each step skipping a version its registry has.
-  # Off until the repository variable PUBLIC_REGISTRIES is 'true' and the
-  # registries are set up (docs/packages/implementation.md, section 6).
+  # Only the registries the repository variable PUBLIC_REGISTRIES names (true
+  # for all, or a list such as nuget,npm,crates), each set up first
+  # (docs/packages/implementation.md, section 6); none while it is empty.
   publish:
     name: Publish to ${{ matrix.registry }}
     needs: [build, spec, runtime-typescript, runtime-go, runtime-rust, runtime-csharp, runtime-powershell, providers-csharp, providers-go,
       providers-rust, providers-typescript, providers-powershell, divergence, integration, workflow, version, packages, consumers]
-    if: needs.version.outputs.release == 'true' && vars.PUBLIC_REGISTRIES == 'true'
+    if: needs.version.outputs.release == 'true' && needs.version.outputs.registries != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
@@ -688,7 +701,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        registry: [crates, npm, nuget, psgallery]
+        registry: ${{ fromJSON(needs.version.outputs.registries) }}
     steps:
       - uses: actions/checkout@v5
 
@@ -800,8 +813,8 @@ jobs:
     env:
       TAG: v${{ needs.version.outputs.version }}
       VSIX: bdd-suite-${{ needs.version.outputs.version }}.vsix
-      # 'true' once the publish jobs put the packages on the public registries.
-      PUBLIC: ${{ vars.PUBLIC_REGISTRIES }}
+      # The public registries the publish jobs put the packages on, as a JSON array ([] for none).
+      PUBLIC: ${{ needs.version.outputs.registries }}
     steps:
       # Only the files the release notes read the runtime versions from.
       - uses: actions/checkout@v5
@@ -843,16 +856,18 @@ jobs:
             echo "| PowerShell module ${tick}BddSuite${tick} | GitHub Packages, the same NuGet feed as C# (${tick}Register-PSResourceRepository${tick} it, then ${tick}Install-PSResource BddSuite${tick} with a token with read:packages; powershell-yaml from the Gallery), or this release's asset ${tick}BddSuite.$ps.nupkg${tick} | $ps |"
             echo
             # D16: each package on its public registry, once the publish jobs put it there.
-            if [ "$PUBLIC" = true ]; then
+            if [ -n "$PUBLIC" ] && [ "$PUBLIC" != "[]" ]; then
               echo "### On the public registries"
               echo
               echo "| Package | Registry page |"
               echo "| --- | --- |"
-              echo "| ${tick}Bdd.Suite${tick} $rs | https://www.nuget.org/packages/Bdd.Suite/$rs |"
-              echo "| ${tick}Bdd.Suite.Testing${tick} $rs | https://www.nuget.org/packages/Bdd.Suite.Testing/$rs |"
-              echo "| ${tick}@bdd-suite/runtime${tick} $ts | https://www.npmjs.com/package/@bdd-suite/runtime/v/$ts |"
-              echo "| ${tick}suiterun${tick} $rs | https://crates.io/crates/suiterun/$rs |"
-              echo "| ${tick}BddSuite${tick} $ps | https://www.powershellgallery.com/packages/BddSuite/$ps |"
+              case "$PUBLIC" in *'"nuget"'*)
+                echo "| ${tick}Bdd.Suite${tick} $rs | https://www.nuget.org/packages/Bdd.Suite/$rs |"
+                echo "| ${tick}Bdd.Suite.Testing${tick} $rs | https://www.nuget.org/packages/Bdd.Suite.Testing/$rs |" ;;
+              esac
+              case "$PUBLIC" in *'"npm"'*) echo "| ${tick}@bdd-suite/runtime${tick} $ts | https://www.npmjs.com/package/@bdd-suite/runtime/v/$ts |" ;; esac
+              case "$PUBLIC" in *'"crates"'*) echo "| ${tick}suiterun${tick} $rs | https://crates.io/crates/suiterun/$rs |" ;; esac
+              case "$PUBLIC" in *'"psgallery"'*) echo "| ${tick}BddSuite${tick} $ps | https://www.powershellgallery.com/packages/BddSuite/$ps |" ;; esac
               echo "| Go module | https://pkg.go.dev/github.com/${GITHUB_REPOSITORY}/runtimes/go@$TAG |"
               echo
             fi
@@ -898,18 +913,13 @@ jobs:
   verify-registries:
     name: ${{ matrix.label }} consumer from ${{ matrix.registry }} (E11)
     needs: [version, release]
-    if: needs.version.outputs.release == 'true' && vars.PUBLIC_REGISTRIES == 'true'
+    if: needs.version.outputs.release == 'true' && needs.version.outputs.registries != '[]'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { language: csharp, label: 'C#', registry: nuget, os: windows-latest, script: samples/consumers/csharp/run-e2.ps1 }
-          - { language: go, label: Go, registry: go, os: ubuntu-latest, script: samples/consumers/go/run-e3.ps1 }
-          - { language: rust, label: Rust, registry: crates, os: ubuntu-latest, script: samples/consumers/rust/run-e4.ps1 }
-          - { language: typescript, label: TypeScript, registry: npm, os: ubuntu-latest, script: samples/consumers/typescript/run-e5.ps1 }
-          - { language: powershell, label: PowerShell, registry: psgallery, os: windows-latest, script: samples/consumers/powershell/run-e6.ps1 }
+        include: ${{ fromJSON(needs.version.outputs.verify) }}
     steps:
       - uses: actions/checkout@v5
         with:

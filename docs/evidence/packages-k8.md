@@ -63,7 +63,7 @@ The same release pushed the four packages to GitHub Packages (its job log:
 2. On GitHub: the environment `release` with the user as required reviewer,
    limited to `main`; its secret `PSGALLERY_API_KEY`; the variable
    `NUGET_USER`; `Test-ReleaseSetup.ps1` until only `PUBLIC_REGISTRIES` is
-   missing; then `PUBLIC_REGISTRIES` = `true`.
+   missing; then `PUBLIC_REGISTRIES`: `true`, or the registries set up so far (`nuget,npm,crates`).
 3. A version bump pushed to `main`; approving the `release` environment when
    the run asks. The publish jobs, the GitHub release, the Go tag and
    `verify-registries` follow; this file records the run ID, each registry

@@ -8,6 +8,11 @@
   once `scripts/publish/Wait-Published.ps1` finds the version served;
   `scripts/publish/Test-ReleaseSetup.ps1` says which part of the operator
   setup is missing (docs/packages, stage K8).
+* **Release pipeline:** `PUBLIC_REGISTRIES` takes a list as well as `true`
+  (`nuget,npm,crates`), so a registry whose setup is not done waits without
+  blocking the others; the release notes link the registries published to.
+  npm's and crates.io's first publish use the `release` environment's
+  `NPM_TOKEN` and `CRATES_IO_TOKEN` until their trusted publishers are set.
 
 ## 0.7.2
 

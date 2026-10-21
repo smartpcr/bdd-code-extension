@@ -49,7 +49,7 @@ Write-Output "  $(if ($secrets -contains 'CRATES_IO_TOKEN') { 'set    ' } else {
 $nugetUser = Get-Api "repos/$Repository/actions/variables/NUGET_USER"
 Report ($null -ne $nugetUser) 'the repository variable NUGET_USER (the nuget.org account of the trusted publishing policy)'
 $public = Get-Api "repos/$Repository/actions/variables/PUBLIC_REGISTRIES"
-Report ($public.value -eq 'true') "the repository variable PUBLIC_REGISTRIES = true, set last (now: $(if ($public) { $public.value } else { 'not set' }))"
+Report ([bool]"$($public.value)".Trim()) "the repository variable PUBLIC_REGISTRIES (true, or a list such as nuget,npm,crates), set last (now: $(if ($public) { $public.value } else { 'not set' }))"
 
 Write-Output 'For the registries'' owner to confirm (not visible from here):'
 Write-Output '  npmjs.com     the org bdd-suite; a trusted publisher for this repository, workflow ci.yml, environment release'

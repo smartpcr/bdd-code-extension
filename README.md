@@ -413,10 +413,11 @@ same CI run releases what it built and tested (docs/packages, D16):
    (`scripts/pack-all.ps1`) and checked each against `packaging/`, and the
    `consumers` matrix has built and run each consumer sample from those very
    files (E2 to E6);
-2. `Bdd.Suite` and `Bdd.Suite.Testing` go to this repository's GitHub
-   Packages feed; when the repository variable `PUBLIC_REGISTRIES` is `true`,
-   every package also goes to nuget.org, npm, crates.io and the PowerShell
-   Gallery, in the `release` environment (set up once, as
+2. `Bdd.Suite`, `Bdd.Suite.Testing`, `BddSuite` and the npm package go to
+   this repository's GitHub Packages; and to the public registries the
+   repository variable `PUBLIC_REGISTRIES` names (`true` for all of nuget.org,
+   npm, crates.io and the PowerShell Gallery, or a list such as
+   `nuget,npm,crates`), in the `release` environment (each set up once, as
    [docs/packages/implementation.md](docs/packages/implementation.md#6-operator-setup-before-the-first-release)
    says);
 3. the GitHub release `v<version>` (and with it the tag) gets the `.vsix`, its
