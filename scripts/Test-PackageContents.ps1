@@ -29,7 +29,7 @@
     does not.
 
 .EXAMPLE
-    pwsh -File scripts/Test-PackageContents.ps1 -Package runtimes/csharp/artifacts/packages/Bdd.Suite.0.6.10.nupkg
+    pwsh -File scripts/Test-PackageContents.ps1 -Package runtimes/csharp/artifacts/packages/Smartpcr.BddSuite.0.7.5.nupkg
 #>
 [CmdletBinding()]
 param(

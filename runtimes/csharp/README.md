@@ -3,13 +3,19 @@
 ## Install
 
 ```xml
-<PackageReference Include="Bdd.Suite" Version="0.7.4" />          <!-- your extension and your suiterun -->
-<PackageReference Include="Bdd.Suite.Testing" Version="0.7.4" />  <!-- your suites as tests -->
+<PackageReference Include="Smartpcr.BddSuite" Version="0.7.5" />          <!-- your extension and your suiterun -->
+<PackageReference Include="Smartpcr.BddSuite.Testing" Version="0.7.5" />  <!-- your suites as tests -->
 ```
 
-Releases are on this repository's GitHub Packages feed, and attached to each
-GitHub release as `.nupkg` files. GitHub Packages asks for a token with
-`read:packages` even to read, so add the feed with one:
+From nuget.org, with no setup. The package IDs are `Smartpcr.BddSuite` and
+`Smartpcr.BddSuite.Testing` (nuget.org reserves `Bdd.Suite` for another
+owner); the assemblies and namespaces inside are `Bdd.Suite` and
+`Bdd.Suite.Testing`, so code is the same whichever feed it came from. Before
+0.7.5, GitHub Packages had them as `Bdd.Suite` and `Bdd.Suite.Testing`.
+
+Releases are also on this repository's GitHub Packages feed, and attached to
+each GitHub release as `.nupkg` files. GitHub Packages asks for a token with
+`read:packages` even to read, so add that feed with one:
 
 ```text
 dotnet nuget add source https://nuget.pkg.github.com/smartpcr/index.json --name bdd-suite --username <you> --password <token with read:packages>
@@ -47,7 +53,7 @@ framework providers). It is held to the conformance corpus in
 
 ## Run suites with your test framework
 
-Reference `Bdd.Suite.Testing` from an MSTest 4, NUnit 4 or xUnit v3 test
+Reference the package `Smartpcr.BddSuite.Testing` from an MSTest 4, NUnit 4 or xUnit v3 test
 project and put a `bddsuite.tests.yaml` beside it: every build generates one
 test class per suite and one test per case and examples row
 (`obj/<config>/BddSuite/*.g.cs`, never committed), so `dotnet test`, its

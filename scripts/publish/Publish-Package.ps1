@@ -9,8 +9,10 @@
     holds is skipped, so a release that failed part-way is finished by running
     it again, never by a new version (DEC-P10).
 
-      nuget      Bdd.Suite and Bdd.Suite.Testing to nuget.org (their .snupkg
-                 beside them): dotnet nuget push --skip-duplicate with
+      nuget      Smartpcr.BddSuite and Smartpcr.BddSuite.Testing to nuget.org (their .snupkg
+                 beside them): dotnet nuget push, without --skip-duplicate
+                 (a version nuget.org holds is skipped before it; a 409 after
+                 is a refusal, and its reason is shown), with
                  NUGET_API_KEY, the short-lived key NuGet/login gives a trusted
                  publisher. dotnet has no dry run: a dry run pushes nothing.
       npm        @bdd-suite/runtime to npmjs.com: npm publish <tarball>
@@ -76,7 +78,7 @@ function Invoke-Native([string]$What, [scriptblock]$Command) {
 # Each package of the registry: its name, the file, the URI that exists once the version is published.
 $items = switch ($Registry) {
     'nuget' {
-        foreach ($id in 'Bdd.Suite', 'Bdd.Suite.Testing') {
+        foreach ($id in 'Smartpcr.BddSuite', 'Smartpcr.BddSuite.Testing') {
             @{ Name = "$id $version"; File = Get-Package "$id.$version.nupkg"
                 Uri = "https://api.nuget.org/v3-flatcontainer/$($id.ToLowerInvariant())/$version/$($id.ToLowerInvariant()).nuspec" }
         }
@@ -89,7 +91,6 @@ $items = switch ($Registry) {
 $mode = if ($DryRun) { 'dry run' } else { 'publish' }
 Write-Output "$Registry ($mode), version ${version}:"
 foreach ($item in $items) {
-    $duplicate = $false
     $published = Test-Published $item.Uri
     if ($published) {
         Write-Output "  $($item.Name) is already published; skipped."
@@ -101,11 +102,13 @@ foreach ($item in $items) {
         'nuget' {
             if ($DryRun) { Write-Output "  would push $leaf (and its .snupkg) to nuget.org"; break }
             if (-not $env:NUGET_API_KEY) { throw 'NUGET_API_KEY is not set: the NuGet/login step gives it.' }
-            $said = dotnet nuget push $item.File --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate 2>&1
+            # No --skip-duplicate: nuget.org has just said it does not hold this
+            # version, so a 409 now is not a duplicate but a refusal (a reserved ID
+            # prefix, a look-alike ID), and --skip-duplicate would pass it off as
+            # "already exists" and hide nuget.org's reason (0.7.3, 0.7.4).
+            $said = dotnet nuget push $item.File --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json 2>&1
             $said | ForEach-Object { Write-Output "    $_" }
-            if ($LASTEXITCODE) { throw "dotnet nuget push $leaf failed (exit $LASTEXITCODE)" }
-            # --skip-duplicate turns nuget.org's 409 into success: say so, rather than "published".
-            if ("$said" -match 'already exists at feed') { Write-Output "  $($item.Name): nuget.org already holds this version (Conflict); skipped."; $duplicate = $true }
+            if ($LASTEXITCODE) { throw "nuget.org refused $leaf (exit $LASTEXITCODE): $(@($said | Where-Object { "$_" -match 'error|Response status|Conflict|Forbidden' }) -join ' ')" }
         }
         'npm' {
             # npmjs.com by name: a machine's own npm configuration may name a mirror.
@@ -129,5 +132,5 @@ foreach ($item in $items) {
             Publish-PSResource -NupkgPath $item.File -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
         }
     }
-    if (-not $DryRun -and -not $duplicate) { Write-Output "  published $($item.Name)." }
+    if (-not $DryRun) { Write-Output "  published $($item.Name)." }
 }

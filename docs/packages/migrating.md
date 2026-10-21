@@ -40,7 +40,7 @@ release; the extension warns when your manifests pin another.
 
 | Language | Remove | Add |
 | --- | --- | --- |
-| C# | The copied `Bdd.Suite*` projects, their `ProjectReference`s and any `<Import>` of `Bdd.Suite.Testing.targets` | `<PackageVersion Include="Bdd.Suite" Version="x.y.z" />` and `Bdd.Suite.Testing` in `Directory.Packages.props` (or `Version=` on each reference); `<PackageReference Include="Bdd.Suite" />` in the extension and the binding program, `<PackageReference Include="Bdd.Suite.Testing" />` in the test project. Its targets import themselves. A feed that has them in `nuget.config`. |
+| C# | The copied `Bdd.Suite*` projects, their `ProjectReference`s and any `<Import>` of `Bdd.Suite.Testing.targets` | `<PackageVersion Include="Smartpcr.BddSuite" Version="x.y.z" />` and `Smartpcr.BddSuite.Testing` in `Directory.Packages.props` (or `Version=` on each reference); `<PackageReference Include="Smartpcr.BddSuite" />` in the extension and the binding program, `<PackageReference Include="Smartpcr.BddSuite.Testing" />` in the test project. Its targets import themselves. nuget.org has them (from 0.7.4; GitHub Packages had them as `Bdd.Suite*` before). |
 | Go | A `replace` to a copy or a checkout | `go get github.com/smartpcr/bdd-code-extension/runtimes/go@vx.y.z` |
 | Rust | A `path` dependency | `suiterun = { git = "https://github.com/smartpcr/bdd-code-extension", tag = "vx.y.z", features = ["testing"] }`, or the release's `.crate` |
 | TypeScript | A `file:` dependency | `@bdd-suite/runtime` at `x.y.z` (the release's `.tgz` until it is on npm) |
@@ -105,8 +105,11 @@ reference them; the copy of `runtimes/csharp` and its patch tests are gone.
 **What remains**, for the release that carries `bdd-suite:core` and the
 bundled generator (the one after 0.7.1):
 
-1. **Versions.** Both `PackageVersion` entries to that release, and the
-   extension of the same release.
+1. **Versions and IDs.** Both `PackageVersion` entries to that release, under
+   the IDs nuget.org has them by, `Smartpcr.BddSuite` and
+   `Smartpcr.BddSuite.Testing` (nuget.org reserves `Bdd.Suite`; the assemblies
+   and namespaces are unchanged, so no code changes), with every
+   `PackageReference` renamed to match; and the extension of the same release.
 2. **The core.** `test/e2e/schema/actions.catalog.yaml` imports
    `core.catalog.yaml`, its copy narrowed by hand to `[csharp, powershell]`.
    It becomes:

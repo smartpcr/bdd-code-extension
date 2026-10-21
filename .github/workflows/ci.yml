@@ -784,7 +784,7 @@ jobs:
           node-version: 24
 
       # The registries of the repository's owner; the run's own token may write
-      # to them. Bdd.Suite, Bdd.Suite.Testing and BddSuite (its nuspec given
+      # to them. Smartpcr.BddSuite, Smartpcr.BddSuite.Testing and BddSuite (its nuspec given
       # this repository's URL) on the NuGet feed, @bdd-suite/runtime as
       # @<owner>/bdd-suite-runtime on the npm registry, which takes only the
       # owner's scope. A version a registry holds is skipped, so a release can
@@ -850,7 +850,7 @@ jobs:
             echo "| Runtime | Where | Version |"
             echo "| --- | --- | --- |"
             echo "| Go module ${tick}github.com/${GITHUB_REPOSITORY}/runtimes/go${tick} | the tag ${tick}runtimes/go/$TAG${tick}: ${tick}go get github.com/${GITHUB_REPOSITORY}/runtimes/go@$TAG${tick} | $TAG |"
-            echo "| C# ${tick}Bdd.Suite${tick}, ${tick}Bdd.Suite.Testing${tick} | GitHub Packages, ${tick}https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json${tick} (a token with read:packages), and this release's assets | $rs |"
+            echo "| C# ${tick}Smartpcr.BddSuite${tick}, ${tick}Smartpcr.BddSuite.Testing${tick} | GitHub Packages, ${tick}https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json${tick} (a token with read:packages), and this release's assets | $rs |"
             echo "| Rust crate ${tick}suiterun${tick} | this release's asset ${tick}suiterun-$rs.crate${tick}, or a git dependency on this tag | $rs |"
             echo "| TypeScript ${tick}@bdd-suite/runtime${tick} | GitHub Packages as ${tick}@${GITHUB_REPOSITORY_OWNER}/bdd-suite-runtime${tick} (${tick}npm install @bdd-suite/runtime@npm:@${GITHUB_REPOSITORY_OWNER}/bdd-suite-runtime@$ts${tick}, the ${tick}@${GITHUB_REPOSITORY_OWNER}${tick} scope at ${tick}https://npm.pkg.github.com${tick} with a token with read:packages), or this release's asset ${tick}bdd-suite-runtime-$ts.tgz${tick} | $ts (lint API $api) |"
             echo "| PowerShell module ${tick}BddSuite${tick} | GitHub Packages, the same NuGet feed as C# (${tick}Register-PSResourceRepository${tick} it, then ${tick}Install-PSResource BddSuite${tick} with a token with read:packages; powershell-yaml from the Gallery), or this release's asset ${tick}BddSuite.$ps.nupkg${tick} | $ps |"
@@ -862,8 +862,8 @@ jobs:
               echo "| Package | Registry page |"
               echo "| --- | --- |"
               case "$PUBLIC" in *'"nuget"'*)
-                echo "| ${tick}Bdd.Suite${tick} $rs | https://www.nuget.org/packages/Bdd.Suite/$rs |"
-                echo "| ${tick}Bdd.Suite.Testing${tick} $rs | https://www.nuget.org/packages/Bdd.Suite.Testing/$rs |" ;;
+                echo "| ${tick}Smartpcr.BddSuite${tick} $rs | https://www.nuget.org/packages/Smartpcr.BddSuite/$rs |"
+                echo "| ${tick}Smartpcr.BddSuite.Testing${tick} $rs | https://www.nuget.org/packages/Smartpcr.BddSuite.Testing/$rs |" ;;
               esac
               case "$PUBLIC" in *'"npm"'*) echo "| ${tick}@bdd-suite/runtime${tick} $ts | https://www.npmjs.com/package/@bdd-suite/runtime/v/$ts |" ;; esac
               case "$PUBLIC" in *'"crates"'*) echo "| ${tick}suiterun${tick} $rs | https://crates.io/crates/suiterun/$rs |" ;; esac

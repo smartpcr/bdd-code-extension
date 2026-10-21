@@ -5,7 +5,7 @@
     ../bddsuite.tests.yaml; the provider is detected from the references below.
   -->
   <ItemGroup>
-    <PackageReference Include="Bdd.Suite.Testing" />
+    <PackageReference Include="Smartpcr.BddSuite.Testing" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

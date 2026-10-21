@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- The greeter's extension: its actions, on the Bdd.Suite package. -->
   <ItemGroup>
-    <PackageReference Include="Bdd.Suite" />
+    <PackageReference Include="Smartpcr.BddSuite" />
   </ItemGroup>
 </Project>

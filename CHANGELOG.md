@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.5
+
+* **C#: the packages are `Smartpcr.BddSuite` and `Smartpcr.BddSuite.Testing`.**
+  nuget.org reserves the ID `Bdd.Suite` for another owner, so every push of
+  `Bdd.Suite` was refused (nuget.org answered 409, which `--skip-duplicate`
+  reported as "already exists"). The assemblies and namespaces stay
+  `Bdd.Suite` and `Bdd.Suite.Testing`: a consumer renames its
+  `PackageReference`s and nothing else. 0.7.4 is on nuget.org under the new
+  IDs (uploaded by hand); GitHub Packages has the old IDs up to 0.7.4 and the
+  new ones from 0.7.5. The extension's version warning reads both.
+* **Release pipeline:** a nuget.org push that nuget.org refuses fails with
+  nuget.org's reason (no `--skip-duplicate` once the version is known to be
+  absent); the npm wait watches the document `npm install` reads; the
+  TypeScript consumer's registry check reads the lock file correctly.
+
 ## 0.7.4
 
 The first release to the public registries: `Bdd.Suite` and

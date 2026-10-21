@@ -5,7 +5,7 @@
     <AssemblyName>suiterun</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Bdd.Suite" />
+    <PackageReference Include="Smartpcr.BddSuite" />
     <ProjectReference Include="..\Greeter.Suite\Greeter.Suite.csproj" />
   </ItemGroup>
 </Project>

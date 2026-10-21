@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     E2 (docs/packages): a C# consumer builds, generates and runs from the
-    Bdd.Suite packages alone.
+    Smartpcr.BddSuite packages alone.
 
 .DESCRIPTION
     1. Packs the C# runtime into the local NuGet feed (scripts/local-feeds.ps1),
@@ -9,7 +9,7 @@
     2. Checks that nothing in this consumer points into the repository: no
        path to runtimes/, no <Import> of a runtime file.
     3. Restores into a package cache of its own, emptied of any earlier
-       Bdd.Suite package, so the files just packed are the ones used, under
+       Smartpcr.BddSuite package, so the files just packed are the ones used, under
        central package management (no NU1008).
     4. The binding program: lint, list --name, run --name --progress.
     5. Each test framework (MSTest 4, NUnit 4, xUnit v3): every case passes
@@ -18,7 +18,7 @@
 
     -Upstream names the feed everything else restores from, nuget.org by
     default; a machine that reaches nuget.org only through a mirror passes the
-    mirror. The local feed stays the only source of a Bdd.Suite package.
+    mirror. The local feed stays the only source of a Smartpcr.BddSuite package.
 
     -FromRegistry (E11): nothing is packed and there is no local feed; the
     packages restore from -Upstream (nuget.org), and the check is that the
@@ -72,19 +72,19 @@ if ($FromRegistry) {
 $restore = "-p:RestoreConfigFile=$config"
 
 $env:NUGET_PACKAGES = Join-Path $here 'artifacts/nuget-packages'
-Get-ChildItem $env:NUGET_PACKAGES -Directory -Filter 'bdd.suite*' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+Get-ChildItem $env:NUGET_PACKAGES -Directory -Filter 'smartpcr.bddsuite*' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 Push-Location $here
 try {
     $built = dotnet build Greeter.Suite.Cli -p:BddSuiteVersion=$version $restore --nologo -v q 2>&1
     Check ($LASTEXITCODE -eq 0) "the binding program restores and builds$(if ($LASTEXITCODE) { ":`n$($built -join "`n")" })"
-    $cached = Test-Path (Join-Path $env:NUGET_PACKAGES "bdd.suite/$version/lib/net10.0/Bdd.Suite.dll")
+    $cached = Test-Path (Join-Path $env:NUGET_PACKAGES "smartpcr.bddsuite/$version/lib/net10.0/Bdd.Suite.dll")
     if ($FromRegistry) {
         # NuGet records where each cached package came from.
-        $metadata = Join-Path $env:NUGET_PACKAGES "bdd.suite/$version/.nupkg.metadata"
+        $metadata = Join-Path $env:NUGET_PACKAGES "smartpcr.bddsuite/$version/.nupkg.metadata"
         $source = if (Test-Path $metadata) { (Get-Content $metadata -Raw | ConvertFrom-Json).source } else { '' }
-        Check ($cached -and $source -eq $Upstream) "Bdd.Suite $version came from $Upstream into this consumer's cache (its source: $source)"
+        Check ($cached -and $source -eq $Upstream) "Smartpcr.BddSuite $version came from $Upstream into this consumer's cache (its source: $source)"
     } else {
-        Check $cached "Bdd.Suite $version came from the local feed into this consumer's cache"
+        Check $cached "Smartpcr.BddSuite $version came from the local feed into this consumer's cache"
     }
 
     $program = Join-Path $here 'artifacts/bin/Greeter.Suite.Cli/Debug/net10.0/suiterun.dll'

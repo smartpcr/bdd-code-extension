@@ -13,7 +13,7 @@
     <RootNamespace>Bdd.Suite</RootNamespace>
     <AssemblyName>Bdd.Suite</AssemblyName>
     <IsPackable>true</IsPackable>
-    <PackageId>Bdd.Suite</PackageId>
+    <PackageId>Smartpcr.BddSuite</PackageId>
     <Description>The C# runtime of the BDD suite format: lint, run and list YAML suites, the session a test framework drives, reports, the embedded core actions, and the extension API through which a consumer adds its own actions and builds its own suiterun.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

@@ -54,6 +54,53 @@ The same release pushed the four packages to GitHub Packages (its job log:
 `Bdd.Suite`, `Bdd.Suite.Testing`, `BddSuite` pushed to the NuGet feed,
 `+ @smartpcr/bdd-suite-runtime@0.7.2` to the npm registry).
 
+## The first public release: 0.7.3 stopped, 0.7.4 released
+
+The user did the setup (the `release` environment with themselves as
+reviewer, `NUGET_USER` on that environment, `NPM_TOKEN` and `CRATES_IO_TOKEN`
+for the first publishes, nuget.org's trusted publishing policy for
+`Bdd.Suite` and `Bdd.Suite.Testing`, the repository variable
+`PUBLIC_REGISTRIES` = `nuget,npm,crates`) and approved each publish.
+
+| Run | What happened |
+| --- | --- |
+| 39528073290 (`f0ab360`, 0.7.3), attempts 1 and 2 | `PUBLIC_REGISTRIES` was not yet set (`registries=[]`): cancelled before the release, so 0.7.3 was not released to GitHub alone |
+| attempt 3 | crates.io: `suiterun` 0.7.3 published (with `CRATES_IO_TOKEN`). npm: refused, `EOTP`, the account wants a one-time password and the token could not give one. nuget.org: both pushes answered **409 Conflict**, which `--skip-duplicate` reported as "already exists" and the script as "published" (fixed). The release was held back, as designed |
+| attempt 4 (npm only, after a new token) | cancelled at the user's choice of a new version instead; 0.7.3 has no GitHub release |
+| 39531837686 (`6c0b360`, **0.7.4**) | npm: `@bdd-suite/runtime` 0.7.4 published, with a provenance statement. crates.io: `suiterun` 0.7.4. GitHub Packages: all four. nuget.org: **409 Conflict again**, for a version that never existed: the conflict is not the version's. **Release v0.7.4** with its nine files; tags `v0.7.4` and `runtimes/go/v0.7.4` at `6c0b360` |
+
+E11 for 0.7.4 (`verify-registries`):
+
+| Consumer | Result |
+| --- | --- |
+| Go, from proxy.golang.org | passed (CI) |
+| Rust, from crates.io | passed (CI) |
+| TypeScript, from npm | failed in CI: the version document answered after 61 s, but the package document `npm install` reads answered only some 90 s later, so the install got E404. `Wait-Published.ps1` now waits for the package document. Then, locally, `run-e5.ps1 -FromRegistry`: **passed**, 12 checks, the lock resolving `https://registry.npmjs.org/@bdd-suite/runtime/-/runtime-0.7.4.tgz`, after fixing the lock read (its root package has the key "", which needs `-AsHashtable`) |
+| C#, from nuget.org | cannot pass: nuget.org has no `Bdd.Suite` (search, the v2 feed and the flat container are empty; no look-alike ID exists). Open: the 409's reason, which `--skip-duplicate` hides; the user is to upload the package by hand to see nuget.org's message |
+
+## nuget.org: the ID was reserved; renamed
+
+nuget.org's Upload page, given `Bdd.Suite.0.7.4.nupkg` by the user: **"The
+package ID is reserved. You can upload your package with a different package
+ID."** Another owner holds a prefix reservation covering `Bdd.Suite`, so every
+push was refused; nuget.org answers that with 409, which `dotnet nuget push
+--skip-duplicate` reports as "already exists". `Smartpcr.BddSuite`,
+`Smartpcr.BddSuite.Testing` (the user's choice; no package by those IDs, nor by
+`BddSuite.Runtime` or `SuiteRun.Bdd`, existed) became the package IDs: the
+`PackageId`s, the Testing package's `build/Smartpcr.BddSuite.Testing.targets`
+(NuGet imports `build/<ID>.targets`), `packaging/`, the scripts, the C#
+consumer, CI's release notes, the extension's version reader (both IDs), the
+docs. Assemblies, namespaces and projects keep `Bdd.Suite`.
+
+| Run | Result |
+| --- | --- |
+| `dotnet pack` with the new IDs at 0.7.4 | `Smartpcr.BddSuite.0.7.4.nupkg`: 3 files as listed; `Smartpcr.BddSuite.Testing.0.7.4.nupkg`: 13 files as listed, depending on `Smartpcr.BddSuite` 0.7.4 |
+| `run-e2.ps1 -NoPack` on those packages | **E2 passed**, 15 checks: restored from the local feed; the renamed targets generate and run the tests under MSTest, NUnit and xUnit |
+| The user uploads both on nuget.org | accepted |
+| `npm run test:unit` | 259 passed, 100% |
+
+0.7.5 is the first release CI publishes to nuget.org under the new IDs.
+
 ## What the user does, in order
 
 1. The registry accounts, as section 6 of the plan lists: the npm org

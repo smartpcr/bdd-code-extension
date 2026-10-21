@@ -10,7 +10,7 @@ NUnit 4 and xUnit v3; the library itself depends on none of them.
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Bdd.Suite.Testing" Version="0.7.4" />
+  <PackageReference Include="Smartpcr.BddSuite.Testing" Version="0.7.5" />
   <!-- One framework: MSTest ... -->
   <PackageReference Include="MSTest.TestFramework" Version="4.3.2" />
   <PackageReference Include="MSTest.TestAdapter" Version="4.3.2" />
@@ -24,7 +24,7 @@ That is all: NuGet imports the package's build targets, which run the
 generator the package carries (`tools/net10.0/suiterun.dll`, on the .NET 10
 runtime the test project already needs) before every compile. Under central
 package management, leave the versions out and set them in
-`Directory.Packages.props`. Keep `Bdd.Suite.Testing` and `Bdd.Suite` at the
+`Directory.Packages.props`. Keep `Smartpcr.BddSuite.Testing` and `Smartpcr.BddSuite` at the
 same version: every bdd-suite package of one release carries the release's
 version (the VS Code extension's).
 

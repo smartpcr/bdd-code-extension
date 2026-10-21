@@ -1,6 +1,6 @@
-Bdd.Suite.Testing.nuspec
+Smartpcr.BddSuite.Testing.nuspec
 README.md
-build/Bdd.Suite.Testing.targets
+build/Smartpcr.BddSuite.Testing.targets
 lib/net10.0/Bdd.Suite.Testing.dll
 tools/net10.0/Bdd.Suite.dll
 tools/net10.0/Humanizer.dll

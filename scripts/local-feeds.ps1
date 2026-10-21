@@ -8,7 +8,7 @@
     repository root (git-ignored). A consumer sample names that folder as a
     package source, so it proves the very files a release would publish.
 
-      nuget    Bdd.Suite and Bdd.Suite.Testing (.nupkg and .snupkg), Release
+      nuget    Smartpcr.BddSuite and Smartpcr.BddSuite.Testing (.nupkg and .snupkg), Release
       goproxy  the Go module github.com/smartpcr/bdd-code-extension/runtimes/go at
                v<version>, in the module proxy's layout, for GOPROXY=file:///...
       cargo    the crate suiterun-<version>.crate (cargo package, which builds
@@ -44,7 +44,7 @@ foreach ($language in $Language) {
             $feed = Join-Path $Out 'nuget'
             New-Item -ItemType Directory -Force -Path $feed | Out-Null
             # A feed holds only this pack's files, so nothing stale is installed.
-            Get-ChildItem $feed -Filter 'Bdd.Suite*' | Remove-Item -Force
+            Get-ChildItem $feed -Filter 'Smartpcr.BddSuite*' | Remove-Item -Force
             dotnet pack (Join-Path $repo 'runtimes/csharp/Bdd.Suite.sln') -c Release -o $feed --nologo -v q
             if ($LASTEXITCODE) { throw 'dotnet pack failed' }
             foreach ($package in Get-ChildItem $feed -Filter '*.nupkg') {

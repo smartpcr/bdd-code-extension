@@ -25,6 +25,8 @@ interface Rule {
 const RULES: Rule[] = [
   // Central package management: the property the C# consumer sample pins with, or a PackageVersion item.
   { name: 'Directory.Packages.props', package: 'Bdd.Suite', pattern: new RegExp(`<BddSuiteVersion\\b[^>]*>\\s*${VERSION}\\s*<`) },
+  // nuget.org reserves Bdd.Suite, so the packages are Smartpcr.BddSuite* from 0.7.4; GitHub Packages had Bdd.Suite* before.
+  { name: 'Directory.Packages.props', package: 'Smartpcr.BddSuite', pattern: new RegExp(`<PackageVersion\\s+Include="Smartpcr\\.BddSuite(?:\\.Testing)?"\\s+Version="${VERSION}"`) },
   { name: 'Directory.Packages.props', package: 'Bdd.Suite', pattern: new RegExp(`<PackageVersion\\s+Include="Bdd\\.Suite(?:\\.Testing)?"\\s+Version="${VERSION}"`) },
   { name: 'go.mod', package: 'github.com/smartpcr/bdd-code-extension/runtimes/go', pattern: new RegExp(`github\\.com/smartpcr/bdd-code-extension/runtimes/go v${VERSION}`) },
   { name: 'Cargo.toml', package: 'suiterun', pattern: new RegExp(`^suiterun\\s*=\\s*(?:"|\\{[^}\\n]*\\bversion\\s*=\\s*")[=^~]?${VERSION}"`, 'm') },

@@ -10,8 +10,9 @@
     not the registry's web page:
 
       nuget      the flat container dotnet restore downloads from
-                 (Bdd.Suite and Bdd.Suite.Testing)
-      npm        the registry document npm install reads
+                 (Smartpcr.BddSuite and Smartpcr.BddSuite.Testing)
+      npm        the package document npm install reads (not the version's
+                 own, which a new package serves first)
       crates     the sparse index cargo reads (index.crates.io)
       psgallery  the Gallery's package endpoint PSResourceGet saves from
       go         proxy.golang.org's .info for the module version (the tag)
@@ -37,11 +38,13 @@ $agent = 'bdd-code-extension-release (https://github.com/smartpcr/bdd-code-exten
 # Each address, and whether its answer shows the version.
 $probes = switch ($Registry) {
     'nuget' {
-        foreach ($id in 'bdd.suite', 'bdd.suite.testing') {
+        foreach ($id in 'smartpcr.bddsuite', 'smartpcr.bddsuite.testing') {
             @{ Uri = "https://api.nuget.org/v3-flatcontainer/$id/index.json"; Served = { param($r) @($r.versions) -contains $version } }
         }
     }
-    'npm' { @{ Uri = "https://registry.npmjs.org/@bdd-suite/runtime/$version"; Served = { param($r) $r.version -eq $version } } }
+    # The package document npm install reads, not the version's own: for a new
+    # package the version's answers first, and an install in between fails E404 (0.7.4).
+    'npm' { @{ Uri = 'https://registry.npmjs.org/@bdd-suite%2fruntime'; Served = { param($r) @($r.versions.PSObject.Properties.Name) -contains $version } } }
     'crates' {
         # One JSON object per line, one line per version.
         @{ Uri = 'https://index.crates.io/su/it/suiterun'; Served = { param($r) @("$r" -split "`n" | Where-Object { $_ } | ForEach-Object { ($_ | ConvertFrom-Json).vers }) -contains $version } }

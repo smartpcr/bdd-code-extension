@@ -61,7 +61,8 @@ try {
         # npmjs.com by name: a machine's own npm configuration may name a mirror.
         $installed = npm install --no-audit --no-fund --save-dev "@bdd-suite/runtime@$version" --registry https://registry.npmjs.org/ 2>&1
         Check ($LASTEXITCODE -eq 0) "npm install of @bdd-suite/runtime@$version from npmjs.com$(if ($LASTEXITCODE) { ":`n$($installed -join "`n")" })"
-        $resolved = (Get-Content 'package-lock.json' -Raw | ConvertFrom-Json).packages.'node_modules/@bdd-suite/runtime'.resolved
+        # A hashtable: the lock's root package is the key "".
+        $resolved = (Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable).packages['node_modules/@bdd-suite/runtime'].resolved
         Check ("$resolved" -like 'https://registry.npmjs.org/@bdd-suite/runtime/-/runtime-*.tgz') "the lock resolves it from npmjs.com ($resolved)"
     } else {
         $installed = npm install --no-audit --no-fund --save-dev $tarball 2>&1

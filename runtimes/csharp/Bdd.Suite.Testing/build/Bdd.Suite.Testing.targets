@@ -6,7 +6,7 @@
     generator is the suiterun under the package's tools/ (docs/packages,
     DEC-P01, DEC-P04):
 
-      <PackageReference Include="Bdd.Suite.Testing" />
+      <PackageReference Include="Smartpcr.BddSuite.Testing" />
 
     From a checkout of this repository, import it after the SDK and reference
     the project; the generator is then built from Bdd.Suite.Cli beside it:

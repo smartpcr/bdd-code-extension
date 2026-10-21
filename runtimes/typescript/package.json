@@ -1,6 +1,6 @@
 {
   "name": "@bdd-suite/runtime",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "The TypeScript runtime of the BDD suite format: suiterun lint, run, list and actions, an in-process linter for editors, and an extension API for adding actions, context keys, options and rules.",
   "license": "MIT",
   "repository": {

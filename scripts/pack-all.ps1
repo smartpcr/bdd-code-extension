@@ -9,7 +9,7 @@
        (E2 to E6), each package checked with Test-PackageContents.ps1 against
        packaging/ (E1), the Go module zip included.
     2. The files a release publishes, into -Out (artifacts/packages by
-       default, emptied first): Bdd.Suite and Bdd.Suite.Testing (.nupkg and
+       default, emptied first): Smartpcr.BddSuite and Smartpcr.BddSuite.Testing (.nupkg and
        .snupkg), suiterun-<version>.crate, bdd-suite-runtime-<version>.tgz and
        BddSuite.<version>.nupkg. The Go module has no file: Go reads the tag.
 
@@ -47,8 +47,8 @@ if (-not (Test-Path (Join-Path $repo 'runtimes/typescript/node_modules'))) {
 Remove-Item $Out -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 $wanted = @(
-    "nuget/Bdd.Suite.$version.nupkg", "nuget/Bdd.Suite.$version.snupkg",
-    "nuget/Bdd.Suite.Testing.$version.nupkg", "nuget/Bdd.Suite.Testing.$version.snupkg",
+    "nuget/Smartpcr.BddSuite.$version.nupkg", "nuget/Smartpcr.BddSuite.$version.snupkg",
+    "nuget/Smartpcr.BddSuite.Testing.$version.nupkg", "nuget/Smartpcr.BddSuite.Testing.$version.snupkg",
     "cargo/suiterun-$version.crate",
     "npm/bdd-suite-runtime-$version.tgz",
     "psresource/BddSuite.$version.nupkg"

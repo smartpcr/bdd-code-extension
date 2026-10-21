@@ -159,10 +159,10 @@ once they are set up.
 
 | Language | Package | Install |
 | --- | --- | --- |
-| C# | `Bdd.Suite`, `Bdd.Suite.Testing` | From GitHub Packages, `https://nuget.pkg.github.com/smartpcr/index.json` (a token with `read:packages`), or the release's `.nupkg` files in a folder feed: `<PackageReference Include="Bdd.Suite.Testing" Version="0.7.4" />` ([runtimes/csharp](runtimes/csharp/README.md)) |
-| Go | `github.com/smartpcr/bdd-code-extension/runtimes/go` | `go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.4` ([runtimes/go](runtimes/go/README.md)) |
+| C# | `Smartpcr.BddSuite`, `Smartpcr.BddSuite.Testing` | From nuget.org; or GitHub Packages, `https://nuget.pkg.github.com/smartpcr/index.json` (a token with `read:packages`), or the release's `.nupkg` files in a folder feed: `<PackageReference Include="Smartpcr.BddSuite.Testing" Version="0.7.5" />` ([runtimes/csharp](runtimes/csharp/README.md)) |
+| Go | `github.com/smartpcr/bdd-code-extension/runtimes/go` | `go get github.com/smartpcr/bdd-code-extension/runtimes/go@v0.7.5` ([runtimes/go](runtimes/go/README.md)) |
 | Rust | `suiterun` | A git dependency on the tag, or the release's `suiterun-<version>.crate` ([runtimes/rust](runtimes/rust/README.md)) |
-| TypeScript | `@bdd-suite/runtime` | From GitHub Packages as `@smartpcr/bdd-suite-runtime`, under its own name: `npm install @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@0.7.4` (an `.npmrc` with `@smartpcr:registry=https://npm.pkg.github.com` and a token); or the release's `.tgz` ([runtimes/typescript](runtimes/typescript/README.md)) |
+| TypeScript | `@bdd-suite/runtime` | From GitHub Packages as `@smartpcr/bdd-suite-runtime`, under its own name: `npm install @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@0.7.5` (an `.npmrc` with `@smartpcr:registry=https://npm.pkg.github.com` and a token); or the release's `.tgz` ([runtimes/typescript](runtimes/typescript/README.md)) |
 | PowerShell | `BddSuite` | From GitHub Packages, the C# feed: `Register-PSResourceRepository` it, then `Install-PSResource BddSuite` with a token; or the release's `BddSuite.<version>.nupkg` in a folder you register ([runtimes/powershell](runtimes/powershell/README.md)) |
 
 Each language has a working consumer that uses only its package, its own
@@ -286,7 +286,7 @@ case and examples row, each running through the same session as `suiterun run`
 
 | Language | Frameworks | How it runs |
 | --- | --- | --- |
-| C# | MSTest 4, NUnit 4, xUnit v3 | the `Bdd.Suite.Testing` package generates at build; [runtimes/csharp](runtimes/csharp/README.md) |
+| C# | MSTest 4, NUnit 4, xUnit v3 | the `Smartpcr.BddSuite.Testing` package generates at build; [runtimes/csharp](runtimes/csharp/README.md) |
 | Go | `go test` | `go generate` writes `*_bdd_test.go`; [runtimes/go](runtimes/go/README.md) |
 | Rust | `cargo test` | `build.rs` generates for a `harness = false` target; [runtimes/rust](runtimes/rust/README.md) |
 | TypeScript | `node:test`, Vitest, Jest, Mocha | `suiterun generate` writes `*.bdd.test.ts`; [runtimes/typescript](runtimes/typescript/README.md) |
@@ -402,7 +402,7 @@ From the source repository, with Node.js 24:
 ```powershell
 npm version patch --no-git-tag-version   # or minor / major; edits package.json and package-lock.json
 npm run set-version                      # every runtime manifest, lock and consumer pin to the same version
-git commit -am "release 0.7.4"
+git commit -am "release 0.7.5"
 git push origin main
 ```
 
@@ -413,7 +413,7 @@ same CI run releases what it built and tested (docs/packages, D16):
    (`scripts/pack-all.ps1`) and checked each against `packaging/`, and the
    `consumers` matrix has built and run each consumer sample from those very
    files (E2 to E6);
-2. `Bdd.Suite`, `Bdd.Suite.Testing`, `BddSuite` and the npm package go to
+2. `Smartpcr.BddSuite`, `Smartpcr.BddSuite.Testing`, `BddSuite` and the npm package go to
    this repository's GitHub Packages; and to the public registries the
    repository variable `PUBLIC_REGISTRIES` names (`true` for all of nuget.org,
    npm, crates.io and the PowerShell Gallery, or a list such as

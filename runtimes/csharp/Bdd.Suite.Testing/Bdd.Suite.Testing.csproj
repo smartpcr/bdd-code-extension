@@ -6,7 +6,7 @@
     a test class drives it (SuiteTests). It depends on no test framework: each
     provider's verdicts (fail, skip) are in the code the generator writes.
 
-    A test project references the package, whose build/Bdd.Suite.Testing.targets
+    A test project references the package, whose build/Smartpcr.BddSuite.Testing.targets
     NuGet imports and which runs `suiterun generate` before every compile; the
     package carries that generator under tools/ (docs/packages, D7, DEC-P01). In
     this repository a project references this project and imports the targets
@@ -19,7 +19,7 @@
     <RootNamespace>Bdd.Suite.Testing</RootNamespace>
     <AssemblyName>Bdd.Suite.Testing</AssemblyName>
     <IsPackable>true</IsPackable>
-    <PackageId>Bdd.Suite.Testing</PackageId>
+    <PackageId>Smartpcr.BddSuite.Testing</PackageId>
     <Description>Runs BDD YAML suites as MSTest 4, NUnit 4 or xUnit v3 tests: every build generates one test class per suite and one test per case from bddsuite.tests.yaml, so dotnet test, its filters and an IDE's test explorer work on them.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);BddSuiteGeneratorInPackage</TargetsForTfmSpecificContentInPackage>
@@ -35,7 +35,8 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
-    <None Include="build\Bdd.Suite.Testing.targets" Pack="true" PackagePath="build\" />
+    <!-- NuGet imports build/<package ID>.targets: in the package it carries the package's ID. -->
+    <None Include="build\Bdd.Suite.Testing.targets" Pack="true" PackagePath="build\Smartpcr.BddSuite.Testing.targets" />
   </ItemGroup>
 
   <!-- suiterun, framework-dependent and without an app host, under

@@ -9,7 +9,7 @@
     repository's page. What goes there, from the files scripts/pack-all.ps1
     gathers (-Packages):
 
-      Bdd.Suite, Bdd.Suite.Testing
+      Smartpcr.BddSuite, Smartpcr.BddSuite.Testing
                   the NuGet feed https://nuget.pkg.github.com/<owner>/index.json,
                   as packed (dotnet nuget push --skip-duplicate --no-symbols;
                   the feed has no symbol server)
@@ -80,7 +80,7 @@ function Push-NuGet([string]$File) {
 try {
     Write-Output "GitHub Packages of $owner ($(if ($DryRun) { 'dry run' } else { 'publish' })), version ${version}:"
 
-    foreach ($id in 'Bdd.Suite', 'Bdd.Suite.Testing') { Push-NuGet (Get-Package "$id.$version.nupkg") }
+    foreach ($id in 'Smartpcr.BddSuite', 'Smartpcr.BddSuite.Testing') { Push-NuGet (Get-Package "$id.$version.nupkg") }
 
     # BddSuite: a copy whose nuspec names this repository.
     $module = Join-Path $work "BddSuite.$version.nupkg"

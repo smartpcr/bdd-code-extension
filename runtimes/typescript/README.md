@@ -8,7 +8,7 @@ the conformance corpus in `../../conformance/` like every runtime.
 ## Install
 
 ```text
-npm install --save-dev @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@0.7.4
+npm install --save-dev @bdd-suite/runtime@npm:@smartpcr/bdd-suite-runtime@0.7.5
 ```
 
 The package is not on npmjs.com yet. This repository's GitHub Packages

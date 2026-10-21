@@ -70,8 +70,10 @@ test('D12 the pinned versions: every manifest kind at the top of each folder, re
     'suiterun.ps1 BddSuite 0.6.10',
     'Cargo.toml suiterun 0.7.1',
   ]);
-  const item = pinnedVersions([WS], () => ['Directory.Packages.props'], () => '<PackageVersion Include="Bdd.Suite.Testing" Version="0.7.2" />');
-  assert.deepStrictEqual(item.map(p => p.version), ['0.7.2'], 'a PackageVersion item');
+  const item = pinnedVersions([WS], () => ['Directory.Packages.props'], () => '<PackageVersion Include="Smartpcr.BddSuite.Testing" Version="0.7.5" />');
+  assert.deepStrictEqual(item.map(p => `${p.package} ${p.version}`), ['Smartpcr.BddSuite 0.7.5'], 'a PackageVersion item');
+  const old = pinnedVersions([WS], () => ['Directory.Packages.props'], () => '<PackageVersion Include="Bdd.Suite.Testing" Version="0.7.2" />');
+  assert.deepStrictEqual(old.map(p => `${p.package} ${p.version}`), ['Bdd.Suite 0.7.2'], 'the name GitHub Packages had before 0.7.4');
 });
 
 test('D12 the warning names each pin of another release, and there is none when all agree', () => {
