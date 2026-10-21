@@ -19,7 +19,7 @@ with `read:packages`):
 ```powershell
 $token = Get-Credential -UserName <your GitHub user> -Message 'a token with read:packages'
 Register-PSResourceRepository -Name bdd-suite -Uri https://nuget.pkg.github.com/smartpcr/index.json -Trusted
-Install-PSResource BddSuite -Version 0.7.2 -Repository bdd-suite, PSGallery -Credential $token
+Install-PSResource BddSuite -Version 0.7.3 -Repository bdd-suite, PSGallery -Credential $token
 Import-Module BddSuite
 ```
 
@@ -35,7 +35,7 @@ with `suiterun.ps1`, `Invoke-BddSuite.ps1`, the core catalog and the license
 inside it. A workspace's own `suiterun.ps1` imports the module by name:
 
 ```powershell
-#Requires -Modules @{ ModuleName = 'BddSuite'; RequiredVersion = '0.7.2' }
+#Requires -Modules @{ ModuleName = 'BddSuite'; RequiredVersion = '0.7.3' }
 Import-Module BddSuite -DisableNameChecking
 exit (Invoke-BddSuiteCli -Arguments $args -Extension @(Join-Path $PSScriptRoot 'My/My.psm1'))
 ```

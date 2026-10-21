@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.3
 
 * **Release pipeline:** `verify-registries` (E11): after a release to the
   public registries, each consumer sample runs on a fresh runner with no

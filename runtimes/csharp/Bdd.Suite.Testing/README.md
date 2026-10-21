@@ -10,7 +10,7 @@ NUnit 4 and xUnit v3; the library itself depends on none of them.
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Bdd.Suite.Testing" Version="0.7.2" />
+  <PackageReference Include="Bdd.Suite.Testing" Version="0.7.3" />
   <!-- One framework: MSTest ... -->
   <PackageReference Include="MSTest.TestFramework" Version="4.3.2" />
   <PackageReference Include="MSTest.TestAdapter" Version="4.3.2" />
