@@ -47,6 +47,50 @@ public sealed class ToolboxTests
         Assert.True(File.Exists(corpus.Path("run-manifest.yaml")));
     }
 
+    [Fact]
+    public void AGeneratedSuitePathIsFoundBesideTheAssemblyOnAnotherMachine()
+    {
+        // Built in a workspace with its own layout (BVT/schema, BVT/suites), run
+        // from a package that carries test/e2e/{schema,suites} beside the assembly.
+        var built = Scratch("suiterun-built-");
+        var package = Scratch("suiterun-package-");
+        try
+        {
+            var builtSchema = Path.Combine(built, "BVT", "schema");
+            var builtSuite = Path.Combine(built, "BVT", "suites", "orders.yml");
+            Directory.CreateDirectory(builtSchema);
+            Directory.CreateDirectory(Path.GetDirectoryName(builtSuite)!);
+            File.WriteAllText(builtSuite, "suite: orders\n");
+
+            // On the building machine the generated paths are used as they are.
+            Assert.Equal((builtSuite, builtSchema), RepositoryPaths.Locate(builtSuite, builtSchema, package));
+
+            var gone = Path.Combine(built, "elsewhere");
+            var goneSchema = Path.Combine(gone, "schema").Replace('\\', '/');
+            var goneSuite = Path.Combine(gone, "suites", "orders.yml").Replace('\\', '/');
+
+            // Nothing deployed: the generated paths come back, for the error to name.
+            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, package));
+
+            var deployedSchema = Path.Combine(package, "test", "e2e", "schema");
+            Directory.CreateDirectory(deployedSchema);
+            // A schema without the suite is not taken: the suite must be there too.
+            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, package));
+
+            var deployedSuite = Path.Combine(package, "test", "e2e", "suites", "orders.yml");
+            Directory.CreateDirectory(Path.GetDirectoryName(deployedSuite)!);
+            File.WriteAllText(deployedSuite, "suite: orders\n");
+            Assert.Equal(
+                (Path.GetFullPath(deployedSuite), Path.GetFullPath(deployedSchema)),
+                RepositoryPaths.Locate(goneSuite, goneSchema, package));
+        }
+        finally
+        {
+            Directory.Delete(built, true);
+            Directory.Delete(package, true);
+        }
+    }
+
     [Theory]
     [InlineData("*.yml", "a.yml", true)]
     [InlineData("*.yml", "a.yaml", false)]

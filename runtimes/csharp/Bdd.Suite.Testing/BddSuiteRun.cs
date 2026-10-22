@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Bdd.Suite.Execution;
 using Bdd.Suite.Extensions;
+using Bdd.Suite.Paths;
 using Bdd.Suite.Schema;
 
 namespace Bdd.Suite.Testing;
@@ -37,11 +38,15 @@ public static class BddSuiteRun
     }
 
     /// <summary>Open one suite for a test class: lint it, then hand its session
-    /// to the class, with the method name each case's test has.</summary>
+    /// to the class, with the method name each case's test has. The paths are
+    /// the ones the suite had where the tests were generated; on another
+    /// machine the suite is looked for beside the test assembly
+    /// (<see cref="RepositoryPaths.Locate"/>).</summary>
     public static SuiteTests Open(string suitePath, string schemaRoot, bool guarded, params (string Method, string Case)[] cases)
     {
-        var schema = Schemas.GetOrAdd(Path.GetFullPath(schemaRoot), SuiteSchema.Load);
-        return new SuiteTests(SuiteSession.OpenFile(suitePath, schema, Context, guarded), cases);
+        var (suite, schemaDirectory) = RepositoryPaths.Locate(suitePath, schemaRoot, AppContext.BaseDirectory);
+        var schema = Schemas.GetOrAdd(Path.GetFullPath(schemaDirectory), SuiteSchema.Load);
+        return new SuiteTests(SuiteSession.OpenFile(suite, schema, Context, guarded), cases);
     }
 
     /// <summary>End the run: write the trace when the run context names a file.</summary>

@@ -25,6 +25,17 @@
   `test/e2e/schema` tree nearer the file does. `bddSuite.root` is ignored in an
   untrusted folder, like `bindings`.
 
+* **Generated C# tests run away from the machine that built them.** The
+  generated `BddSuiteRun.Open` names the suite and the schema by their paths on
+  the build machine, so a test assembly packaged and run elsewhere (a lab VM
+  under TAEF) failed to open every suite. When those paths are not there, the
+  runtime now takes the nearest `test/e2e/schema` above the test assembly and
+  the suite at the same place relative to it (`RepositoryPaths.Locate`,
+  docs/test-providers DEC-T13). Run in place, nothing changes.
+* **CI installs Pester 5 and retries the PowerShell Gallery.** The Pester job
+  failed on a Gallery download, and `-MinimumVersion 5.5.0` now resolves to
+  Pester 6.
+
 ## 0.7.6 (local build, unreleased)
 
 * **The index survives a start-up burst of "too many open files".** When the

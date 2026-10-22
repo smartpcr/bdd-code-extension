@@ -38,6 +38,37 @@ public static class RepositoryPaths
     public static string SchemaRoot(string root) => Path.Combine(root, "test", "e2e", "schema");
 
     /// <summary>
+    /// A suite and its schema where a test assembly runs (docs/test-providers
+    /// DEC-T13). Generated tests name both by the paths they had on the machine
+    /// that built them; a test package copied to another machine carries the
+    /// suites beside its assembly instead. When the generated paths are there,
+    /// they are used as they are. Otherwise the schema is the nearest
+    /// test/e2e/schema above <paramref name="assemblyDirectory"/>, and the suite
+    /// keeps its place relative to the schema's parent folder, so
+    /// <c>suites/orders.yml</c> beside <c>schema</c> at build time is
+    /// <c>test/e2e/suites/orders.yml</c> beside <c>test/e2e/schema</c> there.
+    /// When neither is found the generated paths are returned, and opening the
+    /// suite reports the path it was built with.
+    /// </summary>
+    public static (string Suite, string SchemaRoot) Locate(string suitePath, string schemaRoot, string assemblyDirectory)
+    {
+        if (File.Exists(suitePath) && Directory.Exists(schemaRoot))
+        {
+            return (suitePath, schemaRoot);
+        }
+        var root = FindRoot(assemblyDirectory);
+        var builtParent = Path.GetDirectoryName(Path.GetFullPath(schemaRoot));
+        if (root is null || builtParent is null)
+        {
+            return (suitePath, schemaRoot);
+        }
+        var deployedSchema = SchemaRoot(root);
+        var relative = Path.GetRelativePath(builtParent, Path.GetFullPath(suitePath));
+        var deployedSuite = Path.GetFullPath(Path.Combine(root, "test", "e2e", relative));
+        return File.Exists(deployedSuite) ? (deployedSuite, deployedSchema) : (suitePath, schemaRoot);
+    }
+
+    /// <summary>
     /// Whether a name matches a glob of the kind a --path takes: `*` for any run
     /// of characters inside one segment, `?` for one, and nothing else.
     ///

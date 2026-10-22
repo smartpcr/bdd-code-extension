@@ -534,6 +534,29 @@ that the code compiles.
 
 **Serves.** O1–O5. **Verified by.** all scenarios.
 
+### <a id="dec-t13"></a>DEC-T13. A C# test assembly finds its suites beside itself when the build's paths are gone
+
+**Choice.** The generated `BddSuiteRun.Open` call keeps the absolute paths the
+suite and its schema had where the tests were generated. When those paths do
+not exist where the tests run, the runtime looks for the nearest
+`test/e2e/schema` above the test assembly's folder and keeps the suite's place
+relative to its schema's parent: `suites/orders.yml` beside `schema` at build
+time is `test/e2e/suites/orders.yml` beside `test/e2e/schema` there. When that
+file is missing too, the build's paths are used, and the error names them.
+
+**Why.** A test package built on one machine (a CI agent) and run on another
+(a lab's test VM, under a runner such as TAEF) carries its suites with it, but
+not at the agent's paths, so every test class failed to open its suite.
+
+**Tradeoff.** The relocated layout is fixed to `test/e2e/{schema,...}` beside
+or above the assembly, the layout `suiterun` already finds; a package that
+carries the suites elsewhere still fails, naming the build's path. A test
+project built and run in place behaves exactly as before. Only the C# provider
+does this; the other providers run where they are generated.
+
+**Serves.** O4. **Verified by.** `ToolboxTests.AGeneratedSuitePathIsFoundBesideTheAssemblyOnAnotherMachine`
+(unit); E13 in a consumer's lab.
+
 ## 5. Failure, rollback and cleanup
 
 * **What the work owns.** Generated test files (in `obj/`, `OUT_DIR`, or
@@ -769,7 +792,7 @@ configuration.
 | O1 | DEC-T01, DEC-T04, DEC-T12 | D1, D2, D7, D9, D11, D13 | E1, E2 |
 | O2 | DEC-T02, DEC-T03, DEC-T05, DEC-T06, DEC-T07, DEC-T10 | D3, D4, D5, D6 | E3, E4, E9 |
 | O3 | DEC-T05, DEC-T06, DEC-T07, DEC-T10, DEC-T11 | D8, D10, D12, D14 | E3, E5, E6, E7, E8, E9 |
-| O4 | DEC-T02, DEC-T03, DEC-T04, DEC-T08, DEC-T09, DEC-T11 | D1, D2, D4–D14 | E1, E4–E8, E10, E11, E13 |
+| O4 | DEC-T02, DEC-T03, DEC-T04, DEC-T08, DEC-T09, DEC-T11, DEC-T13 | D1, D2, D4–D14 | E1, E4–E8, E10, E11, E13 |
 | O5 | DEC-T06, DEC-T07, DEC-T10 | D3, D8, D10, D12, D14, D15 | E9, E12 |
 
 D16 (editor support for the config file) and D17 (Mocha) are P2 and serve no
