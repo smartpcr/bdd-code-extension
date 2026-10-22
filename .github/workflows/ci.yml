@@ -82,9 +82,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: The generator's YAML module
+      - name: The generator's YAML module (0.4.12)
         shell: pwsh
-        run: Install-Module powershell-yaml -Scope CurrentUser -Force
+        run: |
+          # A Gallery lookup fails now and then ("No match was found"), so try three times.
+          foreach ($attempt in 1..3) {
+            try {
+              Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force -ErrorAction Stop
+              break
+            } catch {
+              if ($attempt -eq 3) { throw }
+              Write-Warning "attempt ${attempt}: $_"; Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
 
       - name: Schema tests (the core, imports, duplicates, cycles, extensions)
         shell: pwsh
@@ -595,7 +605,17 @@ jobs:
       # local-feeds puts the same module into the file repository beside BddSuite.
       - name: The YAML module the PowerShell module requires
         shell: pwsh
-        run: Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force
+        run: |
+          # A Gallery lookup fails now and then ("No match was found"), so try three times.
+          foreach ($attempt in 1..3) {
+            try {
+              Install-Module powershell-yaml -RequiredVersion 0.4.12 -Scope CurrentUser -Force -ErrorAction Stop
+              break
+            } catch {
+              if ($attempt -eq 3) { throw }
+              Write-Warning "attempt ${attempt}: $_"; Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
 
       - name: Pack every package into the local feeds, check each against packaging/, and gather the release's files
         shell: pwsh
