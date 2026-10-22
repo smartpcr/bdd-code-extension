@@ -7,23 +7,27 @@ import { ResolvedBinding, WorkspaceLayout } from '../config/layout';
 import * as fs from 'fs';
 import { resolveCatalog } from '../core/catalog';
 import { Debouncer } from '../core/debounce';
+import { forEachLimited, isTransientFsError, realSleep, retryTransient, retryTransientSync } from '../core/fsRetry';
 import { fileKey } from '../core/paths';
 import { CompiledRecognizer, compileRecognizers, scanRegistrations } from '../core/registrations';
 import { parseSuite } from '../core/suites';
 import { Range } from '../core/text';
 import { CoreError } from '../core/types';
 import { WorkspaceIndex } from '../core/workspaceIndex';
-import { INDEX_DEBOUNCE_MS, MAX_INDEXED_FILE_BYTES } from '../limits';
+import {
+  INDEX_DEBOUNCE_MS, INDEX_READ_ATTEMPTS, INDEX_READ_CONCURRENCY, INDEX_READ_RETRY_BASE_MS, INDEX_RESCAN_DELAY_MS,
+  MAX_INDEXED_FILE_BYTES,
+} from '../limits';
 
 export const toRange = (r: Range): vscode.Range =>
   new vscode.Range(r.start.line, r.start.character, r.end.line, r.end.character);
 
 type Kind = { kind: 'catalog' } | { kind: 'suite' } | { kind: 'source'; binding: ResolvedBinding };
 
-/** An imported catalog's text, or undefined when it cannot be read. */
+/** An imported catalog's text, or undefined when it cannot be read; EMFILE and the like are retried. */
 function readSync(file: string): string | undefined {
   try {
-    return fs.readFileSync(file, 'utf8');
+    return retryTransientSync(() => fs.readFileSync(file, 'utf8'), INDEX_READ_ATTEMPTS, INDEX_READ_RETRY_BASE_MS);
   } catch {
     return undefined;
   }
@@ -39,6 +43,8 @@ export class FolderIndexer implements vscode.Disposable {
   /** Fires once per INDEX_DEBOUNCE_MS after any index update (B1.7 item 4). */
   readonly onDidChangeIndex = this.changedEmitter.event;
   private pendingReads = 0;
+  /** Files whose read failed with a transient error after every retry, by file key. */
+  private readonly unread = new Map<string, vscode.Uri>();
   /** Watchers on the files the catalog imports (DEC-S10), replaced whenever the catalog is re-read. */
   private importWatchers: vscode.Disposable[] = [];
   private markReady!: () => void;
@@ -87,7 +93,8 @@ export class FolderIndexer implements vscode.Disposable {
   private async read(uri: vscode.Uri): Promise<string | undefined> {
     const open = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
     if (open) return open.getText();
-    const bytes = await vscode.workspace.fs.readFile(uri);
+    const bytes = await retryTransient(() => Promise.resolve(vscode.workspace.fs.readFile(uri)),
+      INDEX_READ_ATTEMPTS, INDEX_READ_RETRY_BASE_MS);
     if (bytes.byteLength > MAX_INDEXED_FILE_BYTES) {
       this.log(`Skipped ${uri.fsPath}: ${bytes.byteLength} bytes is over the ${MAX_INDEXED_FILE_BYTES}-byte limit.`);
       return undefined;
@@ -129,8 +136,11 @@ export class FolderIndexer implements vscode.Disposable {
     this.pendingReads++;
     try {
       const text = await this.read(uri);
+      this.unread.delete(fileKey(uri.fsPath));
       if (text !== undefined) this.apply(uri.fsPath, text);
     } catch (e) {
+      // Still failing after the retries: a start-up burst of EMFILE outlasted them. The scan reads it once more.
+      if (isTransientFsError(e)) this.unread.set(fileKey(uri.fsPath), uri);
       this.log(`Could not read ${uri.fsPath}: ${(e as Error).message}`);
     } finally {
       this.pendingReads--;
@@ -157,10 +167,16 @@ export class FolderIndexer implements vscode.Disposable {
       const found = await Promise.all(this.globs().map(g =>
         vscode.workspace.findFiles(new vscode.RelativePattern(folder, g), this.layout.exclude)));
       const uris = [...new Map(found.flat().map(u => [fileKey(u.fsPath), u])).values()];
-      await Promise.all(uris.map(u => this.load(u)));
+      await forEachLimited(uris, INDEX_READ_CONCURRENCY, u => this.load(u));
+      if (this.unread.size > 0) {
+        this.log(`${this.unread.size} file(s) could not be read yet (too many open files); reading them again in ${INDEX_RESCAN_DELAY_MS} ms.`);
+        await realSleep(INDEX_RESCAN_DELAY_MS);
+        await forEachLimited([...this.unread.values()], INDEX_READ_CONCURRENCY, u => this.load(u));
+      }
       const c = this.index.catalog;
       this.log(`Indexed ${c?.actions.size ?? 0} catalog actions, ${this.index.suiteFiles().length} suites and libraries, `
-        + `${this.index.allSites().length} registration sites in ${Date.now() - started} ms.`);
+        + `${this.index.allSites().length} registration sites in ${Date.now() - started} ms.`
+        + (this.unread.size > 0 ? ` ${this.unread.size} file(s) could not be read; they are indexed when they change.` : ''));
     })().finally(() => this.markReady());
     for (const glob of [path.relative(this.layout.folder, this.layout.catalogPath).split(path.sep).join('/'), ...this.globs()]) {
       const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.6 (local build, unreleased)
+
+* **The index survives a start-up burst of "too many open files".** When the
+  extension host starts, every extension opens files at once, and a read could
+  fail with `EMFILE`. The initial scan read every suite and binding source at
+  once and never read a failed file again, so a workspace could open with no
+  catalog actions, few suites or no registration sites: every action then
+  showed as undeclared (red) until its file changed. Reads that fail with
+  `EMFILE`, `ENFILE`, `EBUSY` or `EAGAIN` are now retried (50 ms doubling to
+  800 ms), the scan reads 8 files at a time, files still unread are read once
+  more 3 s later, and the log names any that stayed unread. The same retry
+  covers the catalog's imports and the `bindingSources` read at activation.
+
 ## 0.7.5
 
 * **C#: the packages are `Smartpcr.BddSuite` and `Smartpcr.BddSuite.Testing`.**

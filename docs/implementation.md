@@ -346,6 +346,10 @@ All in `src/limits.ts`. Every one is enforced by code and tested at its edge.
 | `MAX_TOOL_OUTPUT_BYTES` | 16 MiB | Lint of the largest suite emits kilobytes; 16 MiB is far above any legal answer and far below what hurts the extension host |
 | `MAX_STDERR_BYTES` | 64 KiB | Enough for a stack trace; the tail is what matters |
 | `MAX_INDEXED_FILE_BYTES` | 1 MiB | The largest binding source file is 179 KB (`scripts/e2e/Invoke-LabTestSuite.Tests.ps1`, excluded anyway) and the largest suite 68 KB; a file above 1 MiB is generated or a mistake and is skipped with a log line |
+| `INDEX_READ_CONCURRENCY` | 8 | At extension-host start every extension opens files at once; with no cap the initial scan hit `EMFILE` on most of a 60-file workspace (update2, 2026-10-22) |
+| `INDEX_READ_ATTEMPTS` | 6 | A read that fails with `EMFILE`/`ENFILE`/`EBUSY`/`EAGAIN` (`src/core/fsRetry.ts`) is tried six times in all, about 1.5 s of pauses: a start-up burst is over by then |
+| `INDEX_READ_RETRY_BASE_MS` | 50 | The first pause; each later one doubles (50, 100, 200, 400, 800 ms) |
+| `INDEX_RESCAN_DELAY_MS` | 3000 | Files still unread after the scan are read once more this much later; the log names any that stayed unread, and a change to one indexes it |
 | `META_DEPTH_LIMIT` | 5 | The format's own nesting limit (`yml_suite_design.md` DEC-Y10); scope resolution stops there |
 | `KILL_GRACE_MS` | 1000 | E-B11 asserts no child survives 1 s after a kill |
 | `LIVE_LINT_DEBOUNCE_MS` | 400 | A pause long enough to be a pause, short enough that O10's one second holds with a lint that B8.3 measures; B8.3 may lower it, never raise it past 600 without changing O10 |

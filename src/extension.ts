@@ -9,6 +9,7 @@ import { pinnedVersions, versionWarning } from './config/packageVersions';
 import { createTrustGate } from './config/trust';
 import { resolveCatalog } from './core/catalog';
 import { LintResults } from './core/diagnostics';
+import { retryTransientSync } from './core/fsRetry';
 import { fileKey } from './core/paths';
 import { registerCommands } from './features/commands';
 import { CoverageView } from './features/coverageView';
@@ -24,6 +25,7 @@ import { registerInlayHints } from './features/inlay';
 import { LintController } from './features/lintController';
 import { registerNavigation } from './features/navigation';
 import { SuiteStatusBar } from './features/statusBar';
+import { INDEX_READ_ATTEMPTS, INDEX_READ_RETRY_BASE_MS } from './limits';
 import { LintWorkerHost } from './lint/workerHost';
 import { killAll, liveChildren } from './tools/runTool';
 
@@ -35,9 +37,10 @@ import { killAll, liveChildren } from './tools/runTool';
  */
 function catalogSourcesOf(file: string, coreFile: string): Record<string, string[]> | undefined {
   const open = vscode.workspace.textDocuments.find(d => d.uri.scheme === 'file' && fileKey(d.uri.fsPath) === fileKey(file));
+  // Read at activation, in the start-up burst of open files: EMFILE here would leave no binding sources to scan.
   const read = (f: string) => {
     try {
-      return fs.readFileSync(f, 'utf8');
+      return retryTransientSync(() => fs.readFileSync(f, 'utf8'), INDEX_READ_ATTEMPTS, INDEX_READ_RETRY_BASE_MS);
     } catch {
       return undefined;
     }
