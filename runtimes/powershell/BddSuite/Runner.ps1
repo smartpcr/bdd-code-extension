@@ -428,11 +428,14 @@ function Invoke-Step {
     } catch {
         $message = $_.Exception.Message
         $reason = Get-StepFailureReason -Failure $_.Exception
-        Add-SuiteTrace -Phase $Phase -CaseName $CaseName -StepLabel $label -Action $action -Status 'failed' -Reason $reason
+        # A step that skipped its case did not fail (session.md rule 12); what
+        # the skip does to the case is the caller's to decide.
+        $status = if ($reason -eq 'skip') { 'skipped' } else { 'failed' }
+        Add-SuiteTrace -Phase $Phase -CaseName $CaseName -StepLabel $label -Action $action -Status $status -Reason $reason
         $stepWatch.Stop()
         Add-StepTiming -Phase $Phase -Suite $suiteName -CaseName $CaseName -StepLabel $label -Action $action `
-            -Status 'failed' -StartedUtc $stepStartedUtc -DurationSec $stepWatch.Elapsed.TotalSeconds -Reason $reason -Step $Step
-        Write-StepEvent -Step $Step -Phase $Phase -CaseName $CaseName -StepLabel $label -Status 'failed' `
+            -Status $status -StartedUtc $stepStartedUtc -DurationSec $stepWatch.Elapsed.TotalSeconds -Reason $reason -Step $Step
+        Write-StepEvent -Step $Step -Phase $Phase -CaseName $CaseName -StepLabel $label -Status $status `
             -DurationSec $stepWatch.Elapsed.TotalSeconds -Reason $reason
         if ($message -match 'exceeded its \d+s limit') {
             Reset-StepRunspace
@@ -515,6 +518,9 @@ function Invoke-HookList {
             $null = Invoke-Step -Step $step -Ctx $Ctx -Description "$Label $(Format-StepLabel $step)" `
                 -Phase $(if ($Phase) { $Phase } else { 'step' }) -CaseName $CaseName
         } catch {
+            # A case's own setup may skip its case (session.md rule 12); in any
+            # other hook a skip is that hook's failure.
+            if ($Phase -eq 'case-setup' -and (Test-StepSkip -Failure $_.Exception)) { throw }
             throw (New-StepFailure -Message $_.Exception.Message -Reason 'hook')
         }
     }

@@ -301,7 +301,9 @@ func bounded(
 //
 // The nested step runs inline rather than on its own goroutine: the poll is
 // inside the bound its parent already holds, and a step that fails transiently
-// is tried again rather than ending the case.
+// is tried again rather than ending the case. A skip is the case's decision,
+// not a step that is not ready yet: it ends the case rather than being polled
+// again (spec/session.md rule 12).
 func wait(
 	step *model.Map,
 	held *Context,
@@ -340,6 +342,9 @@ func wait(
 	for {
 		collected := map[string][]any{}
 		_, failure := runStep(nested, held, loaded, until, phase, caseName, recorded, collected)
+		if actions.IsSkip(failure) {
+			return nil, failure
+		}
 		if failure == nil {
 			assertions, found := step.Get("until")
 			if !found || assertions == nil {
@@ -429,12 +434,15 @@ func runStep(
 		produced, acted = bounded(action, expanded, held, limit, label, interruptible)
 	}
 	if acted != nil {
-		reason := trace.Action
+		reason := reasonOf(acted)
 		message := acted.Error()
-		if failure, ok := acted.(*actions.Error); ok {
-			reason = failure.Reason
+		// A skip ends the case as skipped rather than failing the step
+		// (spec/session.md rule 12).
+		status := trace.Failed
+		if reason == trace.Skip {
+			status = trace.Skipped
 		}
-		recorded.Add(phase, caseName, label, action, trace.Failed, reason)
+		recorded.Add(phase, caseName, label, action, status, reason)
 		if !strings.HasPrefix(message, label) {
 			message = label + ": " + message
 		}
@@ -494,6 +502,11 @@ func runHook(
 	collected := map[string][]any{}
 	for _, step := range steps {
 		if _, failure := runStep(step, held, loaded, deadline, phase, caseName, recorded, collected); failure != nil {
+			// A case's own setup may skip its case (spec/session.md rule 12); in
+			// any other hook a skip is that hook's failure.
+			if phase == trace.CaseSetup && actions.IsSkip(failure) {
+				return failure
+			}
 			// The category is the hook rather than whatever the action was
 			// doing: a case whose setup failed did not fail at one of its own
 			// steps, and a trace that said 'action' would send a reader looking

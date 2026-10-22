@@ -51,15 +51,15 @@ func TestEveryEntryIsOfAKindThisBindingRuns(t *testing.T) {
 		t.Errorf("the manifest holds entries of kinds no test here runs: %s", strings.Join(unknown, ", "))
 	}
 	// The corpus as it stands here: 42 validate entries (os-context's
-	// lifecycle and E214 entries moved to os-context, DEC-S02) and 20 execute
+	// lifecycle and E214 entries moved to os-context, DEC-S02) and 21 execute
 	// entries, of which stage K0's one validate and six execute entries are
 	// pending in every runtime. A pending entry is neither run nor counted as
 	// passed (conformance/README.md); the family tests skip it and name it.
 	if got := len(Entries(manifest, "validate")); got != 42 {
 		t.Errorf("%d validate entries, not 42", got)
 	}
-	if got := len(Entries(manifest, "execute")); got != 20 {
-		t.Errorf("%d execute entries, not 20", got)
+	if got := len(Entries(manifest, "execute")); got != 21 {
+		t.Errorf("%d execute entries, not 21", got)
 	}
 	pending := []string{}
 	for _, entry := range entries {
@@ -246,8 +246,8 @@ func TestTheCoreCatalogsGoSetIsExactlyTheRegisteredNames(t *testing.T) {
 	if strings.Join(registered, ",") != strings.Join(declared, ",") {
 		t.Errorf("registered %v; the core catalog declares for go %v", registered, declared)
 	}
-	if len(registered) != 6 {
-		t.Errorf("%d core actions registered, not 6 (core.* and wait)", len(registered))
+	if len(registered) != 7 {
+		t.Errorf("%d core actions registered, not 7 (core.* and wait)", len(registered))
 	}
 }
 

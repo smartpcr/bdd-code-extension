@@ -58,6 +58,7 @@ func TestEveryPhaseStatusAndReasonHasTheNameTheSchemaUses(t *testing.T) {
 		{string(Failed), "failed"},
 		{string(SuiteSetupFail), "suite-setup"},
 		{string(Guard), "guard"},
+		{string(Skip), "skip"},
 		{string(Cleanup), "cleanup"},
 		{string(Hook), "hook"},
 		{string(Tag), "tag"},

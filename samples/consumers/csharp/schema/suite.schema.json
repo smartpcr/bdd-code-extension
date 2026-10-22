@@ -813,6 +813,68 @@
         }
       }
     },
+    "step.core.skip": {
+      "description": "End the case as skipped with a chosen message; its cleanup still runs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "const": "core.skip"
+        },
+        "given": {
+          "$ref": "#/$defs/sentence",
+          "description": "The state this step establishes. One Gherkin keyword per step, and the order within a list is given, then when, then then."
+        },
+        "when": {
+          "$ref": "#/$defs/sentence",
+          "description": "The behaviour this step exercises."
+        },
+        "then": {
+          "$ref": "#/$defs/sentence",
+          "description": "The outcome this step observes. Its expectation belongs in its own asserts."
+        },
+        "and": {
+          "$ref": "#/$defs/sentence",
+          "description": "Continues the keyword of the step before it. First in a list it is E212, because there is nothing to continue."
+        },
+        "why": {
+          "$ref": "#/$defs/why"
+        },
+        "timeoutSec": {
+          "$ref": "#/$defs/limit",
+          "description": "This step's own limit. The effective limit is the smaller of it and what remains of the case deadline: a step may shorten its share and may never lengthen it. An action that takes an internal bound, such as a poll or a drain wait, reads this same number."
+        },
+        "captureAs": {
+          "description": "Publishes the return value of this step under this name, read as ${capture.<name>}. With a table, it publishes a list with one entry per row, in row order.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "ifCapture": {
+          "description": "Runs the step only when this capture name or dotted object-field path is present. Null and false are present; an absent field skips the step.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "table": {
+          "$ref": "#/$defs/table",
+          "description": "Runs this step once per row, with ${row.<column>} bound to that row."
+        },
+        "asserts": {
+          "description": "Checked immediately after this step and before the next one, inside this step's own limit. The case-level asserts block still runs after every step.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/assert"
+          }
+        },
+        "message": {
+          "type": "string",
+          "default": "core.skip: skipped on purpose"
+        }
+      }
+    },
     "step.core.sleep": {
       "description": "Sleep for a number of seconds, interruptibly.",
       "type": "object",
@@ -1158,6 +1220,7 @@
             "core.noop",
             "core.set",
             "core.fail",
+            "core.skip",
             "core.sleep",
             "core.record",
             "wait",
@@ -1213,6 +1276,21 @@
           },
           "then": {
             "$ref": "#/$defs/step.core.fail"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "core.skip"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/step.core.skip"
           }
         },
         {

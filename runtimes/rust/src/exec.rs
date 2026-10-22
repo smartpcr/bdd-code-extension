@@ -290,7 +290,7 @@ fn bounded(
 ///
 /// The nested step runs inline rather than on its own thread: the poll is
 /// inside the bound its parent already holds, and a step that fails transiently
-/// is tried again rather than ending the case.
+/// is tried again rather than ending the case. A skip is not tried again.
 #[allow(clippy::too_many_arguments)]
 fn wait(
     step: &Value,
@@ -323,15 +323,20 @@ fn wait(
     loop {
         let mut collected: BTreeMap<String, Vec<Value>> = BTreeMap::new();
         let attempt = run_step(&nested, context, schema, until, phase, case_name, trace, &mut collected);
-        if attempt.is_ok() {
-            match step.get("until") {
+        match attempt {
+            // A skip is the case's decision, not a step that is not ready yet:
+            // it ends the case rather than being polled again (session.md
+            // rule 12).
+            Err(failure) if failure.is_skip() => return Err(failure),
+            Err(_) => {}
+            Ok(_) => match step.get("until") {
                 Some(assertion) if !assertion.is_null() => {
                     if check_assertion(assertion, context).is_ok() {
                         return Ok(json!({ "waited": true, "elapsedSec": started.elapsed().as_secs() }));
                     }
                 }
                 _ => return Ok(json!({ "waited": true, "elapsedSec": started.elapsed().as_secs() })),
-            }
+            },
         }
         if Instant::now() + interval >= until {
             return Err(ActionError::timeout(format!(
@@ -417,7 +422,8 @@ fn run_step(
     let result = match result {
         Ok(result) => result,
         Err(failure) => {
-            trace.add(phase, case_name, Some(&label), Some(&action), Status::Failed, Some(failure.reason));
+            let status = if failure.is_skip() { Status::Skipped } else { Status::Failed };
+            trace.add(phase, case_name, Some(&label), Some(&action), status, Some(failure.reason));
             let message = if failure.message.starts_with(&label) {
                 failure.message
             } else {
@@ -479,6 +485,11 @@ pub(crate) fn run_hook(
     let mut collected: BTreeMap<String, Vec<Value>> = BTreeMap::new();
     for step in steps {
         if let Err(failure) = run_step(step, context, schema, deadline, phase, case_name, trace, &mut collected) {
+            // A case's own setup may skip its case (session.md rule 12); in
+            // any other hook a skip is that hook's failure.
+            if failure.is_skip() && phase == Phase::CaseSetup {
+                return Err(failure);
+            }
             // The category is the hook rather than whatever the action was
             // doing: a case whose setup failed did not fail at one of its own
             // steps, and a trace that said 'action' would send a reader looking

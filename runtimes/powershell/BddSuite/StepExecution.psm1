@@ -110,6 +110,34 @@ function Get-StepFailureReason {
     return 'action'
 }
 
+function New-StepSkip {
+    <#
+    .SYNOPSIS
+        Not a failure: the case cannot run here, so it ends as skipped with this
+        message. What an action throws (`throw (New-StepSkip 'why')`).
+    .DESCRIPTION
+        spec/session.md rule 12. In a case's own setup or steps the rest of the
+        case does not run, its cleanup and afterEach still do, and the case is
+        skipped with reason skip. In any other hook it is that hook's failure,
+        as anything else thrown there is.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Message)
+
+    return (New-StepFailure -Message $Message -Reason 'skip')
+}
+
+function Test-StepSkip {
+    <#
+    .SYNOPSIS
+        Whether what a step threw ends its case as skipped rather than failing it.
+    #>
+    [CmdletBinding()]
+    param($Failure)
+
+    return ((Get-StepFailureReason -Failure $Failure) -eq 'skip')
+}
+
 function Expand-SuiteValue {
     <#
     .SYNOPSIS
@@ -439,5 +467,5 @@ function Invoke-SuiteStep {
 
 Export-ModuleMember -Function Expand-SuiteValue, Get-AssertionActual, Test-Assertion, Get-StepLimitSec,
 New-StepRunspace, Close-StepRunspace, Stop-StepPipeline, Invoke-BoundedAction, Invoke-SuiteStep,
-New-StepFailure, Get-StepFailureReason, Test-SuiteCapturePath,
+New-StepFailure, Get-StepFailureReason, New-StepSkip, Test-StepSkip, Test-SuiteCapturePath,
 Register-SuiteAction, Set-SuiteActionOwner, Get-SuiteAction, Get-SuiteActionOwner, Get-SuiteActionNames, Reset-SuiteActionRegistry

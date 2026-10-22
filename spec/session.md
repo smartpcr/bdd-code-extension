@@ -130,6 +130,20 @@ that provider step.
     action that throws or panics with anything fails its step with reason
     `action`; the session goes on as for any failed step.
 
+12. **A case may skip itself** (`case-skips.yml`). An action in a case's setup
+    or steps, `core.skip` or an extension's, may end its case as skipped, for a
+    case that finds its environment cannot run it: each runtime's action API
+    has a skip signal beside its failure (C# `ActionException.Skipped`). The
+    step's trace entry is `skipped` with reason `skip`. The rest of the case's
+    setup, steps and case asserts do not run; its cleanup and afterEach do, as
+    after a failure. The case is `skipped` with reason `skip` and the action's
+    message, unless its cleanup or afterEach then fails, which makes it
+    `failed` as rule 4 says. A skip inside `wait`'s polled step ends the case
+    too, rather than being polled again. In the suite setup, beforeEach,
+    afterEach, a case cleanup or the teardown, a skip is that hook's failure,
+    as any other: skipping is the case's own decision. A skipped case does not
+    change the exit code.
+
 ## Inputs a test process takes from the environment
 
 `<prefix>` is the extensions' environment prefix, `BDD_SUITE_` by default.

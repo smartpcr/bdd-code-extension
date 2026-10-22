@@ -49,6 +49,23 @@ actions:
       type: any
       description: Nothing; the step always fails.
 
+  - name: core.skip
+    summary: End the case as skipped with a chosen message; its cleanup still runs.
+    bindings: [powershell, csharp, go, rust, typescript]
+    interruptible: true
+    notes: >-
+      For a case that finds its environment cannot run it. In a case's setup or
+      steps, the rest of its setup, steps and asserts do not run, its cleanup and
+      afterEach do, and the case is reported skipped with reason skip and this
+      message (session.md). In any other hook it is that hook's failure. Guard it
+      with ifCapture to skip only when a capture says so; an extension's action
+      skips its case the same way.
+    params:
+      - { name: message, type: string, default: 'core.skip: skipped on purpose' }
+    captures:
+      type: any
+      description: Nothing; the step always ends the case.
+
   - name: core.sleep
     summary: Sleep for a number of seconds, interruptibly.
     bindings: [powershell, csharp, go, rust, typescript]

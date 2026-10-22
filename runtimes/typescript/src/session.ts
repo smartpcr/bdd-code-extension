@@ -11,7 +11,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { coreActions } from './actions/core.js';
-import { ActionError } from './actions/registry.js';
+import { ActionError, isSkip } from './actions/registry.js';
 import {
   CaseResult, Context, DEFAULT_CASE_SEC, DEFAULT_CLEANUP_SEC, DEFAULT_HOOK_SEC, limitOf, runCaseBody, RunExtensions, runHook, RunOptions,
 } from './exec.js';
@@ -321,7 +321,11 @@ export class Session {
         try {
           await runCaseBody(this.caseModels[index]!, state.phases, state.ctx!, this.schema, state.name, state.caseLimit, this.trace, state.output);
         } catch (e) {
-          this.fail(state, e);
+          if (isSkip(e)) {
+            // The case decided it cannot run here (rule 12): skipped, not failed;
+            // its cleanup and afterEach still run, and either failing fails it.
+            Object.assign(state, { status: 'skipped', reason: 'skip', message: e.message });
+          } else this.fail(state, e);
         }
       }
       await this.cleanup(index, state);

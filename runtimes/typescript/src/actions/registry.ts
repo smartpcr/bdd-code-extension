@@ -41,6 +41,16 @@ export const failed = (message: string): ActionError => new ActionError(message,
 export const timedOut = (message: string): ActionError => new ActionError(message, 'timeout');
 export const assertionFailed = (message: string): ActionError => new ActionError(message, 'assertion');
 
+/**
+ * Not a failure: the case cannot run here, so it ends as skipped with this
+ * message, and its cleanup and afterEach still run (spec/session.md rule 12).
+ * Outside a case's setup and steps it is that hook's failure.
+ */
+export const skipped = (message: string): ActionError => new ActionError(message, 'skip');
+
+/** Whether a thrown value ends its case as skipped rather than failing it. */
+export const isSkip = (thrown: unknown): thrown is ActionError => thrown instanceof ActionError && thrown.reason === 'skip';
+
 /** Sleeps for ms, or rejects with a timeout as soon as the signal aborts. */
 export function sleep(ms: number, signal: AbortSignal, what: string): Promise<void> {
   return new Promise((resolve, reject) => {

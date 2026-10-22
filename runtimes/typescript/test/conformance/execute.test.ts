@@ -38,7 +38,7 @@ test('B7.5-1 every execute entry: the trace, the exit code, inside maxSeconds', 
   // pendingIn: entries this runtime does not meet yet are reported as pending, never run nor counted as passed.
   const { run: entries, pending: held } = splitPending(manifest.entries.filter(e => e.kind === 'execute'));
   const pending = held.map(e => e.suite);
-  assert.equal(entries.length, 20);
+  assert.equal(entries.length, 21);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-execute-'));
   const wrong: string[] = [];
   await Promise.all(entries.map(async entry => {

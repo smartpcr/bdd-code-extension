@@ -54,7 +54,7 @@ fn every_entry_is_of_a_kind_this_runtime_runs() {
         common::RUNTIME
     );
     assert_eq!(validate, 42, "validate entries");
-    assert_eq!(execute, 20, "execute entries");
+    assert_eq!(execute, 21, "execute entries");
     assert_eq!(validate_pending, 0, "validate entries pending");
     assert_eq!(execute_pending, 0, "execute entries pending");
 }
@@ -246,5 +246,5 @@ fn the_core_catalogs_rust_set_is_exactly_the_registered_names() {
     let registered = Registry::core().names();
     println!("  {} registered: {}", registered.len(), registered.join(", "));
     assert_eq!(registered, declared);
-    assert_eq!(registered.len(), 6);
+    assert_eq!(registered.len(), 7);
 }

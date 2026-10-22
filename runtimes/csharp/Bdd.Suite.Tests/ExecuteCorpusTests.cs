@@ -163,7 +163,7 @@ public sealed class ExecuteCorpusTests(Xunit.Abstractions.ITestOutputHelper outp
         }
 
         Corpus.ReportPending(output, "execute", pending);
-        Assert.Equal(20, checked_);
+        Assert.Equal(21, checked_);
         Assert.True(failures.Count == 0,
             $"{failures.Count} of {checked_} entries differ:\n{string.Join('\n', failures)}");
     }

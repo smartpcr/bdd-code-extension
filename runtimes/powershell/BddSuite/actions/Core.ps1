@@ -36,6 +36,15 @@ Register-SuiteAction -Name 'core.fail' -Handler {
     throw $message
 }
 
+Register-SuiteAction -Name 'core.skip' -Handler {
+    param([hashtable]$Step, [hashtable]$Ctx)
+    # Ends its case as skipped, with the message the suite chose: what a case
+    # does when it finds its environment cannot run it (spec/session.md rule
+    # 12), usually guarded by ifCapture.
+    $message = if ($Step.message) { [string]$Step.message } else { 'core.skip: skipped on purpose' }
+    throw (New-StepSkip -Message $message)
+}
+
 Register-SuiteAction -Name 'core.sleep' -Handler {
     param([hashtable]$Step, [hashtable]$Ctx)
     # Sleeps, and is interruptible, which is how a limit proves it cancels work

@@ -2,6 +2,7 @@ package exec
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -396,8 +397,11 @@ func (held *Session) prepare(state *caseState) error {
 	return nil
 }
 
+// reasonOf is an action error's reason, wrapped or not, and action for any
+// other error.
 func reasonOf(failure error) trace.Reason {
-	if refused, ok := failure.(*actions.Error); ok {
+	var refused *actions.Error
+	if errors.As(failure, &refused) {
 		return refused.Reason
 	}
 	return trace.Action
@@ -438,7 +442,13 @@ func (held *Session) runBody(state *caseState) {
 		return
 	}
 	failure := runCase(state.held, state.phases, state.context, held.loaded, state.name, state.caseLimit, held.Context.Trace, &state.output)
-	if failure != nil {
+	if actions.IsSkip(failure) {
+		// The case decided it cannot run here (rule 12): skipped, not failed;
+		// its cleanup and afterEach still run, and either failing fails it.
+		state.status = trace.Skipped
+		state.reason = trace.Skip
+		state.message = failure.Error()
+	} else if failure != nil {
 		state.fail(failure.Error(), reasonOf(failure))
 	}
 }

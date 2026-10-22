@@ -2,7 +2,7 @@
 //!
 //! The `core.*` actions are pure: no network, no remote session. They exist so
 //! that execution semantics can be tested with nothing deployed, and every
-//! runtime implements all five, which is what makes the execute corpus runnable
+//! runtime implements all six, which is what makes the execute corpus runnable
 //! by all of them. A workspace's own actions come from extensions
 //! ([`crate::extension::Extension::actions`]), composed into a
 //! [`crate::extension::Registry`].
@@ -43,6 +43,21 @@ impl ActionError {
             reason: crate::trace::Reason::Assertion,
         }
     }
+
+    /// Not a failure: the case cannot run here, so it ends as skipped with
+    /// this message, and its cleanup and afterEach still run (spec/session.md
+    /// rule 12). Outside a case's setup and steps it is that hook's failure.
+    pub fn skipped(message: impl Into<String>) -> Self {
+        ActionError {
+            message: message.into(),
+            reason: crate::trace::Reason::Skip,
+        }
+    }
+
+    /// Whether this ends the case as skipped rather than failing it.
+    pub fn is_skip(&self) -> bool {
+        self.reason == crate::trace::Reason::Skip
+    }
 }
 
 impl std::fmt::Display for ActionError {
@@ -76,6 +91,7 @@ pub fn core_actions() -> Vec<Action> {
         Action::new("core.noop", core_noop),
         Action::new("core.set", core_set),
         Action::new("core.fail", core_fail),
+        Action::new("core.skip", core_skip),
         Action::new("core.sleep", core_sleep),
         Action::new("core.record", core_record),
         Action::new("wait", |_: &Request| {
@@ -105,6 +121,18 @@ fn core_fail(request: &Request) -> Outcome {
     let message = text_of(&request.step, "message");
     Err(ActionError::action(if message.is_empty() {
         "core.fail: failed on purpose".to_string()
+    } else {
+        message
+    }))
+}
+
+/// Ends its case as skipped, with the message the suite chose: what a case does
+/// when it finds its environment cannot run it (spec/session.md rule 12),
+/// usually guarded by ifCapture.
+fn core_skip(request: &Request) -> Outcome {
+    let message = text_of(&request.step, "message");
+    Err(ActionError::skipped(if message.is_empty() {
+        "core.skip: skipped on purpose".to_string()
     } else {
         message
     }))
@@ -162,8 +190,8 @@ mod tests {
     #[test]
     fn every_core_action_is_registered() {
         let names: Vec<String> = core_actions().into_iter().map(|action| action.name).collect();
-        // Five core and the one that runs another step.
-        assert_eq!(names, vec!["core.noop", "core.set", "core.fail", "core.sleep", "core.record", "wait"]);
+        // Six core and the one that runs another step.
+        assert_eq!(names, vec!["core.noop", "core.set", "core.fail", "core.skip", "core.sleep", "core.record", "wait"]);
         let wait = core_actions().pop().unwrap();
         assert!((wait.handler)(&request(json!({}))).unwrap_err().message.contains("inside the executor"));
     }
@@ -191,6 +219,19 @@ mod tests {
             core_fail(&request(json!({}))).unwrap_err().reason,
             crate::trace::Reason::Action
         );
+    }
+
+    #[test]
+    fn skip_skips_with_the_wording_the_fixture_chose() {
+        let skipped = core_skip(&request(json!({}))).unwrap_err();
+        assert_eq!(skipped.message, "core.skip: skipped on purpose");
+        assert_eq!(skipped.reason, crate::trace::Reason::Skip);
+        assert!(skipped.is_skip());
+        assert_eq!(
+            core_skip(&request(json!({ "message": "chosen" }))).unwrap_err().message,
+            "chosen"
+        );
+        assert!(!core_fail(&request(json!({}))).unwrap_err().is_skip());
     }
 
     #[test]

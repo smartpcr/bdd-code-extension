@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { coreActions } from '../../src/actions/core.js';
 import { coreOnly, RunOptions, runFile } from '../../src/exec.js';
+import { action, skipped } from '../../src/index.js';
 import { compose, start } from '../../src/extension.js';
 import { loadDocument } from '../../src/model.js';
 import { loadSchema } from '../../src/schema.js';
@@ -234,6 +235,81 @@ test('rule 10: a dry run validates and traces nothing', async () => {
   assert.equal((await runOne(session, 0)).settled.status, 'skipped');
   assert.equal((await session.teardown()).ran, false);
   assert.deepEqual(session.trace.entries, []);
+});
+
+test('rule 12: a skip carries its message and ends a wait rather than being polled again', async () => {
+  const session = open(`
+suite: skips
+tests:
+  - name: at-a-step
+    steps:
+      - when: the lab cannot run it
+        action: core.skip
+        message: no-sbe-profile on this lab
+      - then: it never runs
+        action: core.noop
+    asserts: [ { var: nothing, equals: never evaluated } ]
+  - name: inside-a-wait
+    steps:
+      - when: the polled step skips
+        action: wait
+        intervalSec: 1
+        timeoutSec: 30
+        forStep: { action: core.skip, message: skipped from a poll }
+`);
+  const atStep = (await runOne(session, 0)).settled;
+  assert.deepEqual([atStep.status, atStep.reason], ['skipped', 'skip']);
+  assert.equal(atStep.message, 'when the lab cannot run it (core.skip): no-sbe-profile on this lab');
+  const started = Date.now();
+  const inWait = (await runOne(session, 1)).settled;
+  assert.deepEqual([inWait.status, inWait.reason], ['skipped', 'skip']);
+  assert.match(inWait.message, /skipped from a poll/);
+  assert.ok(Date.now() - started < 10_000, 'the skip was polled again instead of ending the case');
+  assert.deepEqual(session.trace.entries.filter(e => e.case === 'inside-a-wait').map(e => `${e.phase} ${e.action ?? ''} ${e.status} ${e.reason ?? ''}`.trim()),
+    ['step core.skip skipped skip', 'step wait skipped skip', 'case  skipped skip']);
+});
+
+test("rule 12: a skip outside the case's own setup and steps is that hook's failure, and a failing cleanup still fails the case", async () => {
+  const hooked = open(`
+suite: skip-in-hooks
+beforeEach:
+  - action: core.skip
+    message: not the case's decision
+tests:
+  - name: one
+    steps: [ { then: it would run, action: core.noop } ]
+`);
+  const failed = (await runOne(hooked, 0)).settled;
+  assert.deepEqual([failed.status, failed.reason], ['failed', 'hook']);
+  assert.match(failed.message, /^beforeEach step 1 \(core.skip\): not the case's decision/);
+  const cleanupFails = open(`
+suite: skip-then-cleanup-fails
+tests:
+  - name: one
+    steps: [ { when: it skips, action: core.skip } ]
+    cleanup: [ { action: core.fail, message: the cleanup broke } ]
+`);
+  const broken = (await runOne(cleanupFails, 0)).settled;
+  assert.deepEqual([broken.status, broken.reason], ['failed', 'cleanup']);
+  assert.match(broken.message, /core.skip: skipped on purpose Cleanup failed: .*the cleanup broke/);
+});
+
+test("rule 12: an extension's action skips its case the same way, through suiterun as through the session", async () => {
+  const lab = { name: 'lab', actions: [action('lab.require', async () => { throw skipped('lab.require: this lab has no SBE profile'); })] };
+  const composite = compose([lab], coreActions);
+  const run = { composite, started: start(composite, new Map()) };
+  const yaml = `
+suite: extension-skip
+tests:
+  - name: one
+    steps: [ { given: the lab is checked, action: lab.require } ]
+`;
+  const result = (await runOne(open(yaml, createRunContext(run, options())), 0)).settled;
+  assert.deepEqual([result.status, result.reason, result.message], ['skipped', 'skip', 'given the lab is checked (lab.require): lab.require: this lab has no SBE profile']);
+  const trace = new Trace();
+  const whole = await runFile('suite.yml', loadDocument(yaml).value as ValueMap, schema, options(), trace, run);
+  assert.deepEqual(whole.cases.map(c => [c.status, c.reason, c.message]), [[result.status, result.reason, result.message]]);
+  assert.deepEqual(trace.entries.map(e => `${e.phase} ${e.status} ${e.reason ?? ''}`), ['step skipped skip', 'case skipped skip']);
 });
 
 test('a test process takes its options, tags and switches from the environment under the prefix', () => {

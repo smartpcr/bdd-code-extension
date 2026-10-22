@@ -526,8 +526,9 @@ function Invoke-BddSuiteCase {
     .SYNOPSIS
         Run the case itself: its setup, steps and case-level asserts, then
         its cleanup, which runs even after a failure. A recorded setup or
-        beforeEach failure is reported here as the case's result. The result
-        is final only after Invoke-BddSuiteAfterEach.
+        beforeEach failure is reported here as the case's result; a skip from
+        its setup or steps ends it as skipped (rule 12). The result is final
+        only after Invoke-BddSuiteAfterEach.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][hashtable]$Session, [Parameter(Mandatory)]$Case)
@@ -565,7 +566,16 @@ function Invoke-BddSuiteCase {
                 if ($state.workWatch.Elapsed.TotalSeconds -gt $state.caseLimit) { throw (Get-CaseBudgetFailure -ElapsedSec $state.workWatch.Elapsed.TotalSeconds -BudgetSec $state.caseLimit) }
                 Write-RunHost "  [PASS] $($state.name)" Green
             } catch {
-                Set-BddSuiteCaseFailure -State $state -Session $S -ErrorRecord $_
+                if (Test-StepSkip -Failure $_.Exception) {
+                    # The case decided it cannot run here (rule 12): skipped, not
+                    # failed; its cleanup and afterEach still run, and either
+                    # failing fails it.
+                    $state.status = 'skipped'; $state.reason = 'skip'
+                    $state.msg = Protect-SuiteText -Text $_.Exception.Message -Started $S.Context.started
+                    Write-RunHost "  [SKIP] $($state.name) ($($state.msg))" DarkGray
+                } else {
+                    Set-BddSuiteCaseFailure -State $state -Session $S -ErrorRecord $_
+                }
             }
         }
         Complete-BddSuiteCaseWork -Session $S -Index $found.index -State $state

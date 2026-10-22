@@ -4,13 +4,14 @@
 //
 // The core.* actions are pure: no network, no remote session. They exist so
 // that execution semantics can be tested with nothing deployed, and every
-// runtime implements all five, which is what makes the execute corpus runnable
+// runtime implements all six, which is what makes the execute corpus runnable
 // by every one. An extension (package extension) adds its own actions as
 // Registrations.
 package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -44,6 +45,21 @@ func TimedOut(message string) *Error {
 // AssertionFailed is a failure because a comparison did not hold.
 func AssertionFailed(message string) *Error {
 	return &Error{Message: message, Reason: trace.Assertion}
+}
+
+// Skipped is not a failure: the case cannot run here, so it ends as skipped
+// with this message, and its cleanup and afterEach still run (spec/session.md
+// rule 12). Outside a case's setup and steps it is that hook's failure. An
+// extension's action returns it to skip its case the same way core.skip does.
+func Skipped(message string) *Error {
+	return &Error{Message: message, Reason: trace.Skip}
+}
+
+// IsSkip says whether an action's error ends its case as skipped rather than
+// failing it: an *Error with the Skip reason, wrapped or not.
+func IsSkip(err error) bool {
+	var held *Error
+	return errors.As(err, &held) && held.Reason == trace.Skip
 }
 
 // Request is what an action is given: the step after substitution, and the
@@ -82,7 +98,7 @@ type Registration struct {
 // registered with the core so that no extension can take the name.
 const Wait = "wait"
 
-// Core is every action the core registers, sorted by name: the five core.*
+// Core is every action the core registers, sorted by name: the six core.*
 // actions and wait. Wait's handler is never called; the executor runs wait
 // itself.
 func Core() []Registration {
@@ -103,6 +119,7 @@ func Registry() map[string]Handler {
 		"core.noop":   noop,
 		"core.set":    set,
 		"core.fail":   fail,
+		"core.skip":   skip,
 		"core.sleep":  sleep,
 		"core.record": record,
 	}
@@ -110,7 +127,7 @@ func Registry() map[string]Handler {
 
 // CoreNames is every core action name, sorted.
 func CoreNames() []string {
-	names := make([]string, 0, 5)
+	names := make([]string, 0, 6)
 	for name := range Registry() {
 		names = append(names, name)
 	}
@@ -144,6 +161,17 @@ func fail(request *Request) (any, error) {
 		message = "core.fail: failed on purpose"
 	}
 	return nil, Failed(message)
+}
+
+// skip ends its case as skipped, with the message the suite chose: what a case
+// does when it finds its environment cannot run it (spec/session.md rule 12),
+// usually guarded by ifCapture.
+func skip(request *Request) (any, error) {
+	message := walk.Text(request.Step, "message")
+	if message == "" {
+		message = "core.skip: skipped on purpose"
+	}
+	return nil, Skipped(message)
 }
 
 // sleep sleeps, and is interruptible, which is how a limit proves it cancels

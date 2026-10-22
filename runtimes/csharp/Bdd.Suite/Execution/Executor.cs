@@ -336,7 +336,9 @@ public static class Executor
             {
                 RunStep(nested, context, schema, until, phase, caseName, trace, collected);
             }
-            catch (ActionException)
+            // A skip is the case's decision, not a step that is not ready yet: it
+            // ends the case rather than being polled again (session.md rule 12).
+            catch (ActionException failure) when (!failure.IsSkip)
             {
                 attempted = false;
             }
@@ -434,7 +436,8 @@ public static class Executor
         catch (Exception thrown)
         {
             var reason = thrown is ActionException held ? held.Reason : Reason.Action;
-            trace.Add(phase, caseName, label, action, Status.Failed, reason);
+            var skipped = string.Equals(reason, Reason.Skip, StringComparison.Ordinal);
+            trace.Add(phase, caseName, label, action, skipped ? Status.Skipped : Status.Failed, reason);
             var message = thrown.Message.StartsWith(label, StringComparison.Ordinal)
                 ? thrown.Message
                 : label + ": " + thrown.Message;
@@ -499,6 +502,12 @@ public static class Executor
             }
             catch (ActionException failure)
             {
+                // A case's own setup may skip its case (session.md rule 12); in
+                // any other hook a skip is that hook's failure.
+                if (failure.IsSkip && string.Equals(phase, Phase.CaseSetup, StringComparison.Ordinal))
+                {
+                    throw;
+                }
                 // The category is the hook rather than whatever the action was
                 // doing: a case whose setup failed did not fail at one of its own
                 // steps, and a trace that said 'action' would send a reader

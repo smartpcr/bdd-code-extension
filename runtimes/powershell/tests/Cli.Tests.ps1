@@ -187,14 +187,14 @@ Describe 'S5a.3 suiterun actions' {
     It 'prints the core actions one per line, sorted ordinally' {
         $r = Invoke-Cli -Arguments @('actions')
         $r.Code | Should -Be 0
-        $r.Out | Should -Be "core.fail`ncore.noop`ncore.record`ncore.set`ncore.sleep`nwait`n"
+        $r.Out | Should -Be "core.fail`ncore.noop`ncore.record`ncore.set`ncore.skip`ncore.sleep`nwait`n"
     }
 
     It 'prints a JSON array with --json, including what an extension registers' {
         $r = Invoke-Cli -Arguments @('actions', '--json') -Extension @($script:example)
         $r.Code | Should -Be 0
         $names = $r.Out | ConvertFrom-Json
-        $names | Should -Be @('core.fail', 'core.noop', 'core.record', 'core.set', 'core.sleep', 'example.echo', 'wait')
+        $names | Should -Be @('core.fail', 'core.noop', 'core.record', 'core.set', 'core.skip', 'core.sleep', 'example.echo', 'wait')
         $r.Out.StartsWith("[`n  `"core.fail`",") | Should -BeTrue
     }
 }

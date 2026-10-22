@@ -79,6 +79,6 @@ test('E1 every execute entry through the session, in file order and reversed', a
     checked++;
   }
   console.log(`  ${checked} execute entries through the session; pending: ${pending.map(e => e.suite).join(', ')}`);
-  assert.equal(checked, 20);
+  assert.equal(checked, 21);
   assert.deepEqual(wrong, []);
 });

@@ -112,8 +112,9 @@ func Open(t *testing.T, suitePath, schemaRoot string, guarded bool) *Suite {
 
 // Case is one case's subtest: beforeEach (the setup first, once), the case,
 // and afterEach in the subtest's cleanup. A case that does not pass fails the
-// subtest with its message; a skipped one (tag filter, guarded suite) skips it
-// with its reason; a failed afterEach fails it too (rule 4).
+// subtest with its message; a skipped one (tag filter, guarded suite, a case
+// that skipped itself) skips it with its reason; a failed afterEach fails it
+// too (rule 4).
 func (held *Suite) Case(name string) func(*testing.T) {
 	return func(t *testing.T) {
 		t.Helper()

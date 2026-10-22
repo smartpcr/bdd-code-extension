@@ -14,7 +14,7 @@ func handler(*actions.Request) (any, error) { return nil, nil }
 
 func TestTheCoreAloneIsTheCoreActionsWaitAndTheCoreRoots(t *testing.T) {
 	composite := CoreOnly()
-	want := []string{"core.fail", "core.noop", "core.record", "core.set", "core.sleep", "wait"}
+	want := []string{"core.fail", "core.noop", "core.record", "core.set", "core.skip", "core.sleep", "wait"}
 	if !reflect.DeepEqual(composite.Names(), want) {
 		t.Errorf("the core registers %v", composite.Names())
 	}
@@ -57,7 +57,7 @@ func TestExtensionsComposeTheirActionsKeysOptionsAndPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(composite.Names(), []string{"core.fail", "core.noop", "core.record", "core.set", "core.sleep", "one.act", "two.act", "wait"}) {
+	if !reflect.DeepEqual(composite.Names(), []string{"core.fail", "core.noop", "core.record", "core.set", "core.skip", "core.sleep", "one.act", "two.act", "wait"}) {
 		t.Errorf("the names are %v", composite.Names())
 	}
 	if composite.Actions["two.act"].Owner != 1 || composite.Actions["one.act"].OwnerName != "one" {

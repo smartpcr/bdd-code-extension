@@ -733,7 +733,7 @@ line two</b><c></c><d>text<e/></d></r>'
     $null = New-SuiteComposite
     $registered = @(Get-SuiteActionNames)
     Assert (($declaredCore -join ',') -eq ($registered -join ',')) "The core catalog's powershell actions ($($declaredCore -join ', ')) are not the registered ones ($($registered -join ', '))."
-    Assert ($registered.Count -eq 6) "Six core actions are registered: $($registered -join ', ')"
+    Assert ($registered.Count -eq 7) "Seven core actions are registered: $($registered -join ', ')"
 
     # -------------------------------------------------------------------
     # Every code diagnostics.md documents has a fixture. A code without one is

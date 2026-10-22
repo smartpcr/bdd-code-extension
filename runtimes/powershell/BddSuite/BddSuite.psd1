@@ -1,6 +1,6 @@
 @{
     RootModule        = 'BddSuite.psm1'
-    ModuleVersion     = '0.7.7'
+    ModuleVersion     = '0.7.8'
     GUID              = '5d0f8a3e-6b2c-4f0e-9a51-3c7e2b9d4a10'
     Author            = 'bdd-code-extension contributors'
     Description       = 'The PowerShell runtime of the BDD suite format: suite model, lint, step execution, expressions, assertions, report comparison, the action registry, the core actions and the generic runner (Invoke-BddSuite), extensible by modules (README.md).'
@@ -38,7 +38,7 @@
         # Step execution.
         'Expand-SuiteValue', 'Get-AssertionActual', 'Test-Assertion', 'Get-StepLimitSec', 'New-StepRunspace',
         'Close-StepRunspace', 'Stop-StepPipeline', 'Invoke-BoundedAction', 'Invoke-SuiteStep', 'New-StepFailure',
-        'Get-StepFailureReason', 'Test-SuiteCapturePath',
+        'Get-StepFailureReason', 'New-StepSkip', 'Test-StepSkip', 'Test-SuiteCapturePath',
         # Expressions and assertions.
         'Invoke-SuiteExpression', 'Expand-SuiteExpression', 'Get-ExpressionFunctionName', 'Get-ExpressionRoot',
         'ConvertTo-ExpressionToken', 'Resolve-ExpressionPath', 'Invoke-ExpressionFunction', 'Compare-ExpressionValue',

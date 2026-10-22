@@ -565,8 +565,17 @@ impl<'a> Session<'a> {
         );
         self.context.record(done);
         state.output.push_str(&output);
-        if let Err(failure) = outcome {
-            state.fail(failure.message, failure.reason);
+        match outcome {
+            // The case decided it cannot run here (rule 12): skipped, not
+            // failed; its cleanup and afterEach still run, and either failing
+            // fails it.
+            Err(failure) if failure.is_skip() => {
+                state.status = Status::Skipped;
+                state.reason = Some(Reason::Skip);
+                state.message = failure.message;
+            }
+            Err(failure) => state.fail(failure.message, failure.reason),
+            Ok(()) => {}
         }
     }
 

@@ -120,6 +120,20 @@ test('the teardown\'s failure fails the after hook, and a suite that does not li
   assert.match((await refused.run()).outcomes.one!, /^failed: suite\.yml does not lint clean[\s\S]*E104/);
 });
 
+test("a case that skips itself skips its test through the framework's context, or its this; without either it passes", async () => {
+  const { base, spec } = planned('suite: s\ntests:\n  - name: one\n    steps: [ { when: it cannot run here, action: core.skip, message: no lab } ]\n');
+  const fake = fakeFramework();
+  suite(fake.framework, [{ name: 'adapter test 7' }], base, spec, {});
+  const body = fake.declared[0]!.body as (this: unknown, ...context: unknown[]) => Promise<void>;
+  const told: string[] = [];
+  // node:test's t and Vitest's context come as the argument, Mocha's as this; Jest gives neither.
+  await body.call(undefined, { skip: (reason: string) => told.push(`argument: ${reason}`) });
+  await body.call({ skip: (reason: string) => told.push(`this: ${reason}`) });
+  await body.call(undefined);
+  assert.deepEqual(told, ['argument: when it cannot run here (core.skip): no lab', 'this: when it cannot run here (core.skip): no lab']);
+  assert.equal(fake.declared[0]!.body!.length, 0, 'a body with a parameter is a done callback to Jest and Mocha');
+});
+
 test('the run context is one per set of extensions, built once', () => {
   const env = { BDD_SUITE_TAGS: 'x' };
   assert.equal(contextFor([corpusExtension], env), contextFor([corpusExtension], {}));

@@ -14,7 +14,10 @@
 // shows as a suite-level failure. A case the tag filter does not select, every
 // case of a guarded suite without the opt-in, and every case of a dry run are
 // skipped when the file loads, because Jest cannot skip at run time; their
-// trace entries are written as a run of them would write them.
+// trace entries are written as a run of them would write them. A case that
+// skips itself (spec/session.md rule 12) skips its test at run time where the
+// framework can: node:test and Vitest through the test's context, Mocha
+// through this.skip(). Jest cannot, so there such a test passes.
 import { fileURLToPath } from 'node:url';
 import { Extension } from '../extension.js';
 import { loadSchema, Schema } from '../schema.js';
@@ -28,7 +31,12 @@ export type { RunContext, TeardownResult } from '../session.js';
 /** The parts of a framework the adapter uses, as the generated file adapts them. */
 export interface Framework {
   describe(name: string, body: () => void): unknown;
-  it(name: string, body: () => Promise<void>): unknown;
+  /**
+   * Declares a test. The body is called with the framework's test context
+   * (node:test's t, Vitest's context) as its argument, or Mocha's as this, and
+   * declares no parameter, so Jest and Mocha do not take it for a done callback.
+   */
+  it(name: string, body: (this: unknown, ...context: unknown[]) => Promise<void>): unknown;
   /** The describe's own before-all hook. */
   before(body: () => Promise<void>): unknown;
   /** The describe's own after-all hook. */
@@ -65,15 +73,26 @@ function schemaFor(root: string): Schema {
   return schema;
 }
 
-/** One case through the session, as its test: it throws exactly when the case did not pass. */
-async function runOne(session: Session, index: number): Promise<void> {
+/** Whatever has a skip function: node:test's and Vitest's test context, Mocha's this. */
+type Skippable = { skip(reason?: string): unknown };
+const skippable = (held: unknown): held is Skippable => typeof (held as Partial<Skippable> | null | undefined)?.skip === 'function';
+
+/**
+ * One case through the session, as its test: it throws exactly when the case
+ * did not pass, and skips the test when the case skipped itself and the
+ * framework gave it a context that can (Vitest's and Mocha's skip throw;
+ * node:test's marks the test and returns).
+ */
+async function runOne(session: Session, index: number, contexts: unknown[]): Promise<void> {
   await session.beforeEach(index);
+  let settled;
   try {
     await session.runCase(index);
   } finally {
-    const settled = await session.afterEach(index);
+    settled = await session.afterEach(index);
     if (settled.status === 'failed' || settled.status === 'error') throw new Error(settled.message);
   }
+  if (settled.status === 'skipped') contexts.find(skippable)?.skip(settled.message);
 }
 
 /**
@@ -114,7 +133,9 @@ export function suite(framework: Framework, extensions: readonly Extension[], ba
     before(() => held.setup());
     held.cases.forEach((name, index) => {
       if (skipped[index]) skip(name, skipped[index].message);
-      else it(name, () => runOne(held, index));
+      else it(name, function (this: unknown, ...context: unknown[]) {
+        return runOne(held, index, [...context, this]);
+      });
     });
     after(async () => {
       held.cases.forEach((_, index) => {

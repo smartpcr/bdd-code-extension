@@ -165,6 +165,75 @@ Describe 'the session (spec/session.md)' {
         @($s.Context.trace).Count | Should -Be 0
     }
 
+    It 'rule 12: a skip carries its message, and ends a wait rather than being polled' {
+        $s = Open-Suite @'
+suite: skips
+tests:
+  - name: at-a-step
+    steps:
+      - when: the lab cannot run it
+        action: core.skip
+        message: no-sbe-profile on this lab
+  - name: inside-a-wait
+    steps:
+      - when: the polled step skips
+        action: wait
+        intervalSec: 1
+        timeoutSec: 30
+        forStep:
+          action: core.skip
+          message: skipped from a poll
+'@
+        $atStep = (Invoke-One $s 'at-a-step').Settled
+        $atStep.status, $atStep.reason | Should -Be @('skipped', 'skip')
+        $atStep.message | Should -BeLike '*no-sbe-profile on this lab*'
+        $s.AnyFailures | Should -BeFalse
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $inWait = (Invoke-One $s 'inside-a-wait').Settled
+        $watch.Stop()
+        $inWait.status, $inWait.reason | Should -Be @('skipped', 'skip')
+        $inWait.message | Should -BeLike '*skipped from a poll*'
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 10 -Because 'the skip was polled again instead of ending the case'
+        $waitSteps = @($s.Context.trace | Where-Object { $_.case -eq 'inside-a-wait' -and $_.phase -eq 'step' } | ForEach-Object { "$($_.action) $($_.status) $($_.reason)" })
+        $waitSteps | Should -Be @('core.skip skipped skip', 'wait skipped skip')
+    }
+
+    It 'rule 12: a skip outside the case''s own setup and steps is that hook''s failure' {
+        $s = Open-Suite "suite: s`nbeforeEach: [ { action: core.skip, message: not the case's decision } ]`ntests:`n  - name: one`n    steps: [ { then: it would run, action: core.noop } ]`n"
+        $r = (Invoke-One $s 'one').Settled
+        $r.status, $r.reason | Should -Be @('failed', 'hook')
+        $s.AnyFailures | Should -BeTrue
+        $cleanupFails = Open-Suite "suite: s`ntests:`n  - name: one`n    steps: [ { when: it skips, action: core.skip } ]`n    cleanup: [ { action: core.fail, message: the cleanup broke } ]`n"
+        $failed = (Invoke-One $cleanupFails 'one').Settled
+        $failed.status, $failed.reason | Should -Be @('failed', 'cleanup')
+        $failed.message | Should -BeLike '*core.skip: skipped on purpose*Cleanup failed:*the cleanup broke*'
+    }
+
+    It 'rule 12: an extension''s action skips its case the same way' {
+        $folder = Join-Path $TestDrive 'lab-extension'
+        $null = New-Item -ItemType Directory -Path (Join-Path $folder 'actions') -Force
+        Set-Content -LiteralPath (Join-Path $folder 'Lab.psm1') -Value @'
+function Get-SuiteExtension { return @{ Name = 'lab'; ActionPath = @('actions') } }
+Export-ModuleMember -Function Get-SuiteExtension
+'@
+        Set-Content -LiteralPath (Join-Path $folder 'actions/Require.ps1') -Value @'
+Register-SuiteAction -Name 'lab.require' -Handler {
+    param([hashtable]$Step, [hashtable]$Ctx)
+    throw (New-StepSkip -Message 'lab.require: this lab has no SBE profile')
+}
+'@
+        $context = New-BddSuiteRunContext -SchemaRoot $script:corpusSchema -Extension @($script:corpusExtension, (Join-Path $folder 'Lab.psm1')) -Environment @{}
+        $s = Open-Suite "suite: extension-skip`ntests:`n  - name: one`n    steps: [ { given: the lab is checked, action: lab.require } ]`n" $context
+        $r = (Invoke-One $s 'one').Settled
+        $r.status, $r.reason | Should -Be @('skipped', 'skip')
+        $r.message | Should -BeLike '*this lab has no SBE profile*'
+        # The Pester glue marks it skipped (Set-ItResult -Skipped), not failed.
+        $glue = Invoke-BddSuiteTest -Session $s -Case 'one'
+        $glue.Skipped | Should -BeTrue
+        $glue.Message | Should -BeLike '*this lab has no SBE profile*'
+        Close-StepRunspace $context.stepRunspace
+    }
+
     It 'a test process reads its options, tags and switches from the environment under the prefix' {
         $context = New-BddSuiteRunContext -SchemaRoot $script:corpusSchema -Extension (Join-Path $PSScriptRoot '../../../samples/workspace/scripts/e2e/Workspace.Extension.psm1') -Environment @{
             BDD_SUITE_OPTION_STORE = 'outlet-7'; BDD_SUITE_TAGS = ' smoke, ,lab '; BDD_SUITE_DRY_RUN = '1'; BDD_SUITE_ALLOW_GUARDED = '1'
@@ -275,7 +344,7 @@ Describe 'E1: every execute entry through the session, in file order and reverse
             if (($wholeResults -join "`n") -ne ($inOrder.Results -join "`n")) { $wrong.Add("$($entry.suite): results differ from the whole-file run") }
             $checked++
         }
-        $checked | Should -Be 20
+        $checked | Should -Be 21
         $wrong -join "`n`n" | Should -BeNullOrEmpty
     }
 }

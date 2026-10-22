@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn the_core_alone_has_the_core_actions_and_the_default_prefix() {
         let core = Registry::core();
-        assert_eq!(core.names(), vec!["core.fail", "core.noop", "core.record", "core.set", "core.sleep", "wait"]);
+        assert_eq!(core.names(), vec!["core.fail", "core.noop", "core.record", "core.set", "core.skip", "core.sleep", "wait"]);
         assert_eq!(core.env_prefix(), DEFAULT_ENV_PREFIX);
         assert_eq!(core.roots(), CORE_ROOTS.map(str::to_string).as_slice());
         assert!(core.context_keys().is_empty() && core.options().is_empty());

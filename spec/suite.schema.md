@@ -256,7 +256,7 @@ extension may add a stricter one, for example for suites with a given tag.
 
 ## The actions
 
-6 actions, from `core.catalog.yaml` and the catalogs it imports. `bindings` is which
+7 actions, from `core.catalog.yaml` and the catalogs it imports. `bindings` is which
 runtimes implement the action; naming one the selected binding does not implement is
 `E201`. `interruptible: false` means the runner cannot cancel the work, so a
 timeout on it is reported as abandoned rather than cancelled.
@@ -303,6 +303,24 @@ Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`. Interruptible: tru
 | Parameter | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
 | `message` | string |  | `core.fail: failed on purpose` |  |
+
+Captures:
+
+```
+<captureAs> -> any
+```
+
+### `core.skip`
+
+End the case as skipped with a chosen message; its cleanup still runs.
+
+Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`. Interruptible: true.
+
+For a case that finds its environment cannot run it. In a case's setup or steps, the rest of its setup, steps and asserts do not run, its cleanup and afterEach do, and the case is reported skipped with reason skip and this message (session.md). In any other hook it is that hook's failure. Guard it with ifCapture to skip only when a capture says so; an extension's action skips its case the same way.
+
+| Parameter | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `message` | string |  | `core.skip: skipped on purpose` |  |
 
 Captures:
 

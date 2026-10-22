@@ -132,7 +132,7 @@ fn e1_every_execute_entry_through_the_session_in_file_order_and_reversed() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 20, "execute entries checked");
+    assert_eq!(checked, 21, "execute entries checked");
     assert_eq!(pending, 0, "execute entries pending in rust");
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }

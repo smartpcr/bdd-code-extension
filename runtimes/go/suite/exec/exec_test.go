@@ -221,11 +221,11 @@ func TestABaseNameIsWhatTheFileIsCalledWithoutItsExtension(t *testing.T) {
 
 func TestAllNamesIsTheCoreActionsWaitAndEveryExtensionsActions(t *testing.T) {
 	core := AllNames(nil)
-	if len(core) != 6 || core[len(core)-1] != "wait" {
+	if len(core) != 7 || core[len(core)-1] != "wait" {
 		t.Errorf("without an extension the names are %v", core)
 	}
 	full := AllNames(started(t, nil, slowExtension(nil)).Composite)
-	if len(full) != 7 || !containsName(full, "slow.get") {
+	if len(full) != 8 || !containsName(full, "slow.get") {
 		t.Errorf("with an extension the names are %v", full)
 	}
 	for index := 1; index < len(full); index++ {

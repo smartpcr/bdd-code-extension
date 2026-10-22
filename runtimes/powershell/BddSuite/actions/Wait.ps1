@@ -41,7 +41,9 @@ Register-SuiteAction -Name 'wait' -Handler {
                 # runtime's does: the runner reads $Ctx.__nested after the wait.
                 if ($Ctx.__nested -is [System.Collections.IList]) { $null = $Ctx.__nested.Add(@{ step = $Step.forStep; status = 'passed'; reason = '' }) }
             } catch {
-                if ($Ctx.__nested -is [System.Collections.IList]) { $null = $Ctx.__nested.Add(@{ step = $Step.forStep; status = 'failed'; reason = (Get-StepFailureReason -Failure $_.Exception) }) }
+                $reason = Get-StepFailureReason -Failure $_.Exception
+                $status = if ($reason -eq 'skip') { 'skipped' } else { 'failed' }
+                if ($Ctx.__nested -is [System.Collections.IList]) { $null = $Ctx.__nested.Add(@{ step = $Step.forStep; status = $status; reason = $reason }) }
                 throw
             }
             if ($Step.until) {
@@ -53,6 +55,9 @@ Register-SuiteAction -Name 'wait' -Handler {
                 }
             }
         } catch {
+            # A skip is the case's decision, not a step that is not ready yet: it
+            # ends the case rather than being polled again (session.md rule 12).
+            if (Test-StepSkip -Failure $_.Exception) { throw }
             # step failed transiently, keep polling
         }
         Start-Sleep -Seconds $interval

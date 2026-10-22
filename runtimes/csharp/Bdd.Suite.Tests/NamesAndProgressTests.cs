@@ -227,7 +227,7 @@ public sealed class NamesAndProgressTests(Xunit.Abstractions.ITestOutputHelper o
             Assert.Equal(["csharp"], cut.Actions[name].Bindings);
             Assert.Equal(["powershell", "csharp", "go", "rust", "typescript"], whole.Actions[name].Bindings);
         }
-        Assert.Equal(6, cut.Actions.Count);
+        Assert.Equal(7, cut.Actions.Count);
     }
 
     [Fact]

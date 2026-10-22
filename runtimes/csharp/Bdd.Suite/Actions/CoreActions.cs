@@ -19,6 +19,14 @@ public sealed class ActionException(string message, string reason) : Exception(m
 
     /// <summary>A failure because a comparison did not hold.</summary>
     public static ActionException AssertionFailed(string message) => new(message, Tracing.Reason.Assertion);
+
+    /// <summary>Not a failure: the case cannot run here, so it ends as skipped
+    /// with this message, and its cleanup and afterEach still run (spec/session.md
+    /// rule 12). Outside a case's setup and steps it is that hook's failure.</summary>
+    public static ActionException Skipped(string message) => new(message, Tracing.Reason.Skip);
+
+    /// <summary>Whether this ends the case as skipped rather than failing it.</summary>
+    public bool IsSkip => string.Equals(Reason, Tracing.Reason.Skip, StringComparison.Ordinal);
 }
 
 /// <summary>
@@ -45,7 +53,7 @@ public sealed class ActionRequest
 ///
 /// The core.* actions are pure: no network, no remote session. They exist so
 /// that execution semantics can be tested without an environment, and every
-/// runtime implements all five, which is what makes the execute corpus runnable
+/// runtime implements all six, which is what makes the execute corpus runnable
 /// by all of them. Any other action comes from an extension (DEC-S03).
 /// </summary>
 public static class CoreActions
@@ -57,6 +65,7 @@ public static class CoreActions
             ["core.noop"] = Noop,
             ["core.set"] = Set,
             ["core.fail"] = Fail,
+            ["core.skip"] = Skip,
             ["core.sleep"] = Sleep,
             ["core.record"] = Record,
         };
@@ -96,6 +105,15 @@ public static class CoreActions
     {
         var message = request.Step.Text("message");
         throw ActionException.Failed(message.Length > 0 ? message : "core.fail: failed on purpose");
+    }
+
+    /// <summary>Ends its case as skipped, with the message the suite chose: what
+    /// a case does when it finds its environment cannot run it (spec/session.md
+    /// rule 12), usually guarded by ifCapture.</summary>
+    private static object? Skip(ActionRequest request)
+    {
+        var message = request.Step.Text("message");
+        throw ActionException.Skipped(message.Length > 0 ? message : "core.skip: skipped on purpose");
     }
 
     /// <summary>Sleeps, and is interruptible, which is how a limit proves it

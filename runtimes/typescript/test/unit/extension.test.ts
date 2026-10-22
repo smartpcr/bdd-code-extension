@@ -20,7 +20,7 @@ const noop = async () => null;
 
 test('compose: the core alone has the core actions, the core roots and the default prefix', () => {
   const c = compose([], coreActions);
-  assert.deepEqual([...c.actions.keys()].sort(), ['core.fail', 'core.noop', 'core.record', 'core.set', 'core.sleep', 'wait']);
+  assert.deepEqual([...c.actions.keys()].sort(), ['core.fail', 'core.noop', 'core.record', 'core.set', 'core.skip', 'core.sleep', 'wait']);
   assert.deepEqual([c.roots, c.contextKeys, c.options, c.envPrefix], [CORE_ROOTS, [], [], DEFAULT_ENV_PREFIX]);
   assert.equal(c.caseLimitSec(new Map(), 30), 30);
   assert.deepEqual(c.lint({} as never), []);
@@ -86,5 +86,5 @@ test('runFile with no extensions given runs the core alone', async () => {
   const trace = new Trace();
   const r = await runFile(file, suite, loadSchema(corpusSchema), { tags: [], params: [], dryRun: false, recordPath: '', env: {}, reader: overlayReader({}) }, trace);
   assert.equal(r.cases[0]!.status, 'passed');
-  assert.deepEqual([...coreOnly().composite.actions.keys()].length, 6);
+  assert.deepEqual([...coreOnly().composite.actions.keys()].length, 7);
 });

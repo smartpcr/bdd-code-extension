@@ -119,7 +119,7 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
             }
             checked_++;
         }
-        Assert.Equal(20, checked_);
+        Assert.Equal(21, checked_);
         Assert.True(failures.Count == 0, string.Join('\n', failures));
     }
 
@@ -163,6 +163,100 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
               - then: it runs too
                 action: core.noop
         """;
+
+    private static CaseResult RunOne(SuiteSession session, string name)
+    {
+        session.BeforeEach(name);
+        session.RunCase(name);
+        return session.AfterEach(name);
+    }
+
+    [Fact]
+    public void Rule12ASkipCarriesItsMessageAndEndsAWaitRatherThanBeingPolled()
+    {
+        var session = OpenYaml("""
+            suite: skips
+            tests:
+              - name: at-a-step
+                steps:
+                  - when: the lab cannot run it
+                    action: core.skip
+                    message: no-sbe-profile on this lab
+              - name: inside-a-wait
+                steps:
+                  - when: the polled step skips
+                    action: wait
+                    intervalSec: 1
+                    timeoutSec: 30
+                    forStep:
+                      action: core.skip
+                      message: skipped from a poll
+            """);
+        var atStep = RunOne(session, "at-a-step");
+        Assert.Equal((Status.Skipped, Reason.Skip), (atStep.Status, atStep.Reason));
+        Assert.Contains("no-sbe-profile on this lab", atStep.Message, StringComparison.Ordinal);
+
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var inWait = RunOne(session, "inside-a-wait");
+        Assert.Equal((Status.Skipped, Reason.Skip), (inWait.Status, inWait.Reason));
+        Assert.Contains("skipped from a poll", inWait.Message, StringComparison.Ordinal);
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(10), "the skip was polled again instead of ending the case");
+    }
+
+    [Fact]
+    public void Rule12ASkipOutsideTheCasesOwnSetupAndStepsIsThatHooksFailure()
+    {
+        var session = OpenYaml("""
+            suite: skip-in-hooks
+            beforeEach:
+              - action: core.skip
+                message: not the case's decision
+            tests:
+              - name: one
+                steps:
+                  - then: it would run
+                    action: core.noop
+            """);
+        var result = RunOne(session, "one");
+        Assert.Equal((Status.Failed, Reason.Hook), (result.Status, result.Reason));
+
+        var cleanupFails = OpenYaml("""
+            suite: skip-then-cleanup-fails
+            tests:
+              - name: one
+                steps:
+                  - when: it skips
+                    action: core.skip
+                cleanup:
+                  - action: core.fail
+                    message: the cleanup broke
+            """);
+        var failed = RunOne(cleanupFails, "one");
+        Assert.Equal((Status.Failed, Reason.Cleanup), (failed.Status, failed.Reason));
+    }
+
+    [Fact]
+    public void Rule12AnExtensionsActionSkipsItsCaseTheSameWay()
+    {
+        var skipping = new Extension
+        {
+            Name = "lab",
+            Actions = [new ActionRegistration("lab.require", _ => throw ActionException.Skipped("lab.require: this lab has no SBE profile"))],
+        };
+        var composite = Composite.Compose(skipping);
+        var context = RunContext.ForRun(new RunOptions(),
+            new RunExtensions(composite, composite.Start(new Dictionary<string, string>())), new Trace());
+        var session = OpenYaml("""
+            suite: extension-skip
+            tests:
+              - name: one
+                steps:
+                  - given: the lab is checked
+                    action: lab.require
+            """, context);
+        var result = RunOne(session, "one");
+        Assert.Equal((Status.Skipped, Reason.Skip), (result.Status, result.Reason));
+    }
 
     [Fact]
     public void Rule2SetupRunsOnceHoweverOftenItIsCalled()

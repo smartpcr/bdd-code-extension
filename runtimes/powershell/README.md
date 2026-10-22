@@ -46,7 +46,9 @@ catalog's own `bindings` list. `run` and `list` take `--name glob[,glob]`
 (`-Name`; cases whose names match, with the tag filter) and `run` takes
 `--progress` (`-Progress`; live `StartGroup`/`EndGroup`/`Summary` lines for
 long runs; spec/progress.md). An action that throws any error fails its step;
-the run goes on. A library caller gives `Invoke-BddSuite -Observer` a
+the run goes on. One that throws `(New-StepSkip 'why')`, as `core.skip` does,
+skips its case from the case's setup or steps: the rest of it does not run,
+its cleanup and afterEach do (spec/session.md rule 12). A library caller gives `Invoke-BddSuite -Observer` a
 hashtable of `CaseStarted`, `CaseFinished` and `Entry` script blocks.
 
 A working consumer that uses only the module, with its own extension,

@@ -27,7 +27,7 @@ public sealed class ExtensionTests
     public void TheCoreAloneHasItsActionsItsRootsAndTheDefaultPrefix()
     {
         var core = Composite.CoreOnly;
-        Assert.Equal(["core.fail", "core.noop", "core.record", "core.set", "core.sleep", "wait"], core.Names());
+        Assert.Equal(["core.fail", "core.noop", "core.record", "core.set", "core.skip", "core.sleep", "wait"], core.Names());
         Assert.Equal(["capture", "param", "var", "row", "timeoutSec", "defaults"], core.Roots);
         Assert.Empty(core.ContextKeys);
         Assert.Empty(core.Options);

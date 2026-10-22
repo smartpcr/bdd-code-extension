@@ -213,11 +213,11 @@ fn the_embedded_core_is_the_specs_and_bdd_suite_core_cuts_its_bindings() {
     );
     let cut = schema::load(&common::corpus().join("schema-core-import")).unwrap();
     let whole = schema::load(&common::corpus_schema()).unwrap();
-    for name in ["core.noop", "core.set", "core.fail", "core.sleep", "core.record", "wait"] {
+    for name in ["core.noop", "core.set", "core.fail", "core.skip", "core.sleep", "core.record", "wait"] {
         assert_eq!(cut.actions[name].bindings, ["csharp"], "{name}");
         assert_eq!(whole.actions[name].bindings, ["powershell", "csharp", "go", "rust", "typescript"], "{name}");
     }
-    assert_eq!(cut.actions.len(), 6);
+    assert_eq!(cut.actions.len(), 7);
 }
 
 #[test]

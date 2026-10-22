@@ -492,6 +492,14 @@ public sealed class SuiteSession
                 }
             }
         }
+        catch (ActionException failure) when (failure.IsSkip)
+        {
+            // The case decided it cannot run here (rule 12): skipped, not failed;
+            // its cleanup and afterEach still run, and either failing fails it.
+            state.Status = Status.Skipped;
+            state.Reason = Reason.Skip;
+            state.Message = failure.Message;
+        }
         catch (ActionException failure)
         {
             state.Fail(failure.Message, failure.Reason);

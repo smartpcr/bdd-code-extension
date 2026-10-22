@@ -2,6 +2,8 @@ package actions
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,13 +25,13 @@ func ask(pairs ...any) *Request {
 
 func TestEveryCoreActionIsRegistered(t *testing.T) {
 	registry := Registry()
-	for _, name := range []string{"core.noop", "core.set", "core.fail", "core.sleep", "core.record"} {
+	for _, name := range []string{"core.noop", "core.set", "core.fail", "core.skip", "core.sleep", "core.record"} {
 		if _, found := registry[name]; !found {
 			t.Errorf("%s is not registered", name)
 		}
 	}
 	names := CoreNames()
-	if len(names) != 5 {
+	if len(names) != 6 {
 		t.Fatalf("%d names", len(names))
 	}
 	for index := 1; index < len(names); index++ {
@@ -78,6 +80,23 @@ func TestFailFailsWithTheWordingTheFixtureChose(t *testing.T) {
 	}
 	if failure, ok := err.(*Error); !ok || failure.Reason != trace.Action {
 		t.Errorf("the category is %v", err)
+	}
+}
+
+func TestSkipSkipsWithTheWordingTheSuiteChose(t *testing.T) {
+	_, err := skip(ask())
+	if err == nil || err.Error() != "core.skip: skipped on purpose" {
+		t.Errorf("it said %v", err)
+	}
+	_, err = skip(ask("message", "no lab here"))
+	if err == nil || err.Error() != "no lab here" || !IsSkip(err) {
+		t.Errorf("it said %v", err)
+	}
+	if !IsSkip(fmt.Errorf("wrapped: %w", Skipped("x"))) {
+		t.Error("a wrapped skip is not a skip")
+	}
+	if IsSkip(Failed("x")) || IsSkip(nil) || IsSkip(errors.New("x")) {
+		t.Error("a failure, nil or a plain error is a skip")
 	}
 }
 

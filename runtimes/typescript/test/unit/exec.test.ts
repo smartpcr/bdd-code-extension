@@ -253,6 +253,8 @@ test('core actions directly: set needs a value, record needs a marker and append
   await assert.rejects(handler('core.set')(req({})), /value is required/);
   await assert.rejects(handler('core.record')(req({})), /marker is required/);
   await assert.rejects(handler('core.fail')(req({ message: 'why' })), /why/);
+  await assert.rejects(handler('core.skip')(req({ message: 'not here' })), (e: unknown) => e instanceof ActionError && e.reason === 'skip' && e.message === 'not here');
+  await assert.rejects(handler('core.skip')(req({})), (e: unknown) => e instanceof ActionError && e.message === 'core.skip: skipped on purpose');
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'suiterun-record-')), 'r.txt');
   await handler('core.record')(req({ marker: 'one' }, file));
   await handler('core.record')(req({ marker: 'two' }, file));

@@ -24,9 +24,9 @@ function lint(text: string, s = schema) {
 }
 
 test('loadSchema: the catalog\'s actions, the operators, the common keys, step replaced by the envelope', () => {
-  // The core's six and the corpus's eight fixture actions, the core imported (DEC-S10).
+  // The core's seven and the corpus's eight fixture actions, the core imported (DEC-S10).
   // fixture.throw is declared only; the pending execute/worker-throws.yml is the one suite that runs it.
-  assert.equal(schema.actions.size, 14);
+  assert.equal(schema.actions.size, 15);
   const set = schema.actions.get('core.set')!;
   assert.deepEqual([set.params, set.interruptible, set.deprecated, set.hasShape], [['value'], true, false, true]);
   assert.ok(schema.actionNames.every((n, i, a) => i === 0 || a[i - 1]! < n));

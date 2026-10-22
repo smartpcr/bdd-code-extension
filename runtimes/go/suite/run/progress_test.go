@@ -220,13 +220,13 @@ func TestTheEmbeddedCoreIsTheSpecsAndBddSuiteCoreCutsItsBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"core.noop", "core.set", "core.fail", "core.sleep", "core.record", "wait"} {
+	for _, name := range []string{"core.noop", "core.set", "core.fail", "core.skip", "core.sleep", "core.record", "wait"} {
 		if strings.Join(cut.Actions[name].Bindings, ",") != "csharp" ||
 			strings.Join(whole.Actions[name].Bindings, ",") != "powershell,csharp,go,rust,typescript" {
 			t.Errorf("%s: cut %v, whole %v", name, cut.Actions[name].Bindings, whole.Actions[name].Bindings)
 		}
 	}
-	if len(cut.Actions) != 6 {
+	if len(cut.Actions) != 7 {
 		t.Errorf("%d actions through bdd-suite:core", len(cut.Actions))
 	}
 }

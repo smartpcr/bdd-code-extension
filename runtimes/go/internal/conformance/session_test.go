@@ -187,7 +187,7 @@ func TestE1EveryExecuteEntryThroughTheSessionInFileOrderAndReversed(t *testing.T
 		}
 		checked++
 	}
-	if checked != 20 {
-		t.Errorf("%d entries checked, not 20", checked)
+	if checked != 21 {
+		t.Errorf("%d entries checked, not 21", checked)
 	}
 }

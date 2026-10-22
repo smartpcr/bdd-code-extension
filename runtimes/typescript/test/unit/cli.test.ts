@@ -73,10 +73,10 @@ test('main: actions --json prints the registered names and exits 0 (B7.1-2 print
   const c = capture();
   assert.equal(await main(['actions', '--json'], c.streams), 0);
   const names = JSON.parse(c.out.join('')) as string[];
-  assert.deepEqual([names, c.err], [['core.fail', 'core.noop', 'core.record', 'core.set', 'core.sleep', 'wait'], []]);
+  assert.deepEqual([names, c.err], [['core.fail', 'core.noop', 'core.record', 'core.set', 'core.skip', 'core.sleep', 'wait'], []]);
   const plain = capture();
   assert.equal(await main(['actions'], plain.streams), 0);
-  assert.equal(plain.out.join('').split('\n').filter(Boolean).length, 6);
+  assert.equal(plain.out.join('').split('\n').filter(Boolean).length, 7);
 });
 
 test('main: a refusal is exit 2 with the message and usage on stderr, nothing on stdout', async () => {

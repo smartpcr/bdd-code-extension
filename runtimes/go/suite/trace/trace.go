@@ -50,6 +50,9 @@ const (
 	SuiteSetupFail Reason = "suite-setup"
 	Tag            Reason = "tag"
 	Guard          Reason = "guard"
+	// Skip is a case that skipped itself: an action in its setup or steps
+	// found the environment cannot run it (spec/session.md rule 12).
+	Skip Reason = "skip"
 	// None is the absence of a reason, which a passed entry carries.
 	None Reason = ""
 )

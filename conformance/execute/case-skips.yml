@@ -1,0 +1,55 @@
+suite: case-skips
+description: >-
+  A case may skip itself from its setup or a step: the rest of it does not run,
+  its cleanup and afterEach do, and it is reported skipped with reason skip.
+tags: [conformance]
+
+afterEach:
+  - action: core.record
+    marker: after-each
+
+tests:
+  - name: skipped-at-a-step
+    steps:
+      - given: a step before the skip runs
+        action: core.record
+        marker: before-the-skip
+        captureAs: mark
+      - when: the environment cannot run the rest
+        action: core.skip
+        message: this environment cannot run the case
+      - then: the step after it never runs
+        action: core.record
+        marker: never-reached
+    asserts:
+      - var: mark.marker
+        equals: an assert after a skip is not evaluated
+    cleanup:
+      - action: core.record
+        marker: cleanup-after-the-skip
+
+  - name: skipped-in-setup
+    setup:
+      - action: core.skip
+        message: this case cannot be prepared here
+    steps:
+      - when: the step after a setup skip
+        action: core.record
+        marker: never-reached
+    cleanup:
+      - action: core.record
+        marker: cleanup-after-the-setup-skip
+
+  - name: skipped-only-when-a-capture-says-so
+    steps:
+      - given: the environment reports nothing it lacks
+        action: core.set
+        value: { name: lab }
+        captureAs: environment
+      - when: the skip is guarded by what the environment lacks
+        action: core.skip
+        ifCapture: environment.lacks
+        message: never skipped, because nothing is lacking
+      - then: the case goes on
+        action: core.record
+        marker: still-ran

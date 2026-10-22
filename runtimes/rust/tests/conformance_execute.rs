@@ -152,7 +152,7 @@ fn every_execute_entry() {
     let _ = std::fs::remove_dir_all(&scratch);
     assert_eq!(exit::PASSED, 0);
     println!("  {checked} execute entries run; {} differ; {pending} pending", failures.len());
-    assert_eq!(checked, 20, "execute entries checked");
+    assert_eq!(checked, 21, "execute entries checked");
     assert_eq!(pending, 0, "execute entries pending in rust");
     assert!(
         failures.is_empty(),

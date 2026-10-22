@@ -199,7 +199,7 @@ func TestACatalogImportsDepthFirstRelativeToTheImportingFile(t *testing.T) {
 
 func TestTheCorpusCatalogImportsTheCore(t *testing.T) {
 	loaded := committed(t)
-	for _, name := range []string{"core.noop", "core.set", "core.fail", "core.sleep", "core.record", "wait"} {
+	for _, name := range []string{"core.noop", "core.set", "core.fail", "core.skip", "core.sleep", "core.record", "wait"} {
 		if !loaded.Has(name) || !contains(loaded.Actions[name].Bindings, "go") {
 			t.Errorf("%s does not come from the imported core for go", name)
 		}

@@ -25,7 +25,7 @@ public sealed class RunnerTests
     {
         var report = Runner.Execute(Parse("actions"));
         Assert.Equal(Exit.Passed, report.Code);
-        Assert.Equal("core.fail\ncore.noop\ncore.record\ncore.set\ncore.sleep\nwait", report.Out);
+        Assert.Equal("core.fail\ncore.noop\ncore.record\ncore.set\ncore.skip\ncore.sleep\nwait", report.Out);
         Assert.StartsWith("[", Runner.Execute(Parse("actions --json")).Out.TrimStart(), StringComparison.Ordinal);
 
         // An extension's actions are listed with the core's.

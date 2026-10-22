@@ -175,11 +175,11 @@ test('the core this runtime carries is the spec\'s, and bdd-suite:core cuts its 
     'src/coreCatalog.ts differs from spec/core.catalog.yaml: run npm run sync-core');
   const cut = loadSchema(path.join(corpus, 'schema-core-import'));
   const whole = loadSchema(corpusSchema);
-  for (const name of ['core.noop', 'core.set', 'core.fail', 'core.sleep', 'core.record', 'wait']) {
+  for (const name of ['core.noop', 'core.set', 'core.fail', 'core.skip', 'core.sleep', 'core.record', 'wait']) {
     assert.deepEqual(cut.actions.get(name)!.bindings, ['csharp'], name);
     assert.deepEqual(whole.actions.get(name)!.bindings, ['powershell', 'csharp', 'go', 'rust', 'typescript'], name);
   }
-  assert.equal(cut.actions.size, 6);
+  assert.equal(cut.actions.size, 7);
 });
 
 test('the package carries the repository\'s license', () => {

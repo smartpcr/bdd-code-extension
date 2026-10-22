@@ -37,7 +37,7 @@ func TestExtensionsThatCannotBeComposedAreRefusedBeforeAnythingRuns(t *testing.T
 
 func TestAVerbsOutputAndErrorsGoToTheirStreams(t *testing.T) {
 	code, out, _ := main([]string{"actions"})
-	if code != 0 || out != "core.fail\ncore.noop\ncore.record\ncore.set\ncore.sleep\nwait\n" {
+	if code != 0 || out != "core.fail\ncore.noop\ncore.record\ncore.set\ncore.skip\ncore.sleep\nwait\n" {
 		t.Errorf("actions: %d %q", code, out)
 	}
 	code, out, err := main([]string{"lint", "--schema-root", where.CorpusSchema(), "--path", "nosuchfile.yml"})

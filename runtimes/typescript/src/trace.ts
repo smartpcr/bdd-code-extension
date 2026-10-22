@@ -5,7 +5,9 @@
 
 export type Phase = 'suite-setup' | 'before-each' | 'case-setup' | 'step' | 'case-cleanup' | 'after-each' | 'suite-teardown' | 'case';
 export type Status = 'passed' | 'failed' | 'skipped' | 'error';
-export type Reason = 'assertion' | 'timeout' | 'action' | 'hook' | 'cleanup' | 'suite-setup' | 'tag' | 'guard' | '';
+// skip: a case that skipped itself, from an action in its setup or steps
+// (spec/session.md rule 12).
+export type Reason = 'assertion' | 'timeout' | 'action' | 'hook' | 'cleanup' | 'suite-setup' | 'tag' | 'guard' | 'skip' | '';
 
 export interface Entry {
   phase: Phase;

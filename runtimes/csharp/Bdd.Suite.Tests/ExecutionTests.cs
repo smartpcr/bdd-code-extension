@@ -215,10 +215,10 @@ public sealed class ExecutionTests
     public void AllNamesIsTheCoreActionsWaitAndEveryExtensionsActions()
     {
         var core = Executor.AllNames();
-        Assert.Equal(6, core.Count);
+        Assert.Equal(7, core.Count);
         Assert.Equal("wait", core[^1]);
         var full = Executor.AllNames(SlowExtension().Run.Composite);
-        Assert.Equal(7, full.Count);
+        Assert.Equal(8, full.Count);
         Assert.Contains("fixture.slow", full);
         Assert.Equal(full.OrderBy(name => name, StringComparer.Ordinal), full);
     }
@@ -514,8 +514,8 @@ public sealed class ExecutionTests
     [Fact]
     public void EveryCoreActionIsRegisteredAndDoesWhatItSays()
     {
-        Assert.Equal(5, CoreActions.Names().Count);
-        foreach (var name in new[] { "core.noop", "core.set", "core.fail", "core.sleep", "core.record" })
+        Assert.Equal(6, CoreActions.Names().Count);
+        foreach (var name in new[] { "core.noop", "core.set", "core.fail", "core.skip", "core.sleep", "core.record" })
         {
             Assert.True(CoreActions.Registry.ContainsKey(name), name);
         }

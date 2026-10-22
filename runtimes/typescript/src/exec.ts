@@ -9,7 +9,7 @@
 // stops waiting, because a JavaScript promise cannot be killed.
 import { compare, describe } from './assertion.js';
 import { coreActions } from './actions/core.js';
-import { ActionError, assertionFailed, failed, timedOut } from './actions/registry.js';
+import { ActionError, assertionFailed, failed, isSkip, timedOut } from './actions/registry.js';
 import { compose, Composite, start, Started } from './extension.js';
 import { expand, field, newScope } from './expr.js';
 import { Schema } from './schema.js';
@@ -228,7 +228,10 @@ async function runStep(step: ValueMap, ctx: Context, schema: Schema, deadline: n
             const until = Math.min(deadline, Date.now() + (typeof expanded.get('timeoutSec') === 'bigint' ? Number(expanded.get('timeoutSec')) : 300) * SECOND);
             await runStep(nested, ctx, schema, until, phase, caseName, trace, new Map());
             return true;
-          } catch {
+          } catch (e) {
+            // A skip is the case's decision, not a step that is not ready yet:
+            // it ends the case rather than being polled again (rule 12).
+            if (isSkip(e)) throw e;
             // runStep has recorded the failure; for wait it only means "not yet".
             return false;
           }
@@ -247,7 +250,7 @@ async function runStep(step: ValueMap, ctx: Context, schema: Schema, deadline: n
     // Anything an action throws is this step's failure, not only an Error
     // (spec/progress.md, "The action worker").
     const reason = e instanceof ActionError ? e.reason : 'action';
-    trace.add(phase, caseName, label, name, 'failed', reason);
+    trace.add(phase, caseName, label, name, reason === 'skip' ? 'skipped' : 'failed', reason);
     const message = thrownMessage(e);
     throw new ActionError(message.startsWith(label) ? message : `${label}: ${message}`, reason);
   }
@@ -273,7 +276,11 @@ async function runStep(step: ValueMap, ctx: Context, schema: Schema, deadline: n
   return produced;
 }
 
-/** A hook's steps inside the hook's own window; a failure is the hook's. */
+/**
+ * A hook's steps inside the hook's own window; a failure is the hook's. A
+ * case's own setup may skip its case (spec/session.md rule 12); in any other
+ * hook a skip is that hook's failure.
+ */
 export async function runHook(steps: ValueMap[], ctx: Context, schema: Schema, limitSec: number, label: string, phase: Phase, caseName: string, trace: Trace): Promise<void> {
   if (!steps.length) return;
   const deadline = Date.now() + Math.max(1, limitSec) * SECOND;
@@ -282,6 +289,7 @@ export async function runHook(steps: ValueMap[], ctx: Context, schema: Schema, l
     try {
       await runStep(step, ctx, schema, deadline, phase, caseName, trace, collected);
     } catch (e) {
+      if (isSkip(e) && phase === 'case-setup') throw e;
       throw new ActionError(`${label} ${(e as Error).message}`, 'hook');
     }
   }
@@ -294,8 +302,9 @@ export const limitOf = (m: ValueMap, key: string, fallback: number): number => {
 
 /**
  * One case's own phases: its setup, its steps and its case-level asserts,
- * stopping at the first failure. beforeEach has already run; the cleanup and
- * afterEach run after this whatever it throws.
+ * stopping at the first failure or skip (an ActionError with reason skip).
+ * beforeEach has already run; the cleanup and afterEach run after this
+ * whatever it throws.
  */
 export async function runCaseBody(c: ValueMap, phases: Record<string, ValueMap[]>, ctx: Context, schema: Schema, caseName: string, caseLimit: number,
   trace: Trace, output: string[]): Promise<void> {

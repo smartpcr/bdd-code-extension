@@ -98,7 +98,7 @@ Describe 'D7 the module surface' {
 
     It 'registers the core actions, and only them, when nothing else is loaded' {
         $null = New-SuiteComposite
-        (Get-SuiteActionNames) -join ',' | Should -Be 'core.fail,core.noop,core.record,core.set,core.sleep,wait'
+        (Get-SuiteActionNames) -join ',' | Should -Be 'core.fail,core.noop,core.record,core.set,core.skip,core.sleep,wait'
         Get-SuiteActionOwner -Name 'wait' | Should -Be 'the core'
     }
 

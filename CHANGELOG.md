@@ -1,6 +1,21 @@
 # Changelog
 
-## 0.7.7 (local build, unreleased)
+## 0.7.8
+
+* **A case may skip itself** (spec/session.md rule 12, conformance
+  `execute/case-skips.yml`). A new core action, `core.skip`, and a skip signal
+  in every runtime's action API (C# `ActionException.Skipped`, TypeScript
+  `skipped`, Go `actions.Skipped`, Rust `ActionError::skipped`, PowerShell
+  `New-StepSkip`) end a case as `skipped` with reason `skip` and the action's
+  message, for a case that finds its environment cannot run it. The rest of the
+  case's setup, steps and asserts do not run; its cleanup and afterEach do, and
+  either failing still fails it. A skip inside `wait` ends the case rather than
+  being polled again; in any other hook it is that hook's failure. Guarded with
+  `ifCapture`, a suite skips only when a capture says so. The test-framework
+  providers show such a case as skipped (Jest, which cannot skip a running
+  test, shows it passed; its trace says skipped).
+
+## 0.7.7
 
 * **A catalog outside `test/e2e/schema`.** A workspace may keep its catalog,
   suites and bindings in its own layout (update2:
@@ -37,7 +52,7 @@
   failed on a Gallery download, and `-MinimumVersion 5.5.0` now resolves to
   Pester 6.
 
-## 0.7.6 (local build, unreleased)
+## 0.7.6
 
 * **The index survives a start-up burst of "too many open files".** When the
   extension host starts, every extension opens files at once, and a read could

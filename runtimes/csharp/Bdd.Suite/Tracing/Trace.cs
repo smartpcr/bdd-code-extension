@@ -37,6 +37,10 @@ public static class Reason
     public const string Tag = "tag";
     public const string Guard = "guard";
 
+    /// <summary>A case that skipped itself: an action in its setup or steps
+    /// found the environment cannot run it (spec/session.md rule 12).</summary>
+    public const string Skip = "skip";
+
     /// <summary>The absence of a reason, which a passed entry carries.</summary>
     public const string None = "";
 }

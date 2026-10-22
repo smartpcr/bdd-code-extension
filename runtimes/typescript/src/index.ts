@@ -16,7 +16,7 @@ import { validateFile } from './validate/index.js';
 export const apiVersion = '1.1.0';
 
 export type { Extension, ExtensionOption, Rules, RuleInput, RunState } from './extension.js';
-export { action, failed, timedOut, assertionFailed } from './actions/registry.js';
+export { action, failed, timedOut, assertionFailed, skipped } from './actions/registry.js';
 export type { Handler, Registration, Request } from './actions/registry.js';
 // What a lint rule needs to report a finding where the core would: the finding
 // constructors, and the position of a JSON pointer in the parsed suite.

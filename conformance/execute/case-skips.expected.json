@@ -1,0 +1,22 @@
+{
+  "kind": "execute",
+  "suite": "execute/case-skips.yml",
+  "description": "A case that skips itself from a step or its setup runs nothing more of its own but its cleanup and afterEach, and is skipped with reason skip; a guarded skip that does not apply changes nothing; skips do not change the exit code.",
+  "exitCode": 0,
+  "trace": [
+    { "phase": "step", "case": "skipped-at-a-step", "step": "given a step before the skip runs (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "step", "case": "skipped-at-a-step", "step": "when the environment cannot run the rest (core.skip)", "action": "core.skip", "status": "skipped", "reason": "skip" },
+    { "phase": "case-cleanup", "case": "skipped-at-a-step", "step": "step 1 (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "after-each", "case": "skipped-at-a-step", "step": "step 1 (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "case", "case": "skipped-at-a-step", "status": "skipped", "reason": "skip" },
+    { "phase": "case-setup", "case": "skipped-in-setup", "step": "step 1 (core.skip)", "action": "core.skip", "status": "skipped", "reason": "skip" },
+    { "phase": "case-cleanup", "case": "skipped-in-setup", "step": "step 1 (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "after-each", "case": "skipped-in-setup", "step": "step 1 (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "case", "case": "skipped-in-setup", "status": "skipped", "reason": "skip" },
+    { "phase": "step", "case": "skipped-only-when-a-capture-says-so", "step": "given the environment reports nothing it lacks (core.set)", "action": "core.set", "status": "passed" },
+    { "phase": "step", "case": "skipped-only-when-a-capture-says-so", "step": "when the skip is guarded by what the environment lacks (core.skip)", "action": "core.skip", "status": "skipped", "reason": "guard" },
+    { "phase": "step", "case": "skipped-only-when-a-capture-says-so", "step": "then the case goes on (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "after-each", "case": "skipped-only-when-a-capture-says-so", "step": "step 1 (core.record)", "action": "core.record", "status": "passed" },
+    { "phase": "case", "case": "skipped-only-when-a-capture-says-so", "status": "passed" }
+  ]
+}

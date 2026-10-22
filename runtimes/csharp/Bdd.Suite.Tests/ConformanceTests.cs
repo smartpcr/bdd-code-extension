@@ -44,7 +44,7 @@ public sealed class ConformanceTests(Xunit.Abstractions.ITestOutputHelper output
         // E214 entries went back to the product that owns those rules; then
         // docs/packages K0 added core-import (validate) and six execute entries.
         Assert.Equal(42, runnable.Count(entry => string.Equals(entry.Text("kind"), "validate", StringComparison.Ordinal)));
-        Assert.Equal(20, runnable.Count(entry => string.Equals(entry.Text("kind"), "execute", StringComparison.Ordinal)));
+        Assert.Equal(21, runnable.Count(entry => string.Equals(entry.Text("kind"), "execute", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public sealed class ConformanceTests(Xunit.Abstractions.ITestOutputHelper output
             .ToList();
         var registered = Executor.AllNames();
         Assert.Equal(declared, registered);
-        Assert.Equal(["core.fail", "core.noop", "core.record", "core.set", "core.sleep", "wait"], registered);
+        Assert.Equal(["core.fail", "core.noop", "core.record", "core.set", "core.skip", "core.sleep", "wait"], registered);
     }
 
     [Fact]

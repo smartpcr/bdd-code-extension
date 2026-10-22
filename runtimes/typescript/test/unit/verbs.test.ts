@@ -62,11 +62,11 @@ test('list: one line per selected case; actions: the core names, with no extensi
   assert.equal(l.code, 0);
   assert.ok(l.out.split('\n').every(line => line.startsWith('tags.yml  ')));
   assert.match((await listVerb(opts('list --path none.yml'), corpus)).errors, /names no file/);
-  assert.equal((await actionsVerb(opts('actions'))).out.split('\n').length, 6);
+  assert.equal((await actionsVerb(opts('actions'))).out.split('\n').length, 7);
 });
 
 test('execute dispatches each verb', async () => {
-  assert.equal(JSON.parse((await execute(opts('actions --json'))).out).length, 6);
+  assert.equal(JSON.parse((await execute(opts('actions --json'))).out).length, 7);
   assert.equal((await execute(opts(`run --path ${path.join(corpus, 'execute', 'hooks.yml')}`))).code, 0);
   assert.equal((await execute(opts(`list --path ${path.join(corpus, 'execute', 'hooks.yml')}`))).code, 0);
   assert.equal((await execute(opts(`lint --path ${path.join(corpus, 'execute', 'gherkin.yml')}`))).code, 0);

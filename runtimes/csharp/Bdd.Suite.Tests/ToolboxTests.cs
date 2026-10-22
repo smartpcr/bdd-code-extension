@@ -368,7 +368,7 @@ public sealed class ToolboxTests
         // Declared for the K0 worker-throws entry; csharp implements it in K1,
         // and until then the entry that calls it is pending.
         Assert.True(schema.Has("fixture.throw"));
-        Assert.Equal(14, schema.ActionNames.Count);
+        Assert.Equal(15, schema.ActionNames.Count);
         Assert.Equal(schema.ActionNames.OrderBy(name => name, StringComparer.Ordinal), schema.ActionNames);
 
         var invoke = schema.Actions["invoke"];

@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -329,6 +330,124 @@ func TestRule9AGuardedSuiteSkipsUnlessTheRunAllowsIt(t *testing.T) {
 	allowing.AllowGuarded = true
 	if result := runOne(t, openText(t, hooks, allowing, true), 0); result.Status != trace.Passed {
 		t.Errorf("allowed %+v", result)
+	}
+}
+
+func TestRule12ASkipCarriesItsMessageAndEndsAWaitRatherThanBeingPolled(t *testing.T) {
+	session := openText(t, `suite: skips
+tests:
+  - name: at-a-step
+    steps:
+      - when: the lab cannot run it
+        action: core.skip
+        message: no-sbe-profile on this lab
+      - then: it never runs
+        action: core.noop
+    cleanup:
+      - action: core.noop
+  - name: inside-a-wait
+    steps:
+      - when: the polled step skips
+        action: wait
+        intervalSec: 1
+        timeoutSec: 30
+        forStep:
+          action: core.skip
+          message: skipped from a poll
+`, nil, false)
+	atStep := runOne(t, session, 0)
+	if atStep.Status != trace.Skipped || atStep.Reason != trace.Skip ||
+		!strings.Contains(atStep.Message, "no-sbe-profile on this lab") ||
+		!strings.HasPrefix(atStep.Message, "when the lab cannot run it (core.skip): ") {
+		t.Errorf("at a step %+v", atStep)
+	}
+	want := "step:at-a-step:skipped,case-cleanup:at-a-step:passed,case:at-a-step:skipped"
+	if got := strings.Join(phases(session), ","); got != want {
+		t.Errorf("trace %s", got)
+	}
+
+	started := time.Now()
+	inWait := runOne(t, session, 1)
+	if inWait.Status != trace.Skipped || inWait.Reason != trace.Skip ||
+		!strings.Contains(inWait.Message, "skipped from a poll") {
+		t.Errorf("inside a wait %+v", inWait)
+	}
+	if elapsed := time.Since(started); elapsed > 10*time.Second {
+		t.Errorf("the skip was polled again instead of ending the case: %v", elapsed)
+	}
+	for _, entry := range session.Trace().Snapshot() {
+		if entry.Status == trace.Skipped && entry.Reason != trace.Skip {
+			t.Errorf("a skipped entry says %+v", entry)
+		}
+	}
+}
+
+func TestRule12ASkipOutsideTheCasesOwnSetupAndStepsIsThatHooksFailure(t *testing.T) {
+	session := openText(t, `suite: skip-in-hooks
+beforeEach:
+  - action: core.skip
+    message: not the case's decision
+tests:
+  - name: one
+    steps:
+      - then: it would run
+        action: core.noop
+`, nil, false)
+	result := runOne(t, session, 0)
+	if result.Status != trace.Failed || result.Reason != trace.Hook {
+		t.Errorf("result %+v", result)
+	}
+	if got := count(phases(session), "step:"); got != 0 {
+		t.Errorf("%d steps ran after a failed beforeEach", got)
+	}
+
+	cleanupFails := openText(t, `suite: skip-then-cleanup-fails
+tests:
+  - name: one
+    steps:
+      - when: it skips
+        action: core.skip
+    cleanup:
+      - action: core.fail
+        message: the cleanup broke
+`, nil, false)
+	failed := runOne(t, cleanupFails, 0)
+	if failed.Status != trace.Failed || failed.Reason != trace.Cleanup ||
+		!strings.Contains(failed.Message, "the cleanup broke") {
+		t.Errorf("a skip then a failed cleanup %+v", failed)
+	}
+}
+
+func TestRule12AnExtensionsActionSkipsItsCaseTheSameWay(t *testing.T) {
+	// Wrapped, which errors.As sees through: an extension need not return the
+	// *actions.Error itself.
+	lab := extension.Extension{
+		Name: "lab",
+		Actions: []actions.Registration{{Name: "lab.require", Handler: func(*actions.Request) (any, error) {
+			return nil, fmt.Errorf("lab.require: %w", actions.Skipped("this lab has no SBE profile"))
+		}}},
+	}
+	context := ForRun(&Options{}, started(t, nil, lab), &trace.Trace{})
+	session := openText(t, `suite: extension-skip
+tests:
+  - name: one
+    setup:
+      - action: lab.require
+    steps:
+      - then: it would run
+        action: core.noop
+`, context, false)
+	result := runOne(t, session, 0)
+	if result.Status != trace.Skipped || result.Reason != trace.Skip ||
+		!strings.Contains(result.Message, "this lab has no SBE profile") {
+		t.Errorf("result %+v", result)
+	}
+	want := "case-setup:one:skipped,case:one:skipped"
+	if got := strings.Join(phases(session), ","); got != want {
+		t.Errorf("trace %s", got)
+	}
+	if Failed(&RunResult{Suites: []SuiteResult{{Cases: []CaseResult{result}}}}) {
+		t.Error("a skipped case failed the run")
 	}
 }
 

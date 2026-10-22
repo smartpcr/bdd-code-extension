@@ -1,10 +1,10 @@
-// The offline actions every binding implements: five core.* and wait. One
+// The offline actions every binding implements: six core.* and wait. One
 // registration per line: the extension's recognizer and its stub template
 // (plan B5.5) read this list by line.
 import * as fs from 'node:fs';
 import { asNumber, isMap, mapOf, Value } from '../value.js';
 import { textOf } from '../walk.js';
-import { action, failed, Registration, Request, sleep, timedOut } from './registry.js';
+import { action, failed, Registration, Request, skipped, sleep, timedOut } from './registry.js';
 
 /** Does nothing and says so: what a then step uses when its whole job is to carry a sentence. */
 async function noop(): Promise<Value> {
@@ -20,6 +20,15 @@ async function set(request: Request): Promise<Value> {
 /** Fails on purpose with the fixture's message, so a test asserts on attribution. */
 async function fail(request: Request): Promise<Value> {
   throw failed(textOf(request.step, 'message') || 'core.fail: failed on purpose');
+}
+
+/**
+ * Ends its case as skipped, with the message the suite chose: what a case does
+ * when it finds its environment cannot run it (spec/session.md rule 12),
+ * usually guarded by ifCapture.
+ */
+async function skip(request: Request): Promise<Value> {
+  throw skipped(textOf(request.step, 'message') || 'core.skip: skipped on purpose');
 }
 
 /** Sleeps, and stops at once when its limit or the run's cancellation arrives. */
@@ -82,6 +91,7 @@ export const coreActions: readonly Registration[] = [
   action('core.noop', noop),
   action('core.set', set),
   action('core.fail', fail),
+  action('core.skip', skip),
   action('core.sleep', sleepFor),
   action('core.record', record),
   action('wait', wait),

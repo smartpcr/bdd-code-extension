@@ -359,6 +359,114 @@ fn rule10_a_dry_run_validates_and_traces_nothing() {
     assert!(context.trace().entries.is_empty());
 }
 
+/// One case through beforeEach, the case and afterEach.
+fn run_one(session: &Session, index: usize) -> exec::CaseResult {
+    let mut guard = session.before_each(index).unwrap();
+    session.run_case(&mut guard).unwrap();
+    session.after_each(guard)
+}
+
+#[test]
+fn rule12_a_skip_carries_its_message_and_ends_a_wait_rather_than_being_polled() {
+    let (path, held) = suite("
+suite: skips
+tests:
+  - name: at-a-step
+    steps:
+      - when: the lab cannot run it
+        action: core.skip
+        message: no-sbe-profile on this lab
+  - name: inside-a-wait
+    steps:
+      - when: the polled step skips
+        action: wait
+        intervalSec: 1
+        timeoutSec: 30
+        forStep:
+          action: core.skip
+          message: skipped from a poll
+");
+    let (schema, registry) = (corpus_schema(), Registry::core());
+    let context = context(&registry, Options::default());
+    let session = Session::open(&path, held, &schema, &context, false).unwrap();
+    let at_step = run_one(&session, 0);
+    assert_eq!((at_step.status, at_step.reason), (Status::Skipped, Some(Reason::Skip)));
+    assert!(at_step.message.contains("no-sbe-profile on this lab"), "{}", at_step.message);
+
+    let started = std::time::Instant::now();
+    let in_wait = run_one(&session, 1);
+    assert_eq!((in_wait.status, in_wait.reason), (Status::Skipped, Some(Reason::Skip)));
+    assert!(in_wait.message.contains("skipped from a poll"), "{}", in_wait.message);
+    assert!(started.elapsed().as_secs() < 10, "the skip was polled again instead of ending the case");
+}
+
+#[test]
+fn rule12_a_skip_outside_the_cases_own_setup_and_steps_is_that_hooks_failure() {
+    let (path, held) = suite("
+suite: skip-in-hooks
+beforeEach:
+  - action: core.skip
+    message: not the case's decision
+tests:
+  - name: one
+    steps:
+      - then: it would run
+        action: core.noop
+");
+    let (schema, registry) = (corpus_schema(), Registry::core());
+    let context = context(&registry, Options::default());
+    let session = Session::open(&path, held, &schema, &context, false).unwrap();
+    let result = run_one(&session, 0);
+    assert_eq!((result.status, result.reason), (Status::Failed, Some(Reason::Hook)));
+
+    let (path, held) = suite("
+suite: skip-then-cleanup-fails
+tests:
+  - name: one
+    steps:
+      - when: it skips
+        action: core.skip
+    cleanup:
+      - action: core.fail
+        message: the cleanup broke
+");
+    let context = self::context(&registry, Options::default());
+    let session = Session::open(&path, held, &schema, &context, false).unwrap();
+    let failed = run_one(&session, 0);
+    assert_eq!((failed.status, failed.reason), (Status::Failed, Some(Reason::Cleanup)));
+    assert!(failed.message.contains("the cleanup broke"), "{}", failed.message);
+}
+
+#[test]
+fn rule12_an_extensions_action_skips_its_case_the_same_way() {
+    struct Lab;
+    impl suiterun::Extension for Lab {
+        fn name(&self) -> &str {
+            "lab"
+        }
+        fn actions(&self) -> Vec<suiterun::Action> {
+            vec![suiterun::Action::new("lab.require", |_| {
+                Err(suiterun::actions::ActionError::skipped("lab.require: this lab has no SBE profile"))
+            })]
+        }
+    }
+    let registry = Registry::compose(&[std::sync::Arc::new(Lab) as std::sync::Arc<dyn suiterun::Extension>]).unwrap();
+    let (path, held) = suite("
+suite: extension-skip
+tests:
+  - name: one
+    steps:
+      - given: the lab is checked
+        action: lab.require
+");
+    let schema = corpus_schema();
+    let context = context(&registry, Options::default());
+    let session = Session::open(&path, held, &schema, &context, false).unwrap();
+    let result = run_one(&session, 0);
+    assert_eq!((result.status, result.reason), (Status::Skipped, Some(Reason::Skip)));
+    assert!(result.message.contains("this lab has no SBE profile"), "{}", result.message);
+}
+
 #[test]
 fn the_run_context_reads_options_tags_and_switches_under_the_prefix() {
     struct Lab;

@@ -251,6 +251,11 @@ entries:
     description: A failed case setup fails that case only, its cleanup still runs, and the next case is unaffected.
 
   - kind: execute
+    suite: execute/case-skips.yml
+    expectation: execute/case-skips.expected.json
+    description: A case that skips itself from a step or its setup runs only its cleanup and afterEach after that, and is skipped with reason skip.
+
+  - kind: execute
     suite: execute/hung-step.yml
     expectation: execute/hung-step.expected.json
     description: A step that would run for half a minute is cancelled at its own one-second limit, and the cleanup still runs.

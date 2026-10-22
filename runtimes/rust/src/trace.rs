@@ -70,6 +70,9 @@ pub enum Reason {
     SuiteSetup,
     Tag,
     Guard,
+    /// A case that skipped itself: an action in its setup or steps found the
+    /// environment cannot run it (spec/session.md rule 12).
+    Skip,
 }
 
 impl Reason {
@@ -83,6 +86,7 @@ impl Reason {
             Reason::SuiteSetup => "suite-setup",
             Reason::Tag => "tag",
             Reason::Guard => "guard",
+            Reason::Skip => "skip",
         }
     }
 }
@@ -214,6 +218,7 @@ mod tests {
         assert_eq!(Status::Skipped.as_str(), "skipped");
         assert_eq!(Reason::SuiteSetup.as_str(), "suite-setup");
         assert_eq!(Reason::Guard.as_str(), "guard");
+        assert_eq!(Reason::Skip.as_str(), "skip");
         assert_eq!(Reason::Cleanup.as_str(), "cleanup");
         assert_eq!(Reason::Hook.as_str(), "hook");
         assert_eq!(Reason::Tag.as_str(), "tag");
