@@ -538,19 +538,21 @@ that the code compiles.
 
 **Choice.** The generated `BddSuiteRun.Open` call keeps the absolute paths the
 suite and its schema had where the tests were generated. When those paths do
-not exist where the tests run, the runtime looks for the nearest
-`test/e2e/schema` above the test assembly's folder and keeps the suite's place
-relative to its schema's parent: `suites/orders.yml` beside `schema` at build
-time is `test/e2e/suites/orders.yml` beside `test/e2e/schema` there. When that
-file is missing too, the build's paths are used, and the error names them.
+not exist where the tests run, the runtime looks for the same layout near the
+test assembly: the schema folder by its build-time name and the suite at its
+build-time place relative to it (`schema` and `suites/orders.yml`), in the
+assembly's folder and each folder above it, and in a `test/e2e` folder there
+(the default layout). The nearest folder holding both wins. When none does, the
+build's paths are used, and the error names them.
 
 **Why.** A test package built on one machine (a CI agent) and run on another
 (a lab's test VM, under a runner such as TAEF) carries its suites with it, but
 not at the agent's paths, so every test class failed to open its suite.
 
-**Tradeoff.** The relocated layout is fixed to `test/e2e/{schema,...}` beside
-or above the assembly, the layout `suiterun` already finds; a package that
-carries the suites elsewhere still fails, naming the build's path. A test
+**Tradeoff.** A package must keep the schema and suites in the layout they had
+at build time (or under `test/e2e`), beside or above the assembly; one that
+rearranges them still fails, naming the build's path. `suiterun` in the same
+package needs `--schema-root` unless the layout is `test/e2e`. A test
 project built and run in place behaves exactly as before. Only the C# provider
 does this; the other providers run where they are generated.
 

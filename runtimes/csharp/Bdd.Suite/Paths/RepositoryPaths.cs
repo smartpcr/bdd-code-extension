@@ -41,14 +41,14 @@ public static class RepositoryPaths
     /// A suite and its schema where a test assembly runs (docs/test-providers
     /// DEC-T13). Generated tests name both by the paths they had on the machine
     /// that built them; a test package copied to another machine carries the
-    /// suites beside its assembly instead. When the generated paths are there,
-    /// they are used as they are. Otherwise the schema is the nearest
-    /// test/e2e/schema above <paramref name="assemblyDirectory"/>, and the suite
-    /// keeps its place relative to the schema's parent folder, so
-    /// <c>suites/orders.yml</c> beside <c>schema</c> at build time is
-    /// <c>test/e2e/suites/orders.yml</c> beside <c>test/e2e/schema</c> there.
-    /// When neither is found the generated paths are returned, and opening the
-    /// suite reports the path it was built with.
+    /// suites beside its assembly instead, in the layout they had at build
+    /// time. When the generated paths are there, they are used as they are.
+    /// Otherwise the schema folder and the suite keep their places relative to
+    /// each other: <c>schema</c> and <c>suites/orders.yml</c> at build time are
+    /// looked for in <paramref name="assemblyDirectory"/> and each folder above
+    /// it, then in a test/e2e folder there (the default layout), and the first
+    /// folder holding both wins. When none does, the generated paths are
+    /// returned, and opening the suite reports the path it was built with.
     /// </summary>
     public static (string Suite, string SchemaRoot) Locate(string suitePath, string schemaRoot, string assemblyDirectory)
     {
@@ -56,16 +56,27 @@ public static class RepositoryPaths
         {
             return (suitePath, schemaRoot);
         }
-        var root = FindRoot(assemblyDirectory);
-        var builtParent = Path.GetDirectoryName(Path.GetFullPath(schemaRoot));
-        if (root is null || builtParent is null)
+        var builtSchema = Path.TrimEndingDirectorySeparator(Path.GetFullPath(schemaRoot));
+        var builtParent = Path.GetDirectoryName(builtSchema);
+        if (builtParent is null)
         {
             return (suitePath, schemaRoot);
         }
-        var deployedSchema = SchemaRoot(root);
+        var schemaName = Path.GetFileName(builtSchema);
         var relative = Path.GetRelativePath(builtParent, Path.GetFullPath(suitePath));
-        var deployedSuite = Path.GetFullPath(Path.Combine(root, "test", "e2e", relative));
-        return File.Exists(deployedSuite) ? (deployedSuite, deployedSchema) : (suitePath, schemaRoot);
+        for (var here = Path.GetFullPath(assemblyDirectory); here is not null; here = Path.GetDirectoryName(here))
+        {
+            foreach (var parent in new[] { here, Path.Combine(here, "test", "e2e") })
+            {
+                var schema = Path.Combine(parent, schemaName);
+                var suite = Path.GetFullPath(Path.Combine(parent, relative));
+                if (Directory.Exists(schema) && File.Exists(suite))
+                {
+                    return (suite, schema);
+                }
+            }
+        }
+        return (suitePath, schemaRoot);
     }
 
     /// <summary>

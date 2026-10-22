@@ -29,9 +29,10 @@
   generated `BddSuiteRun.Open` names the suite and the schema by their paths on
   the build machine, so a test assembly packaged and run elsewhere (a lab VM
   under TAEF) failed to open every suite. When those paths are not there, the
-  runtime now takes the nearest `test/e2e/schema` above the test assembly and
-  the suite at the same place relative to it (`RepositoryPaths.Locate`,
-  docs/test-providers DEC-T13). Run in place, nothing changes.
+  runtime now looks for the schema and suite in their build-time layout (e.g.
+  `schema` and `suites/orders.yml`) in the test assembly's folder or one above
+  it, or under `test/e2e` there (`RepositoryPaths.Locate`, docs/test-providers
+  DEC-T13). Run in place, nothing changes.
 * **CI installs Pester 5 and retries the PowerShell Gallery.** The Pester job
   failed on a Gallery download, and `-MinimumVersion 5.5.0` now resolves to
   Pester 6.

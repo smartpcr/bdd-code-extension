@@ -47,11 +47,18 @@ public sealed class ToolboxTests
         Assert.True(File.Exists(corpus.Path("run-manifest.yaml")));
     }
 
+    /// <summary>A file with a line of text, its folder made first.</summary>
+    private static void Touch(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "suite: orders\n");
+    }
+
     [Fact]
     public void AGeneratedSuitePathIsFoundBesideTheAssemblyOnAnotherMachine()
     {
         // Built in a workspace with its own layout (BVT/schema, BVT/suites), run
-        // from a package that carries test/e2e/{schema,suites} beside the assembly.
+        // from a package that carries schema and suites beside the assembly.
         var built = Scratch("suiterun-built-");
         var package = Scratch("suiterun-package-");
         try
@@ -59,8 +66,7 @@ public sealed class ToolboxTests
             var builtSchema = Path.Combine(built, "BVT", "schema");
             var builtSuite = Path.Combine(built, "BVT", "suites", "orders.yml");
             Directory.CreateDirectory(builtSchema);
-            Directory.CreateDirectory(Path.GetDirectoryName(builtSuite)!);
-            File.WriteAllText(builtSuite, "suite: orders\n");
+            Touch(builtSuite);
 
             // On the building machine the generated paths are used as they are.
             Assert.Equal((builtSuite, builtSchema), RepositoryPaths.Locate(builtSuite, builtSchema, package));
@@ -68,21 +74,28 @@ public sealed class ToolboxTests
             var gone = Path.Combine(built, "elsewhere");
             var goneSchema = Path.Combine(gone, "schema").Replace('\\', '/');
             var goneSuite = Path.Combine(gone, "suites", "orders.yml").Replace('\\', '/');
+            var assembly = Path.Combine(package, "bin");
+            Directory.CreateDirectory(assembly);
 
             // Nothing deployed: the generated paths come back, for the error to name.
-            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, package));
+            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, assembly));
 
-            var deployedSchema = Path.Combine(package, "test", "e2e", "schema");
-            Directory.CreateDirectory(deployedSchema);
+            // The default layout, test/e2e/{schema,suites}, above the assembly.
+            var e2eSchema = Path.Combine(package, "test", "e2e", "schema");
+            Directory.CreateDirectory(e2eSchema);
             // A schema without the suite is not taken: the suite must be there too.
-            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, package));
+            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, assembly));
+            var e2eSuite = Path.Combine(package, "test", "e2e", "suites", "orders.yml");
+            Touch(e2eSuite);
+            Assert.Equal((e2eSuite, e2eSchema), RepositoryPaths.Locate(goneSuite, goneSchema, assembly));
 
-            var deployedSuite = Path.Combine(package, "test", "e2e", "suites", "orders.yml");
-            Directory.CreateDirectory(Path.GetDirectoryName(deployedSuite)!);
-            File.WriteAllText(deployedSuite, "suite: orders\n");
-            Assert.Equal(
-                (Path.GetFullPath(deployedSuite), Path.GetFullPath(deployedSchema)),
-                RepositoryPaths.Locate(goneSuite, goneSchema, package));
+            // The build's own layout, schema and suites beside the assembly: the
+            // nearer folder wins over the test/e2e one above it.
+            var flatSchema = Path.Combine(assembly, "schema");
+            var flatSuite = Path.Combine(assembly, "suites", "orders.yml");
+            Directory.CreateDirectory(flatSchema);
+            Touch(flatSuite);
+            Assert.Equal((flatSuite, flatSchema), RepositoryPaths.Locate(goneSuite, goneSchema, assembly));
         }
         finally
         {
