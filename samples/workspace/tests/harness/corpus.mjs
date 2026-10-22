@@ -305,11 +305,16 @@ const adapters = {
       ? { ...row, teardown: true }
       : { ...row, name: row.name.startsWith(`${suiteName} > `) ? row.name.slice(suiteName.length + 3) : row.name, teardown: false }),
   },
-  /** jest-junit writes a failed afterAll as its own made-up test case (T0). */
+  /**
+   * jest-junit writes a failed afterAll as its own made-up test case (T0). Jest cannot skip a
+   * test at run time, so a case that skips itself (reason skip, spec/session.md rule 12) passes
+   * there (runtimes/typescript/src/testing/index.ts); a case skipped when the file loads is skipped.
+   */
   jest: {
     ...typescriptAdapter('jest', (file, junit, env) => run('node', ['--experimental-vm-modules', 'node_modules/jest/bin/jest.js', file],
       { cwd: tsRoot, env: { ...env, JUNIT_FILE: junit } })),
     normalise: row => ({ ...row, teardown: row.name.includes('Test execution failure') }),
+    selfSkipPasses: true,
   },
   /** Mocha's xunit reporter writes a failed after hook as its own test case, '"after all" hook for "<last test>"'. */
   mocha: {
@@ -417,7 +422,8 @@ for (const entry of manifest.entries.filter(e => e.kind === 'execute')) {
 
   const teardownRows = rows.filter(row => adapter.isTeardownRow(adapter.corpusScope, suite.id, row));
   const caseRows = rows.filter(row => !teardownRows.includes(row));
-  const wanted = expected.trace.filter(e => e.phase === 'case').map(e => ({ name: adapter.testName(e.case), outcome: adapter.outcomeOf(e.status) }));
+  const caseStatus = e => (adapter.selfSkipPasses && e.status === 'skipped' && e.reason === 'skip' ? 'passed' : e.status);
+  const wanted = expected.trace.filter(e => e.phase === 'case').map(e => ({ name: adapter.testName(e.case), outcome: adapter.outcomeOf(caseStatus(e)) }));
   if (sortRows(caseRows).join('\n') !== sortRows(wanted).join('\n')) {
     problems.push(`outcomes differ:\n      ${sortRows(caseRows).join('\n      ')}\n    expected:\n      ${sortRows(wanted).join('\n      ')}`);
   }

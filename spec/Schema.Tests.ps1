@@ -104,7 +104,7 @@ Describe 'The core schema an editor reads' {
     }
 
     It 'holds exactly the core actions' {
-        @($script:Defs.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.sleep', 'core.record', 'wait')
+        @($script:Defs.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.skip', 'core.sleep', 'core.record', 'wait')
     }
 
     It 'carries no product field: <Field> belongs in a workspace extension' -ForEach @(
@@ -153,7 +153,7 @@ Describe 'A workspace extends the core by import' {
             'actions.catalog.yaml' = "catalogVersion: 1`nimports: [{spec}/core.catalog.yaml]`nbindings: [go]`nactions:`n" + ($script:Action -f 'shop.order')
         }
         $r.ExitCode | Should -Be 0 -Because $r.Output
-        @($r.Schema.'$defs'.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.sleep', 'core.record', 'wait', 'shop.order')
+        @($r.Schema.'$defs'.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.skip', 'core.sleep', 'core.record', 'wait', 'shop.order')
         Test-Declares $r.Schema.'$defs'.'step.shop.order' 'target' | Should -BeTrue
     }
 
@@ -181,21 +181,21 @@ Describe 'A workspace extends the core by import' {
             'actions.catalog.yaml' = "catalogVersion: 1`nimports: [ 'bdd-suite:core' ]`nbindings: [csharp, go]`nactions:`n" + ($script:Action -f 'shop.order')
         }
         $r.ExitCode | Should -Be 0 -Because $r.Output
-        @($r.Schema.'$defs'.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.sleep', 'core.record', 'wait', 'shop.order')
-        ([regex]::Matches($r.Reference, 'Bindings: `csharp`, `go`\.')).Count | Should -Be 6 -Because 'each of the six core actions is cut to [csharp, go]'
+        @($r.Schema.'$defs'.step.properties.action.enum) | Should -Be @('core.noop', 'core.set', 'core.fail', 'core.skip', 'core.sleep', 'core.record', 'wait', 'shop.order')
+        ([regex]::Matches($r.Reference, 'Bindings: `csharp`, `go`\.')).Count | Should -Be 7 -Because 'each of the seven core actions is cut to [csharp, go]'
         $r.Reference | Should -Not -Match 'Bindings: `powershell`'
     }
 
     It 'reads bdd-suite:core whole when the importer lists no bindings' {
         $r = Invoke-Workspace @{ 'actions.catalog.yaml' = "catalogVersion: 1`nimports: [ 'bdd-suite:core' ]" }
         $r.ExitCode | Should -Be 0 -Because $r.Output
-        ([regex]::Matches($r.Reference, 'Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`\.')).Count | Should -Be 6
+        ([regex]::Matches($r.Reference, 'Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`\.')).Count | Should -Be 7
     }
 
     It 'reads a path import as written, without the cut' {
         $r = Invoke-Workspace @{ 'actions.catalog.yaml' = "catalogVersion: 1`nimports: [{spec}/core.catalog.yaml]`nbindings: [go]" }
         $r.ExitCode | Should -Be 0 -Because $r.Output
-        ([regex]::Matches($r.Reference, 'Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`\.')).Count | Should -Be 6
+        ([regex]::Matches($r.Reference, 'Bindings: `powershell`, `csharp`, `go`, `rust`, `typescript`\.')).Count | Should -Be 7
     }
 
     It 'refuses an import cycle' {
