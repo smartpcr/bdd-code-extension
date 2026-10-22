@@ -97,6 +97,7 @@ test('names: Pascal for C# and PowerShell files, camel for Go and TypeScript, sn
   assert.deepStrictEqual([pascalName('orders.streamWait'), camelName('orders.streamWait'), snakeName('orders.streamWait')],
     ['OrdersStreamWait', 'ordersStreamWait', 'orders_stream_wait']);
   assert.strictEqual(powershellStubFile('demo.echo'), 'scripts/e2e/actions/DemoEcho.ps1');
+  assert.strictEqual(powershellStubFile('demo.echo', 'bvt/actions/${action}.ps1'), 'bvt/actions/DemoEcho.ps1');
 });
 
 test('S5a.4 one target per language in the DEC-S11 layout; PowerShell has its own file, not a registry', () => {

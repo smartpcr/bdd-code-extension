@@ -11,7 +11,7 @@ export interface LibraryLintRequest {
 }
 
 export type HostMessage =
-  | { type: 'lint'; id: number; root: string; request: LibraryLintRequest }
+  | { type: 'lint'; id: number; root: string; schemaRoot?: string; request: LibraryLintRequest }
   | { type: 'invalidate'; root: string };
 
 export type WorkerMessage =

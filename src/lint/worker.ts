@@ -12,7 +12,7 @@ interface Linter {
 }
 interface Library {
   apiVersion?: unknown;
-  createLinter?: (options: { root: string }) => Linter;
+  createLinter?: (options: { root: string; schemaRoot?: string }) => Linter;
 }
 
 // `import()` kept as written: compiled to CommonJS it would become `require()`,
@@ -43,14 +43,16 @@ async function start(): Promise<void> {
 
 port.on('message', (m: HostMessage) => {
   if (m.type === 'invalidate') {
-    linters.get(m.root)?.invalidate();
+    for (const [key, linter] of linters) if (key.split('\n')[0] === m.root) linter.invalidate();
     return;
   }
   try {
-    let linter = linters.get(m.root);
+    // One linter per root and schema root: a catalog outside <root>/test/e2e/schema is named (WorkspaceLayout.schemaRoot).
+    const key = `${m.root}\n${m.schemaRoot ?? ''}`;
+    let linter = linters.get(key);
     if (!linter) {
-      linter = library!.createLinter!({ root: m.root });
-      linters.set(m.root, linter);
+      linter = library!.createLinter!(m.schemaRoot ? { root: m.root, schemaRoot: m.schemaRoot } : { root: m.root });
+      linters.set(key, linter);
     }
     post({ type: 'result', id: m.id, diagnostics: linter.lint(m.request) });
   } catch (e) {

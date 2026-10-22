@@ -57,6 +57,19 @@ test('a library that answers: one worker, reused; the request reaches the librar
   h.invalidate(ROOT);
 });
 
+test('a catalog outside <root>/test/e2e/schema: the library is given its folder, one linter per schema root, and invalidate reaches both', async () => {
+  const h = host('answer');
+  const schema = path.join(ROOT, 'BVT', 'schema');
+  try {
+    assert.match(message(await h.lint('a', LIBRARY, ROOT, request(), { schemaRoot: schema })), /schemaRoot=.*schema binding=go .*invalidated=0$/);
+    assert.doesNotMatch(message(await h.lint('a', LIBRARY, ROOT, request())), /schemaRoot=/, "without one, the library's own default");
+    h.invalidate(ROOT);
+    assert.match(message(await h.lint('a', LIBRARY, ROOT, request(), { schemaRoot: schema })), /invalidated=2$/);
+  } finally {
+    h.dispose();
+  }
+});
+
 test('B8.1-4 an untrusted workspace starts no worker (INV-11)', async () => {
   const h = host('answer', { gate: () => false });
   assert.strictEqual(failure(await h.lint('a', LIBRARY, ROOT, request())).reason, 'untrusted');

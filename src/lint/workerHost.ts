@@ -31,6 +31,8 @@ export interface WorkerHostOptions {
 export interface LintOptions {
   /** A lint on a pause in typing; refused while live lint is paused. */
   live?: boolean;
+  /** The catalog's folder when it is not `<root>/test/e2e/schema` (WorkspaceLayout.schemaRoot). */
+  schemaRoot?: string;
 }
 
 /** The status-bar text for each failure (B8.1, E-B11). */
@@ -200,7 +202,7 @@ export class LintWorkerHost {
     return new Promise(resolve => {
       const timer = setTimeout(() => this.fail(worker, 'timeout', `no answer within ${this.timeoutMs} ms`), this.timeoutMs);
       this.pending.set(id, { key, timer, resolve });
-      const message: HostMessage = { type: 'lint', id, root, request };
+      const message: HostMessage = { type: 'lint', id, root, ...(o.schemaRoot ? { schemaRoot: o.schemaRoot } : {}), request };
       worker.postMessage(message);
     });
   }

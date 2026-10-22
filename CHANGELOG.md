@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.7 (local build, unreleased)
+
+* **A catalog outside `test/e2e/schema`.** A workspace may keep its catalog,
+  suites and bindings in its own layout (update2:
+  `src/.../EnvironmentTest/BVT/{schema,suites,bindings}`) and name the catalog
+  in `bddSuite.catalogPath`. When no folder above the catalog holds
+  `test/e2e/schema`, the root is the folder above the catalog's folder (it was:
+  no layout at all, so the extension stayed inert), and every binding program is
+  given `--schema-root <catalog folder>` on `lint`, `actions`, `list` and `run`,
+  since its own root search would find nothing. The schema watcher follows the
+  catalog's folder, and the extension activates on any
+  `**/actions.catalog.yaml`. A workspace in the usual layout runs exactly
+  the command lines it did.
+* **Every path is a setting.** `bddSuite.root` names the suites' root (where
+  binding programs run; `tool`, `build.cwd`, `library` and `stubFile` are
+  relative to it), overriding the search; `--schema-root` is passed whenever
+  the catalog is not `<root>/test/e2e/schema`. The live lint (a workspace's
+  TypeScript library or the runtime the extension carries) reads the schema
+  from the catalog's folder too, where it used to read
+  `<root>/test/e2e/schema` only. `bddSuite.bindings.<name>.stubFile` says where
+  *Declare action* writes a stub (PowerShell: `${action}` in the file name). A
+  suite file is served by the layout whose root holds it, unless a
+  `test/e2e/schema` tree nearer the file does. `bddSuite.root` is ignored in an
+  untrusted folder, like `bindings`.
+
 ## 0.7.6 (local build, unreleased)
 
 * **The index survives a start-up burst of "too many open files".** When the

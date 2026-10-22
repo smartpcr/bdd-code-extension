@@ -30,10 +30,17 @@ export interface BindingSettings {
   library?: string;
   /** The program runs one case of a file by name (`--test-name`); otherwise a run covers whole files. */
   selectsOneCase?: boolean;
+  /**
+   * Where Declare action writes this binding's stub, relative to the root: the registry file
+   * until the binding's own actions are somewhere (their file wins), and for PowerShell the
+   * stub file, `${action}` being the action's PascalCase name.
+   */
+  stubFile?: string;
 }
 
 export interface Settings {
   catalogPath: string;
+  root: string;
   suiteGlobs: string[];
   exclude: string;
   lintTool: string;
@@ -120,6 +127,8 @@ export const DEFAULT_BINDINGS: Record<string, BindingSettings> = {
 
 export const DEFAULT_SETTINGS: Settings = {
   catalogPath: 'test/e2e/schema/actions.catalog.yaml',
+  // Empty: found from the catalog (WorkspaceLayout.create).
+  root: '',
   suiteGlobs: ['test/e2e/**/*.yml'],
   exclude: '**/{node_modules,bin,obj,target,artifacts,.git}/**',
   // B8.3: the in-editor TypeScript lint met O10 (p95 429 ms on os-context's largest suite), so it is the default (DEC-B04).
@@ -142,12 +151,13 @@ export const DEFAULT_SETTINGS: Settings = {
 
 /** The description each setting carries in package.json. */
 export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
-  catalogPath: 'The action catalog, relative to the workspace folder.',
+  catalogPath: 'The action catalog, relative to the workspace folder. Its folder holds suite.schema.json and is the schema root every binding program reads.',
+  root: 'The suites\' root, relative to the workspace folder: binding programs run in it, and each binding\'s `tool`, `build.cwd`, `library` and `stubFile` are relative to it. Empty: the nearest folder above the catalog holding test/e2e/schema, else the folder above the catalog\'s folder.',
   suiteGlobs: 'Candidate suite files; a file is a suite when it has a top-level `suite:` key or is imported by one.',
   exclude: 'Glob of files never indexed.',
   lintTool: 'The binding whose code lints suites.',
   targetBinding: 'The binding suites are meant to run with; lint reports actions it does not implement (E201).',
-  bindings: 'Per binding: source globs (the catalog\'s `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name.',
+  bindings: 'Per binding: source globs (the catalog\'s `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, `selectsOneCase` when the program runs one case by name, and `stubFile`, where Declare action writes a stub (PowerShell: `${action}` is the action\'s PascalCase name).',
   schemaGenerator: 'Command that regenerates suite.schema.json after a catalog edit, run in the workspace root. `${extension}` is the extension\'s folder (the default runs the spec\'s Build-Schema.ps1 it carries) and `${catalogPath}` the catalog.',
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
   'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',

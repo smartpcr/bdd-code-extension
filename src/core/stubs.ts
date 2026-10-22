@@ -261,8 +261,13 @@ export function stubTarget(binding: string): StubTarget | undefined {
   return TARGETS.get(binding);
 }
 
-/** The PowerShell stub file for an action (B5.1), relative to the repository root. */
-export const powershellStubFile = (action: string) => `scripts/e2e/actions/${pascalName(action)}.ps1`;
+/**
+ * The PowerShell stub file for an action (B5.1), relative to the root: `configured`
+ * (bindings.powershell.stubFile) with `${action}` as the action's PascalCase name, else
+ * scripts/e2e/actions/<Action>.ps1.
+ */
+export const powershellStubFile = (action: string, configured?: string) =>
+  (configured ?? 'scripts/e2e/actions/${action}.ps1').split('${action}').join(pascalName(action));
 
 export interface ImplementInput {
   binding: string;

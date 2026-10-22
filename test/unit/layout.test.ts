@@ -52,6 +52,16 @@ test('servingLayout: a file with no root above it falls to the innermost folder;
   assert.strictEqual(servingLayout('/elsewhere/x.yml', [repoLayout], twoTrees), undefined);
 });
 
+test('servingLayout: a layout whose own root holds the file serves it, unless a test/e2e/schema tree nearer the file does', () => {
+  // update2: the root is src/BVT (no test/e2e/schema), and the repository also has an outer test/e2e/schema.
+  const bvt = { folder: fileKey('/repo'), root: fileKey('/repo/src/BVT') };
+  const outer = has('/repo/test/e2e/schema', '/repo/src/BVT/x/test/e2e/schema');
+  assert.strictEqual(servingLayout('/repo/src/BVT/suites/a.yml', [bvt], outer), bvt);
+  assert.strictEqual(servingLayout('/repo/src/BVT/suites/a.yml', [bvt], () => false), bvt);
+  assert.strictEqual(servingLayout('/repo/src/BVT/x/test/e2e/suites/b.yml', [bvt], outer), undefined, "a nearer tree is another catalog's");
+  assert.strictEqual(servingLayout('/repo/other/c.yml', [bvt], outer), undefined, 'under the outer tree, not this root');
+});
+
 test('fileKey lowercases a drive letter only', () => {
   const k = fileKey('C:\\X\\Y');
   if (process.platform === 'win32') assert.strictEqual(k, 'c:\\X\\Y');
@@ -162,10 +172,56 @@ test('catalogSourceGlobs: relative to the catalog, forward slashes; absolute or 
   assert.deepStrictEqual(r.skipped, [`csharp: ${path.resolve('/elsewhere/*.cs')}`, 'csharp: ../../../../up/*.cs', 'go: ../../../../up/*.go']);
 });
 
-test('WorkspaceLayout is undefined without a catalog, or without a root above it', () => {
+test('WorkspaceLayout is undefined without a catalog', () => {
   assert.strictEqual(WorkspaceLayout.create(ROOT, DEFAULT_SETTINGS, '/s', () => false), undefined);
+});
+
+test('a catalog outside test/e2e/schema: the root is the folder above its folder, and every binding gets schemaRoot', () => {
+  // update2's layout: src/.../EnvironmentTest/BVT/{schema,suites,bindings}, named by bddSuite.catalogPath.
+  const settings = { ...DEFAULT_SETTINGS, catalogPath: 'src/EnvironmentTest/BVT/schema/actions.catalog.yaml' };
+  const catalog = path.join(ROOT, 'src', 'EnvironmentTest', 'BVT', 'schema', 'actions.catalog.yaml');
+  const layout = WorkspaceLayout.create(ROOT, settings, '/s', has(catalog))!;
+  assert.strictEqual(layout.catalogPath, fileKey(catalog));
+  assert.strictEqual(layout.root, fileKey(path.join(ROOT, 'src', 'EnvironmentTest', 'BVT')));
+  assert.strictEqual(layout.folder, fileKey(ROOT));
+  for (const b of layout.bindings) {
+    assert.strictEqual(b.schemaRoot, path.dirname(fileKey(catalog)), b.name);
+  }
+});
+
+test('a catalog under test/e2e/schema keeps the usual root, and no binding gets schemaRoot', () => {
   const catalog = path.join(ROOT, 'test', 'e2e', 'schema', 'actions.catalog.yaml');
-  assert.strictEqual(WorkspaceLayout.create(ROOT, DEFAULT_SETTINGS, '/s', has(catalog)), undefined);
+  const layout = WorkspaceLayout.create(ROOT, DEFAULT_SETTINGS, '/s', has(catalog, '/repo/test/e2e/schema'))!;
+  assert.strictEqual(layout.root, fileKey(ROOT));
+  assert.ok(layout.bindings.every(b => !('schemaRoot' in b)), 'the usual layout runs the command lines it always did');
+});
+
+test("bddSuite.root names the root: tool paths and cwd are relative to it, and schemaRoot is the catalog's folder", () => {
+  const settings = { ...DEFAULT_SETTINGS, catalogPath: 'svc/BVT/catalog/actions.catalog.yaml', root: 'svc' };
+  const catalog = path.join(ROOT, 'svc', 'BVT', 'catalog', 'actions.catalog.yaml');
+  const layout = WorkspaceLayout.create(ROOT, settings, '/s', has(catalog))!;
+  assert.strictEqual(layout.root, fileKey(path.join(ROOT, 'svc')));
+  assert.strictEqual(layout.schemaRoot, path.dirname(fileKey(catalog)));
+  assert.ok(layout.bindings.every(b => b.schemaRoot === layout.schemaRoot));
+});
+
+test('bddSuite.root wins over a test/e2e/schema above the catalog; a catalog in <root>/test/e2e/schema needs no schemaRoot', () => {
+  const catalog = path.join(ROOT, 'a', 'test', 'e2e', 'schema', 'actions.catalog.yaml');
+  const exists = has(catalog, '/repo/test/e2e/schema', '/repo/a/test/e2e/schema');
+  const settings = { ...DEFAULT_SETTINGS, catalogPath: 'a/test/e2e/schema/actions.catalog.yaml' };
+  const found = WorkspaceLayout.create(ROOT, settings, '/s', exists)!;
+  assert.deepStrictEqual([found.root, found.schemaRoot], [fileKey(path.join(ROOT, 'a')), undefined]);
+  const named = WorkspaceLayout.create(ROOT, { ...settings, root: '.' }, '/s', exists)!;
+  assert.deepStrictEqual([named.root, named.schemaRoot], [fileKey(ROOT), path.dirname(fileKey(catalog))]);
+});
+
+test("readSettings: root and a binding's stubFile are read, and refused when not strings", () => {
+  const ok = readSettings(k => ({ root: 'svc', bindings: { csharp: { stubFile: 'b/Actions.cs' } } } as Record<string, unknown>)[k]);
+  assert.deepStrictEqual([ok.settings.root, ok.settings.bindings.csharp.stubFile, ok.messages], ['svc', 'b/Actions.cs', []]);
+  const bad = readSettings(k => ({ root: 1, bindings: { csharp: { stubFile: [] } } } as Record<string, unknown>)[k]);
+  assert.strictEqual(bad.settings.root, '');
+  assert.strictEqual(bad.settings.bindings.csharp.stubFile, undefined);
+  assert.strictEqual(bad.messages.length, 2, bad.messages.join('\n'));
 });
 
 test('package.json carries exactly the generated configuration (sync-defaults --check)', () => {

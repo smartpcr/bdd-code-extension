@@ -164,7 +164,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       const sources = catalogSourcesOf(catalogFile, bundledFiles(context.extensionPath).core);
       const layout = WorkspaceLayout.create(folder.uri.fsPath, settings, storage, p => fs.existsSync(p), sources, context.extensionPath);
       if (!layout) continue;
-      log(`Root: ${layout.root}  Catalog: ${layout.catalogPath}`);
+      log(`Root: ${layout.root}  Catalog: ${layout.catalogPath}${layout.schemaRoot ? `  Schema root: ${layout.schemaRoot}` : ''}`);
       warnOfOtherRelease(layout);
       for (const s of sources ? catalogSourceGlobs(layout.folder, layout.catalogPath, sources).skipped : []) {
         log(`BDD025 bindingSources ${s}: outside the workspace folder; not indexed.`);

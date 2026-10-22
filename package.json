@@ -2,7 +2,7 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "publisher": "asz",
   "license": "MIT",
   "repository": {
@@ -37,7 +37,7 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "workspaceContains:**/test/e2e/schema/actions.catalog.yaml",
+    "workspaceContains:**/actions.catalog.yaml",
     "onLanguage:bdd-suite"
   ],
   "capabilities": {
@@ -47,7 +47,8 @@
       "restrictedConfigurations": [
         "bddSuite.bindings",
         "bddSuite.schemaGenerator",
-        "bddSuite.lintTool"
+        "bddSuite.lintTool",
+        "bddSuite.root"
       ]
     }
   },
@@ -246,7 +247,12 @@
         "bddSuite.catalogPath": {
           "type": "string",
           "default": "test/e2e/schema/actions.catalog.yaml",
-          "description": "The action catalog, relative to the workspace folder."
+          "description": "The action catalog, relative to the workspace folder. Its folder holds suite.schema.json and is the schema root every binding program reads."
+        },
+        "bddSuite.root": {
+          "type": "string",
+          "default": "",
+          "description": "The suites' root, relative to the workspace folder: binding programs run in it, and each binding's `tool`, `build.cwd`, `library` and `stubFile` are relative to it. Empty: the nearest folder above the catalog holding test/e2e/schema, else the folder above the catalog's folder."
         },
         "bddSuite.suiteGlobs": {
           "type": "array",
@@ -395,7 +401,7 @@
               "library": "test/e2e/bindings/typescript/dist/index.js"
             }
           },
-          "description": "Per binding: source globs (the catalog's `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, and `selectsOneCase` when the program runs one case by name."
+          "description": "Per binding: source globs (the catalog's `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, `selectsOneCase` when the program runs one case by name, and `stubFile`, where Declare action writes a stub (PowerShell: `${action}` is the action's PascalCase name)."
         },
         "bddSuite.schemaGenerator": {
           "type": "array",

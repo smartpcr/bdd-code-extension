@@ -99,3 +99,17 @@ test('programPath: the program file a binding runs, or the script its interprete
   assert.deepStrictEqual(lintCommand(empty, R, 'x', 'go').argv, ['lint', '--path', 'x', '--json', '--binding-check', '--binding', 'go']);
   assert.strictEqual(programPath({ ...b('go'), tool: ['suiterun'] }, R), undefined);
 });
+
+test('a catalog outside test/e2e/schema: every verb that reads the schema is given --schema-root; the usual layout never is', () => {
+  const schema = path.resolve('/repo/src/BVT/schema');
+  const flat = { ...b('csharp'), schemaRoot: schema };
+  const tail = (argv: string[]) => argv.slice(-2);
+  assert.deepStrictEqual(tail(lintCommand(flat, R, 'suites/a.yml', 'csharp').argv), ['--schema-root', schema]);
+  assert.deepStrictEqual(tail(actionsCommand(flat, R).argv), ['--schema-root', schema]);
+  assert.deepStrictEqual(tail(listCommand(flat, R, 'suites/a.yml', ['bvt']).argv), ['--schema-root', schema]);
+  assert.deepStrictEqual(tail(runCommand(flat, R, 'suites/a.yml', { traceFile: 't', resultsFile: 'r' }).argv), ['--schema-root', schema]);
+  for (const argv of [lintCommand(b('csharp'), R, 'x', 'csharp').argv, actionsCommand(b('csharp'), R).argv,
+    listCommand(b('csharp'), R, 'x', []).argv, runCommand(b('csharp'), R, 'x', { traceFile: 't', resultsFile: 'r' }).argv]) {
+    assert.ok(!argv.includes('--schema-root'), argv.join(' '));
+  }
+});

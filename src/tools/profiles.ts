@@ -9,6 +9,9 @@ import { ToolCommand } from './runTool';
 
 const BINDING_NAME = /^[a-z][a-z0-9]*$/;
 
+/** `--schema-root <catalog folder>` for a catalog outside test/e2e/schema (ResolvedBinding.schemaRoot); nothing otherwise. */
+const schemaRootArgs = (binding: ResolvedBinding): string[] => (binding.schemaRoot ? ['--schema-root', binding.schemaRoot] : []);
+
 /** argv[0] made absolute when it is a path (has a separator), so cwd never decides which program runs. */
 function program(binding: ResolvedBinding, root: string): string[] {
   const [first, ...rest] = binding.tool;
@@ -18,12 +21,12 @@ function program(binding: ResolvedBinding, root: string): string[] {
 
 export function lintCommand(binding: ResolvedBinding, root: string, rel: string, target: string): ToolCommand {
   if (!BINDING_NAME.test(target)) throw new Error(`Not a binding name: ${target}`);
-  const argv = [...program(binding, root), 'lint', '--path', rel, '--json', '--binding-check', '--binding', target];
+  const argv = [...program(binding, root), 'lint', '--path', rel, '--json', '--binding-check', '--binding', target, ...schemaRootArgs(binding)];
   return { argv, cwd: root, timeoutMs: LINT_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
 }
 
 export function actionsCommand(binding: ResolvedBinding, root: string): ToolCommand {
-  return { argv: [...program(binding, root), 'actions', '--json'], cwd: root, timeoutMs: ACTIONS_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
+  return { argv: [...program(binding, root), 'actions', '--json', ...schemaRootArgs(binding)], cwd: root, timeoutMs: ACTIONS_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
 }
 
 /** `--test-name <case>` when the binding runs one case by name and one is chosen; nothing otherwise. */
@@ -36,7 +39,7 @@ const oneCase = (binding: ResolvedBinding, testName: string | undefined): string
  * shows only it.
  */
 export function listCommand(binding: ResolvedBinding, root: string, rel: string, tags: string[], testName?: string): ToolCommand {
-  const argv = [...program(binding, root), 'list', '--path', rel, ...(tags.length ? ['--tags', tags.join(',')] : []), ...oneCase(binding, testName)];
+  const argv = [...program(binding, root), 'list', '--path', rel, ...(tags.length ? ['--tags', tags.join(',')] : []), ...oneCase(binding, testName), ...schemaRootArgs(binding)];
   return { argv, cwd: root, timeoutMs: LIST_TIMEOUT_MS, maxStdout: MAX_TOOL_OUTPUT_BYTES };
 }
 
@@ -64,7 +67,7 @@ export function runCommand(binding: ResolvedBinding, root: string, rel: string, 
   const argv = [...program(binding, root), 'run', '--path', rel, '--trace-file', o.traceFile, '--results', o.resultsFile, '--format', 'nunit3',
     ...(o.tags?.length ? ['--tags', o.tags.join(',')] : []), ...oneCase(binding, o.testName), ...(o.dryRun ? ['--dry-run'] : []),
     ...(lab.apiUrl ? ['--api-url', lab.apiUrl] : []), ...(lab.labId ? ['--lab-id', lab.labId] : []),
-    ...(lab.connectionFile ? ['--connection-file', lab.connectionFile] : [])];
+    ...(lab.connectionFile ? ['--connection-file', lab.connectionFile] : []), ...schemaRootArgs(binding)];
   return { argv, cwd: root, timeoutMs: 0, maxStdout: MAX_TOOL_OUTPUT_BYTES, streamOnly: true };
 }
 

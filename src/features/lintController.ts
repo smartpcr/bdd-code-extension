@@ -109,7 +109,7 @@ class WorkerBackend implements LintBackend {
     const { path: libraryPath, bundled } = lintLibrary(path.resolve(job.root, job.binding.library!), job.binding.name, this.runtime(), p => fs.existsSync(p));
     const r = await this.host.lint(job.key, libraryPath, job.root, {
       paths: [job.key], binding: job.target, bindingCheck: !bundled, strict: false, overlays: this.overlays(),
-    }, { live: job.live });
+    }, { live: job.live, schemaRoot: job.binding.schemaRoot });
     if (r.kind === 'superseded') return r;
     if (r.kind === 'failure') {
       return { kind: 'failed', status: workerFailureText(job.binding.name, r),
@@ -152,7 +152,8 @@ export class LintController implements vscode.Disposable {
   ) {
     this.programBackend = new ProgramBackend(gate);
     this.workerBackend = new WorkerBackend(workerHost, () => this.overlays(), () => indexer.layout.bundled?.runtime);
-    const schemaDir = path.join(indexer.layout.root, 'test', 'e2e', 'schema');
+    // The schema is generated beside the catalog, wherever the settings put it (test/e2e/schema or not).
+    const schemaDir = path.dirname(indexer.layout.catalogPath);
     const watchers = [
       vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(schemaDir, 'suite.schema.json')),
       vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(path.dirname(indexer.layout.catalogPath), path.basename(indexer.layout.catalogPath))),

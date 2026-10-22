@@ -19,23 +19,26 @@ export function findRepositoryRoot(start: string, exists: (p: string) => boolean
 
 export { fileKey };
 
+const within = (key: string, dir: string) => key === dir || key.startsWith(dir + path.sep);
+
 /**
  * The layout that serves `file`. Of the layouts whose folder holds it, the one
- * whose root is the file's own root (findRepositoryRoot from its directory):
- * a file under a second suite tree inside the folder belongs to that tree's
- * catalog, never to this one, so it gets none of this catalog's checks. A file
- * with no root above it falls to the innermost folder holding it.
+ * with the nearest root above it, where a root is a layout's own (its catalog's
+ * tree, or bddSuite.root) or any folder holding test/e2e/schema: a file under a
+ * second suite tree inside the folder belongs to that tree's catalog, never to
+ * this one, so it gets none of this catalog's checks. A file with no root above
+ * it falls to the innermost folder holding it.
  */
 export function servingLayout<T extends { folder: string; root: string }>(
   file: string, layouts: readonly T[], exists: (p: string) => boolean): T | undefined {
   const key = fileKey(file);
-  const holding = layouts.filter(l => key === l.folder || key.startsWith(l.folder + path.sep))
-    .sort((a, b) => b.folder.length - a.folder.length);
+  const holding = layouts.filter(l => within(key, l.folder)).sort((a, b) => b.folder.length - a.folder.length);
   if (holding.length === 0) return undefined;
-  const root = findRepositoryRoot(path.dirname(key), exists);
-  if (root === undefined) return holding[0];
-  const rootKey = fileKey(root);
-  return holding.find(l => l.root === rootKey);
+  const found = findRepositoryRoot(path.dirname(key), exists);
+  const tree = found === undefined ? undefined : fileKey(found);
+  const own = holding.filter(l => within(key, l.root)).sort((a, b) => b.root.length - a.root.length)[0];
+  if (own && (tree === undefined || own.root.length >= tree.length)) return own;
+  return tree === undefined ? holding[0] : undefined;
 }
 
 export interface SettingsResult {
@@ -67,7 +70,7 @@ function readBinding(name: string, value: unknown, messages: string[]): BindingS
   }
   const base: BindingSettings = DEFAULT_BINDINGS[name] ?? emptyBinding(name);
   const out: BindingSettings = { ...base };
-  const strings: (keyof BindingSettings)[] = ['label', 'abbreviation', 'library'];
+  const strings: (keyof BindingSettings)[] = ['label', 'abbreviation', 'library', 'stubFile'];
   for (const f of strings) {
     if (value[f] === undefined) continue;
     if (typeof value[f] === 'string') (out as unknown as Record<string, unknown>)[f] = value[f];
@@ -104,7 +107,7 @@ function readBinding(name: string, value: unknown, messages: string[]): BindingS
 export function readSettings(get: Getter): SettingsResult {
   const messages: string[] = [];
   const s: Settings = { ...DEFAULT_SETTINGS };
-  const strings = ['catalogPath', 'exclude', 'lintTool', 'targetBinding', 'templatesDir',
+  const strings = ['catalogPath', 'root', 'exclude', 'lintTool', 'targetBinding', 'templatesDir',
     'lab.apiUrl', 'lab.labId', 'lab.connectionFile'] as const;
   for (const k of strings) {
     const v = get(k);
@@ -140,6 +143,12 @@ export function readSettings(get: Getter): SettingsResult {
 
 export interface ResolvedBinding extends BindingSettings {
   name: string;
+  /**
+   * The catalog's folder, passed to the binding's program as `--schema-root`, when the catalog is not
+   * `<root>/test/e2e/schema`: the program's own search, from the folder it runs in, would not find it.
+   * Unset otherwise, so a workspace in the usual layout runs exactly the command lines it always did.
+   */
+  schemaRoot?: string;
 }
 
 /**
@@ -182,11 +191,18 @@ export class WorkspaceLayout {
     readonly bundled?: BundledFiles,
     /** bddSuite.schemaGenerator with ${extension} and ${catalogPath} filled in. */
     readonly schemaGenerator: string[] = settings.schemaGenerator,
+    /** The catalog's folder when it is not `<root>/test/e2e/schema` (ResolvedBinding.schemaRoot); the lint worker reads it. */
+    readonly schemaRoot?: string,
   ) {}
 
   /**
-   * undefined when the folder has no catalog at the configured path, or no root
-   * above it. `catalogSources` (the `bindingSources` of the catalog and its imports, merged and relative to the catalog) replaces the
+   * undefined when the folder has no catalog at the configured path. The root is
+   * bddSuite.root when set; else the nearest folder above the catalog holding
+   * test/e2e/schema; when there is none (a consumer's own layout, e.g.
+   * `<root>/schema/actions.catalog.yaml`), the folder above the catalog's folder.
+   * Every binding gets `schemaRoot` unless the catalog is in `<root>/test/e2e/schema`,
+   * where a program's own search finds it.
+   * `catalogSources` (the `bindingSources` of the catalog and its imports, merged and relative to the catalog) replaces the
    * `sources` of each binding it names, and adds a binding it names that the
    * settings do not have.
    */
@@ -194,8 +210,10 @@ export class WorkspaceLayout {
     exists: (p: string) => boolean, catalogSources?: Record<string, string[]>, extensionPath?: string): WorkspaceLayout | undefined {
     const catalogPath = fileKey(path.resolve(folder, settings.catalogPath));
     if (!exists(catalogPath)) return undefined;
-    const root = findRepositoryRoot(path.dirname(catalogPath), exists);
-    if (!root) return undefined;
+    const catalogDir = path.dirname(catalogPath);
+    const root = settings.root ? path.resolve(folder, settings.root)
+      : findRepositoryRoot(catalogDir, exists) ?? path.dirname(catalogDir);
+    const schemaRoot = fileKey(path.join(root, 'test', 'e2e', 'schema')) === catalogDir ? undefined : catalogDir;
     const expand = (s: string) => s.split('${storage}').join(storagePath);
     // A build command is a shell string, so a storage path with spaces is quoted there.
     const quoted = /\s/.test(storagePath) ? `"${storagePath}"` : storagePath;
@@ -208,9 +226,10 @@ export class WorkspaceLayout {
       sources: fromCatalog[name] ?? b.sources,
       tool: b.tool.map(expand),
       build: b.build && { ...b.build, command: b.build.command.split('${storage}').join(quoted) },
+      ...(schemaRoot === undefined ? {} : { schemaRoot }),
     }));
     return new WorkspaceLayout(fileKey(folder), fileKey(root), catalogPath, settings.suiteGlobs,
       settings.exclude, bindings, settings, catalogSources, extensionPath === undefined ? undefined : bundledFiles(extensionPath),
-      expandArgv(settings.schemaGenerator, catalogPath, extensionPath));
+      expandArgv(settings.schemaGenerator, catalogPath, extensionPath), schemaRoot);
   }
 }

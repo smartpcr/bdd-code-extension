@@ -245,8 +245,9 @@ export async function declareAction(host: ScaffoldHost, uri?: vscode.Uri, name?:
   let stub: FileEdit[] = [];
   let listed: string | undefined;
   if (binding === 'powershell') {
-    const stubFile = path.join(ix.layout.root, powershellStubFile(action));
-    if (fs.existsSync(stubFile)) return report(host, refused(`Declare action: ${powershellStubFile(action)} already exists.`));
+    const rel = powershellStubFile(action, ix.layout.bindings.find(b => b.name === binding)?.stubFile);
+    const stubFile = path.join(ix.layout.root, rel);
+    if (fs.existsSync(stubFile)) return report(host, refused(`Declare action: ${rel} already exists.`));
     stub = [{ file: stubFile, start: 0, end: 0, text: renderTemplate(template(host, ix, 'powershell.ps1.tmpl'), action), create: true }];
     listed = binding;
   } else if (stubTarget(binding)) {
@@ -291,7 +292,8 @@ async function registryStub(host: ScaffoldHost, ix: FolderIndexer, action: strin
   if (!target) return { refused: `there is no stub template for the ${binding} binding.` };
   const catalog = ix.index.catalog;
   const own = (a: string) => !!catalog?.actions.has(a) && !catalog.actions.get(a)!.file;
-  const file = registryFileOf(ix.index.allSites(), binding, own) ?? path.join(ix.layout.root, target.file);
+  const configured = ix.layout.bindings.find(b => b.name === binding)?.stubFile;
+  const file = registryFileOf(ix.index.allSites(), binding, own) ?? path.join(ix.layout.root, configured ?? target.file);
   const shown = path.relative(ix.layout.root, file).split(path.sep).join('/');
   if (!fs.existsSync(file)) return { refused: `${shown} does not exist in this checkout.` };
   const registry = await vscode.workspace.openTextDocument(vscode.Uri.file(file));

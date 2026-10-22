@@ -13,7 +13,7 @@ export const apiVersion = mode === 'v2' ? '2.0.0' : mode === 'no-version' ? unde
 
 let invalidated = 0;
 
-export function createLinter({ root }) {
+export function createLinter({ root, schemaRoot }) {
   return {
     lint(request) {
       if (mode === 'throw') throw new Error('the library threw');
@@ -27,7 +27,7 @@ export function createLinter({ root }) {
       }
       return [{
         code: 'E301', severity: 'error', file: request.paths[0] ?? 'none', line: 1, column: 1,
-        message: `root=${root} binding=${request.binding} overlays=${Object.keys(request.overlays).join(',')} invalidated=${invalidated}`,
+        message: `root=${root}${schemaRoot ? ` schemaRoot=${schemaRoot}` : ''} binding=${request.binding} overlays=${Object.keys(request.overlays).join(',')} invalidated=${invalidated}`,
       }];
     },
     invalidate() {
