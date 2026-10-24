@@ -29,6 +29,10 @@ public static class Generator
             "xunit" => (XUnitTemplate.Suite, XUnitTemplate.Assembly),
             _ => throw new TestsConfigException($"{provider} is not a C# provider; the C# runtime generates for mstest, nunit and xunit."),
         };
+        if (provider != "mstest" && plans.FirstOrDefault(plan => plan.Config.Host.Length > 0) is { } hosted)
+        {
+            throw new TestsConfigException($"{hosted.Config.File}: output.host {hosted.Config.Host} is for the mstest provider, not {provider}.");
+        }
         var files = new List<GeneratedFile>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var plan in plans)

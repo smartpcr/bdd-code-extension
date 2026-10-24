@@ -20,7 +20,11 @@ public sealed class TestsConfig
         "suites", "exclude", "schemaRoot", "provider", "extensions", "offlineActions", "contextKeys", "output",
     };
 
-    private static readonly HashSet<string> OutputKeys = new(StringComparer.Ordinal) { "folder", "namespace", "package" };
+    private static readonly HashSet<string> OutputKeys = new(StringComparer.Ordinal) { "folder", "namespace", "package", "host" };
+
+    /// <summary>The test hosts the mstest provider can generate for besides
+    /// the MSTest runner itself.</summary>
+    public static readonly IReadOnlyList<string> Hosts = ["taef"];
 
     /// <summary>The providers a config may name.</summary>
     public static readonly IReadOnlyList<string> Providers =
@@ -54,6 +58,11 @@ public sealed class TestsConfig
     public string Namespace { get; init; } = string.Empty;
 
     public string Package { get; init; } = string.Empty;
+
+    /// <summary>mstest only: the host that runs the generated tests, empty for
+    /// the MSTest runner. <c>taef</c> generates code TAEF's CoreCLR host can
+    /// run, which refuses MSTest's TestContext (DEC-T14).</summary>
+    public string Host { get; init; } = string.Empty;
 
     /// <summary>Read one config file, refusing anything the schema would.</summary>
     public static TestsConfig Load(string path)
@@ -143,6 +152,15 @@ public sealed class TestsConfig
         {
             Refuse($"output.{key} is not an output key.");
         }
+        var host = output.Text("host");
+        if (output.Has("host") && !Hosts.Contains(host))
+        {
+            Refuse($"output.host is one of {string.Join(", ", Hosts)}, not {host}.");
+        }
+        if (host.Length > 0 && provider.Length > 0 && provider != "mstest")
+        {
+            Refuse($"output.host {host} is for the mstest provider, not {provider}.");
+        }
         var directory = Path.GetDirectoryName(full) ?? ".";
         return new TestsConfig
         {
@@ -157,6 +175,7 @@ public sealed class TestsConfig
             OutputFolder = output.Text("folder"),
             Namespace = output.Text("namespace"),
             Package = output.Text("package"),
+            Host = host,
         };
     }
 }

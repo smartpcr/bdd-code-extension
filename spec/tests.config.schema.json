@@ -62,6 +62,10 @@
           "description": "Go: the package clause of the generated files (the test package's name).",
           "type": "string",
           "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "host": {
+          "description": "C# mstest only: the host that runs the generated tests when it is not the MSTest runner. taef generates code TAEF's CoreCLR host can run: no fixture takes MSTest's TestContext, each suite opens on its first test, and the run's inputs come from the environment.",
+          "enum": ["taef"]
         }
       }
     }

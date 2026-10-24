@@ -25,6 +25,47 @@ public sealed class GenerateTests
 
     private static TestsConfig Config(string relative) => TestsConfig.Load(Path.Combine(Where.Corpus, relative));
 
+    private static TestsConfig WithHost(TestsConfig config, string host) => new()
+    {
+        File = config.File,
+        Suites = config.Suites,
+        Exclude = config.Exclude,
+        SchemaRoot = config.SchemaRoot,
+        Provider = config.Provider,
+        Extensions = config.Extensions,
+        OfflineActions = config.OfflineActions,
+        ContextKeys = config.ContextKeys,
+        OutputFolder = config.OutputFolder,
+        Namespace = config.Namespace,
+        Package = config.Package,
+        Host = host,
+    };
+
+    /// <summary>DEC-T14: TAEF's CoreCLR host blocks every test of an assembly
+    /// whose fixture takes MSTest's TestContext, so the taef host's code names
+    /// it nowhere and has no initialize fixture at all.</summary>
+    [Fact]
+    public void TheTaefHostsCodeTakesNoTestContextAndNoInitializeFixture()
+    {
+        var plan = TestPlan.Build(WithHost(Config("generate/bddsuite.tests.yaml"), "taef")).Plan!;
+        foreach (var file in Generator.Render([plan], "mstest"))
+        {
+            Assert.DoesNotContain("UnitTesting.TestContext", file.Text, StringComparison.Ordinal);
+            Assert.DoesNotContain("TestContext.", file.Text, StringComparison.Ordinal);
+            Assert.DoesNotContain(".AssemblyInitialize]", file.Text, StringComparison.Ordinal);
+            Assert.DoesNotContain(".ClassInitialize]", file.Text, StringComparison.Ordinal);
+            Assert.DoesNotContain(".TestInitialize]", file.Text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void AHostIsRefusedForAProviderOtherThanMsTest()
+    {
+        var plan = TestPlan.Build(WithHost(Config("generate/bddsuite.tests.yaml"), "taef")).Plan!;
+        var refused = Assert.Throws<TestsConfigException>(() => Generator.Render([plan], "nunit"));
+        Assert.Contains("is for the mstest provider", refused.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void E3EveryGenerateEntryOfTheManifest()
     {
@@ -129,6 +170,8 @@ public sealed class GenerateTests
     [InlineData("suites: ['a\\\\b.yml']\nschemaRoot: s", "backslash")]
     [InlineData("suites: [a.yml]\nschemaRoot: s\nofflineActions: ['core.*.x']", "prefix.*")]
     [InlineData("suites: [a.yml]\nschemaRoot: s\noutput: { dir: x }", "output.dir is not an output key")]
+    [InlineData("suites: [a.yml]\nschemaRoot: s\noutput: { host: vstest }", "output.host is one of taef")]
+    [InlineData("suites: [a.yml]\nschemaRoot: s\nprovider: nunit\noutput: { host: taef }", "is for the mstest provider")]
     public void AConfigTheSchemaRefusesIsRefused(string yaml, string says)
     {
         var file = Path.Combine(Path.GetTempPath(), "config-" + Guid.NewGuid().ToString("N") + ".yaml");
@@ -141,14 +184,15 @@ public sealed class GenerateTests
     /// repository's path replaced, equals the committed golden files (T2.4, T3.1,
     /// T3.4). With BDD_UPDATE_GOLDEN=1 the test writes them instead.</summary>
     [Theory]
-    [InlineData("mstest")]
-    [InlineData("nunit")]
-    [InlineData("xunit")]
-    public void EachProvidersCodeEqualsTheGoldenFiles(string provider)
+    [InlineData("mstest", "")]
+    [InlineData("mstest", "taef")]
+    [InlineData("nunit", "")]
+    [InlineData("xunit", "")]
+    public void EachProvidersCodeEqualsTheGoldenFiles(string provider, string host)
     {
-        var plan = TestPlan.Build(Config("generate/bddsuite.tests.yaml")).Plan!;
+        var plan = TestPlan.Build(WithHost(Config("generate/bddsuite.tests.yaml"), host)).Plan!;
         var files = Generator.Render([plan], provider);
-        var golden = Path.Combine(Where.Repo, "runtimes", "csharp", "Bdd.Suite.Tests", "Golden", provider);
+        var golden = Path.Combine(Where.Repo, "runtimes", "csharp", "Bdd.Suite.Tests", "Golden", host.Length > 0 ? provider + "-" + host : provider);
         var root = Where.Repo.Replace('\\', '/');
         var update = Environment.GetEnvironmentVariable("BDD_UPDATE_GOLDEN") == "1";
         Directory.CreateDirectory(golden);

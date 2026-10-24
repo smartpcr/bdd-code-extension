@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.9
+
+* **MSTest code TAEF can host** (docs/test-providers/design.md DEC-T14).
+  `output.host: taef` in `bddsuite.tests.yaml` (mstest only) generates
+  classes that never take MSTest's `TestContext`, which TAEF's CoreCLR host
+  refuses in any fixture and which blocked every test of the assembly. The
+  run starts on the first test from the environment, each suite opens on its
+  first test, and each test runs its own beforeEach and afterEach; a failed
+  afterEach fails that test. Without the key the generated code is unchanged.
+
 ## 0.7.8
 
 * **A case may skip itself** (spec/session.md rule 12, conformance

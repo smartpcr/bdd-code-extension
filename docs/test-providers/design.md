@@ -559,6 +559,43 @@ does this; the other providers run where they are generated.
 **Serves.** O4. **Verified by.** `ToolboxTests.AGeneratedSuitePathIsFoundBesideTheAssemblyOnAnotherMachine`
 (unit); E13 in a consumer's lab.
 
+### <a id="dec-t14"></a>DEC-T14. The mstest provider can generate for TAEF's CoreCLR host
+
+**Choice.** `output.host: taef` in `bddsuite.tests.yaml` (mstest only) makes
+the generator emit MSTest-attributed classes that never use MSTest's
+`TestContext`:
+
+- no `[AssemblyInitialize]`: the run context starts on the first test, from
+  the environment alone, and stops in a parameterless `[AssemblyCleanup]`;
+- no `[ClassInitialize]`: each class opens its suite on its first test, under
+  a lock; the session runs the suite setup from that test's beforeEach, as it
+  does for every provider (spec/session.md rule 2);
+- no `[TestInitialize]`/`[TestCleanup]` and no `TestContext` property: each
+  test calls beforeEach, the case and afterEach itself, with its own method
+  name, which the generator knows;
+- a failed afterEach fails the test it ran after; a failed suite teardown
+  still fails the parameterless `[ClassCleanup]`.
+
+**Why.** TAEF runs MSTest-attributed tests, but its CoreCLR host refuses a
+fixture that takes MSTest's `TestContext` ("It must be
+WEX.TestExecution.Markup.TestContext when using the CoreCLR TAEF binaries"),
+and one refused assembly fixture blocks every test in the assembly. update2's
+BVTs (69 cases) were all Blocked on a lab for that reason. A test assembly
+cannot reference both TestContext types for one fixture, so the generated
+code needs no context at all.
+
+**Tradeoff.** Under TAEF the run's inputs (`BDD_SUITE_*`) come only from the
+environment; MSTest run settings parameters are not read. A failed afterEach
+is reported against its test instead of a separate cleanup row. Each test
+carries its beforeEach and afterEach, so a test filter that runs one test
+still runs both. The same code also runs under the MSTest runner, with those
+same differences.
+
+**Serves.** O4. **Verified by.** `GenerateTests.EachProvidersCodeEqualsTheGoldenFiles`
+(mstest-taef golden files), `GenerateTests.TheTaefHostsCodeTakesNoTestContextAndNoInitializeFixture`,
+`GenerateTests.AHostIsRefusedForAProviderOtherThanMsTest` (unit); E13 under
+TAEF in update2's lab.
+
 ## 5. Failure, rollback and cleanup
 
 * **What the work owns.** Generated test files (in `obj/`, `OUT_DIR`, or
