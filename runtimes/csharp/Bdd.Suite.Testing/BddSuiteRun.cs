@@ -44,7 +44,8 @@ public static class BddSuiteRun
     /// (<see cref="RepositoryPaths.Locate"/>).</summary>
     public static SuiteTests Open(string suitePath, string schemaRoot, bool guarded, params (string Method, string Case)[] cases)
     {
-        var (suite, schemaDirectory) = RepositoryPaths.Locate(suitePath, schemaRoot, AppContext.BaseDirectory);
+        var (suite, schemaDirectory) = RepositoryPaths.Locate(suitePath, schemaRoot,
+            RepositoryPaths.AssemblyDirectory(AppContext.BaseDirectory, typeof(BddSuiteRun).Assembly.Location));
         var schema = Schemas.GetOrAdd(Path.GetFullPath(schemaDirectory), SuiteSchema.Load);
         return new SuiteTests(SuiteSession.OpenFile(suite, schema, Context, guarded), cases);
     }

@@ -96,12 +96,28 @@ public sealed class ToolboxTests
             Directory.CreateDirectory(flatSchema);
             Touch(flatSuite);
             Assert.Equal((flatSuite, flatSchema), RepositoryPaths.Locate(goneSuite, goneSchema, assembly));
+
+            // A host that cannot say where the assembly runs (an empty folder) gets
+            // the generated paths back, for the error to name, instead of a throw.
+            Assert.Equal((goneSuite, goneSchema), RepositoryPaths.Locate(goneSuite, goneSchema, string.Empty));
         }
         finally
         {
             Directory.Delete(built, true);
             Directory.Delete(package, true);
         }
+    }
+
+    /// <summary>DEC-T14: TAEF's CoreCLR host leaves AppContext.BaseDirectory empty;
+    /// the folder of a library deployed beside the test assembly stands in.</summary>
+    [Fact]
+    public void TheAssemblyFolderFallsBackToALibrarysFolderWhenTheHostGivesNone()
+    {
+        var library = Path.Combine(Path.GetTempPath(), "pkg", "Bdd.Suite.Testing.dll");
+        Assert.Equal("C:/run/", RepositoryPaths.AssemblyDirectory("C:/run/", library));
+        Assert.Equal(Path.GetDirectoryName(library), RepositoryPaths.AssemblyDirectory(string.Empty, library));
+        Assert.Equal(Path.GetDirectoryName(library), RepositoryPaths.AssemblyDirectory(null, library));
+        Assert.Equal(string.Empty, RepositoryPaths.AssemblyDirectory(string.Empty, string.Empty));
     }
 
     [Theory]

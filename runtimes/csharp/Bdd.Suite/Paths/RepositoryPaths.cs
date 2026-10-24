@@ -56,9 +56,35 @@ public static class RepositoryPaths
         {
             return (suitePath, schemaRoot);
         }
+        return LocateBeside(suitePath, schemaRoot, assemblyDirectory);
+    }
+
+    /// <summary>
+    /// The folder a test assembly runs from, for <see cref="Locate"/>: the
+    /// host's base directory, or, when the host leaves it empty (TAEF's CoreCLR
+    /// host does, DEC-T14), the folder of a library a test package deploys
+    /// beside the test assembly. Empty when neither is known.
+    /// </summary>
+    public static string AssemblyDirectory(string? baseDirectory, string? libraryLocation)
+    {
+        if (!string.IsNullOrEmpty(baseDirectory))
+        {
+            return baseDirectory;
+        }
+        return string.IsNullOrEmpty(libraryLocation) ? string.Empty : Path.GetDirectoryName(libraryLocation) ?? string.Empty;
+    }
+
+    private static (string Suite, string SchemaRoot) LocateBeside(string suitePath, string schemaRoot, string assemblyDirectory)
+    {
+        if (File.Exists(suitePath) && Directory.Exists(schemaRoot))
+        {
+            return (suitePath, schemaRoot);
+        }
         var builtSchema = Path.TrimEndingDirectorySeparator(Path.GetFullPath(schemaRoot));
         var builtParent = Path.GetDirectoryName(builtSchema);
-        if (builtParent is null)
+        // A host that cannot say where the assembly runs has no folder to search:
+        // the generated paths are the only answer, and opening reports them.
+        if (builtParent is null || string.IsNullOrEmpty(assemblyDirectory))
         {
             return (suitePath, schemaRoot);
         }

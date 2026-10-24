@@ -9,6 +9,12 @@
   run starts on the first test from the environment, each suite opens on its
   first test, and each test runs its own beforeEach and afterEach; a failed
   afterEach fails that test. Without the key the generated code is unchanged.
+* **Suites are found beside the assembly under TAEF too** (DEC-T13, DEC-T14).
+  TAEF's CoreCLR host leaves `AppContext.BaseDirectory` empty, and every
+  suite failed to open with "The path is empty". The runtime now falls back
+  to the folder of `Bdd.Suite.Testing`, which a test package deploys beside
+  the test assembly (`RepositoryPaths.AssemblyDirectory`), and a host that
+  gives no folder at all gets the generated paths back instead of a throw.
 
 ## 0.7.8
 
