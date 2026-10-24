@@ -495,6 +495,28 @@ public sealed class SessionTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.Equal("out/record.txt", context.Options.RecordPath);
     }
 
+    /// <summary>DEC-T15: PROGRESS=1 writes each hook and step line as it is
+    /// traced, and no case line, which the test framework prints itself.</summary>
+    [Theory]
+    [InlineData("1", false, true)]
+    [InlineData("", false, false)]
+    [InlineData("yes", false, false)]
+    [InlineData("1", true, false)]
+    public void ProgressWritesTheHookAndStepLinesAsTheyAreTraced(string progress, bool dryRun, bool written)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["BDD_SUITE_PROGRESS"] = progress,
+            ["BDD_SUITE_DRY_RUN"] = dryRun ? "1" : "",
+        };
+        var writer = new StringWriter();
+        var context = RunContext.FromValues(name => values.GetValueOrDefault(name), [Lab], null, writer);
+        context.Trace.Add(Phase.Step, "places an order", "when the order is placed (shop.order)", "shop.order", Status.Passed, string.Empty);
+        context.Trace.Add(Phase.Case, "places an order", string.Empty, string.Empty, Status.Passed, string.Empty);
+        var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Equal(written ? ["step          when the order is placed (shop.order) passed"] : [], lines);
+    }
+
     [Fact]
     public void FromValuesDefaultsToNothingAllowedAndUsesTheExtensionsPrefix()
     {

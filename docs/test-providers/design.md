@@ -596,6 +596,28 @@ same differences.
 `GenerateTests.AHostIsRefusedForAProviderOtherThanMsTest` (unit); E13 under
 TAEF in update2's lab.
 
+### <a id="dec-t15"></a>DEC-T15. A test process can print its step lines live (`<prefix>PROGRESS=1`)
+
+**Choice.** When the run context is made from the environment (or a
+framework's run settings) and `<prefix>PROGRESS` is `1`, it writes each hook
+and step line to standard output as the trace records it, in the shape
+`suiterun --progress` prints (spec/progress.md). It writes no
+`StartGroup`/`EndGroup` lines: the test framework (TAEF, MSTest) prints its
+own case lines, and a second copy would double every count a log reader takes.
+A dry run prints nothing, as it traces nothing. C# runtime.
+
+**Why.** A lab case runs for minutes. Under `suiterun` the progress lines say
+which step it is on; a generated test only wrote its trace when the run ended,
+so a TAEF console showed `StartGroup` and then nothing until `EndGroup`. TAEF
+shows a test's output as it happens, so the same lines give the same live view.
+
+**Tradeoff.** Opt-in, so a framework's output is unchanged unless asked for.
+The lines go to the process's standard output, which every host captures; a
+host that captures per test shows them under the test that was running.
+
+**Serves.** O4. **Verified by.** `SessionTests.ProgressWritesTheHookAndStepLinesAsTheyAreTraced`
+(unit); E13 under TAEF in update2's lab.
+
 ## 5. Failure, rollback and cleanup
 
 * **What the work owns.** Generated test files (in `obj/`, `OUT_DIR`, or

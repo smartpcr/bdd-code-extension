@@ -1,6 +1,6 @@
 [package]
 name = "suiterun"
-version = "0.7.9"
+version = "0.7.10"
 edition = "2021"
 description = "The Rust runtime of the BDD suite format: lint, run and list YAML suites, the session a test harness drives, reports and the embedded core actions, extensible by an outside crate; with the testing feature, suites as cargo test tests."
 license = "MIT"

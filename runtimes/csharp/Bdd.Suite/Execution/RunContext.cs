@@ -45,11 +45,18 @@ public sealed class RunContext
     /// their options (keyed by flag, <c>--api-url</c>).</summary>
     public static RunContext Create(
         RunOptions options, Composite? composite = null, IReadOnlyDictionary<string, string>? optionValues = null,
-        bool allowGuarded = true, string traceFile = "")
+        bool allowGuarded = true, string traceFile = "", TextWriter? progress = null)
     {
         var composed = composite ?? Composite.CoreOnly;
         var started = composed.Start(optionValues ?? new Dictionary<string, string>(StringComparer.Ordinal));
-        return new RunContext(options, new RunExtensions(composed, started), new Trace(), allowGuarded, traceFile);
+        var trace = new Trace();
+        // A test framework prints its own case lines, so only the hook and step
+        // lines are written; a dry run traces nothing, so it prints nothing.
+        if (progress is not null && !options.DryRun)
+        {
+            trace.Added += new Bdd.Suite.Run.ProgressPrinter(progress).Entry;
+        }
+        return new RunContext(options, new RunExtensions(composed, started), trace, allowGuarded, traceFile);
     }
 
     /// <summary>A run context from the process's environment (spec/session.md,
@@ -59,8 +66,8 @@ public sealed class RunContext
 
     /// <summary>
     /// A run context from named values: <c>&lt;prefix&gt;OPTION_&lt;FLAG&gt;</c>,
-    /// <c>TAGS</c>, <c>DRY_RUN</c>, <c>ALLOW_GUARDED</c>, <c>TRACE_FILE</c> and
-    /// <c>RECORD_PATH</c>, where the prefix is the extensions' environment prefix.
+    /// <c>TAGS</c>, <c>DRY_RUN</c>, <c>ALLOW_GUARDED</c>, <c>TRACE_FILE</c>,
+    /// <c>PROGRESS</c> and <c>RECORD_PATH</c>, where the prefix is the extensions' environment prefix.
     /// A test framework's provider passes a lookup over its own run settings
     /// (an MSTest or NUnit <c>.runsettings</c> parameter of the same name) that
     /// falls back to the environment. Suite parameters keep coming from
@@ -69,7 +76,19 @@ public sealed class RunContext
     /// </summary>
     public static RunContext FromValues(
         Func<string, string?> lookup, IEnumerable<IExtension> extensions,
-        IReadOnlyList<KeyValuePair<string, string>>? parameters = null)
+        IReadOnlyList<KeyValuePair<string, string>>? parameters = null) =>
+        FromValues(lookup, extensions, parameters, Console.Out);
+
+    /// <summary>
+    /// <see cref="FromValues(Func{string, string?}, IEnumerable{IExtension}, IReadOnlyList{KeyValuePair{string, string}}?)"/>,
+    /// with <c>&lt;prefix&gt;PROGRESS=1</c> writing the run's hook and step lines
+    /// (spec/progress.md) to <paramref name="progressWriter"/> as they happen, so a
+    /// host that shows a test's output live, such as TAEF, shows what a long case
+    /// is doing (docs/test-providers DEC-T15).
+    /// </summary>
+    public static RunContext FromValues(
+        Func<string, string?> lookup, IEnumerable<IExtension> extensions,
+        IReadOnlyList<KeyValuePair<string, string>>? parameters, TextWriter progressWriter)
     {
         var composite = Composite.Compose(extensions);
         var prefix = composite.EnvPrefix;
@@ -93,7 +112,8 @@ public sealed class RunContext
         };
         return Create(options, composite, values,
             allowGuarded: string.Equals(Read("ALLOW_GUARDED"), "1", StringComparison.Ordinal),
-            traceFile: Read("TRACE_FILE"));
+            traceFile: Read("TRACE_FILE"),
+            progress: string.Equals(Read("PROGRESS"), "1", StringComparison.Ordinal) ? progressWriter : null);
     }
 
     /// <summary>The variable-name part of an option's flag: no leading dashes,

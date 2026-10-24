@@ -17,7 +17,7 @@ const VALID = 'suites: [ "suites/*.yml" ]\nschemaRoot: schema\nprovider: mstest\
 test('D16 the editor\'s copy of the config schema is spec/tests.config.schema.json', () => {
   assert.deepStrictEqual(TESTS_CONFIG_SCHEMA, JSON.parse(fs.readFileSync(path.join(repo, 'spec', 'tests.config.schema.json'), 'utf8')));
   assert.deepStrictEqual(PROVIDERS, ['mstest', 'nunit', 'xunit', 'go', 'rust', 'node', 'vitest', 'jest', 'mocha', 'pester']);
-  assert.deepStrictEqual(OUTPUT_KEYS, ['folder', 'namespace', 'package']);
+  assert.deepStrictEqual(OUTPUT_KEYS, ['folder', 'namespace', 'package', 'host']);
   assert.ok(CONFIG_KEYS.includes('offlineActions'));
 });
 

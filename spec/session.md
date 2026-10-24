@@ -156,6 +156,7 @@ that provider step.
 | `<prefix>DRY_RUN` | `1` for a dry run. | `--dry-run` |
 | `<prefix>ALLOW_GUARDED` | `1` to run guarded suites (rule 9). | always allowed |
 | `<prefix>TRACE_FILE` | Where the run context writes the trace when the process ends. | `--trace-file` |
+| `<prefix>PROGRESS` | `1` to write each hook and step line ([progress.md](progress.md)) to standard output as it is traced; no case lines, which the test framework prints itself. C# runtime. | `--progress` |
 | `<prefix>RECORD_PATH` | Where `core.record` appends (unchanged). | the same variable |
 
 Generated test code never contains any of these values.

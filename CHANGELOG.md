@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.7.9
+## 0.7.10
+
+* **Step lines live in a test process** (docs/test-providers/design.md
+  DEC-T15, spec/session.md). `<prefix>PROGRESS=1` (`BDD_SUITE_PROGRESS=1`)
+  makes the run context write each hook and step line to standard output as
+  it is traced, in the shape `suiterun --progress` prints, so TAEF and other
+  test hosts show what a long case is doing instead of nothing until it ends.
+  No `StartGroup`/`EndGroup` lines: the test framework prints its own. C#
+  runtime; off unless set.
+
+## 0.7.9 (not published; its changes ship in 0.7.10)
 
 * **MSTest code TAEF can host** (docs/test-providers/design.md DEC-T14).
   `output.host: taef` in `bddsuite.tests.yaml` (mstest only) generates
