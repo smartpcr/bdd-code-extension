@@ -23,7 +23,7 @@ public sealed class Suite_Billing
                     "<repo>/conformance/generate/suites/b-billing.yml",
                     "<repo>/conformance/schema",
                     guarded: false,
-                    ("ChargesACard", "charges a card"));
+                    ("Charges_A_Card", "charges a card"));
             }
             return Session;
         }
@@ -33,5 +33,5 @@ public sealed class Suite_Billing
     public static void Teardown() => global::BddSuite.Generated.BddSuiteMsTest.Teardown(Session);
 
     [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod(DisplayName = "charges a card")]
-    public void ChargesACard() => global::BddSuite.Generated.BddSuiteMsTest.Case(Open(), "ChargesACard", "charges a card");
+    public void Charges_A_Card() => global::BddSuite.Generated.BddSuiteMsTest.Case(Open(), "Charges_A_Card", "charges a card");
 }

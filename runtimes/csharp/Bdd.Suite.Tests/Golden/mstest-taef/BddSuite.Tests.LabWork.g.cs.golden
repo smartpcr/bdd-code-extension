@@ -23,7 +23,7 @@ public sealed class Suite_LabWork
                     "<repo>/conformance/generate/suites/d-lab.yml",
                     "<repo>/conformance/schema",
                     guarded: true,
-                    ("ReadsTheGroup", "reads the group"));
+                    ("Reads_The_Group", "reads the group"));
             }
             return Session;
         }
@@ -34,5 +34,5 @@ public sealed class Suite_LabWork
 
     [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod(DisplayName = "reads the group")]
     [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("lab")]
-    public void ReadsTheGroup() => global::BddSuite.Generated.BddSuiteMsTest.Case(Open(), "ReadsTheGroup", "reads the group");
+    public void Reads_The_Group() => global::BddSuite.Generated.BddSuiteMsTest.Case(Open(), "Reads_The_Group", "reads the group");
 }

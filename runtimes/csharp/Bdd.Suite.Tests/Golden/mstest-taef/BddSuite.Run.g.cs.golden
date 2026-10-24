@@ -85,7 +85,7 @@ internal static class BddSuiteMsTest
     private static void Skip(string message)
     {
         var log = TaefType("WEX.Logging.Interop.Log");
-        var results = TaefType("WEX.Logging.Interop.TestResults");
+        var results = TaefType("WEX.Logging.Interop.TestResult");
         var logResult = results is null ? null : log?.GetMethod("Result", new[] { results, typeof(string) });
         if (logResult is not null)
         {
@@ -104,9 +104,15 @@ internal static class BddSuiteMsTest
                 return loaded;
             }
         }
+        // TAEF's host (te.processhost.exe) runs from the folder that holds its logger;
+        // the test assembly's own probing does not look there.
+        var host = global::System.IO.Path.GetDirectoryName(global::System.Environment.ProcessPath ?? string.Empty) ?? string.Empty;
+        var logger = global::System.IO.Path.Combine(host, "Wex.Logger.Interop.dll");
         try
         {
-            return global::System.Reflection.Assembly.Load("Wex.Logger.Interop").GetType(name, throwOnError: false);
+            return global::System.IO.File.Exists(logger)
+                ? global::System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(logger).GetType(name, throwOnError: false)
+                : null;
         }
         catch (global::System.Exception)
         {

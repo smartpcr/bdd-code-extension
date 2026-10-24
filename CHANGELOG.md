@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.12
+
+* **TAEF skips, fixed.** 0.7.11 looked for the TAEF result enum as
+  `WEX.Logging.Interop.TestResults`; it is `TestResult`, so the lookup failed and
+  the case fell back to Inconclusive, which TAEF still counted as Failed. The
+  generated code also loads `Wex.Logger.Interop.dll` from the host's folder
+  (`te.processhost.exe`) when it is not loaded yet.
+* **TAEF test names follow the case names** (DEC-T14). TAEF names a test by its
+  method and ignores DisplayName, so under `output.host: taef` a case's method is
+  its name's words, each capitalized, joined with an underscore: `cache-stats` is
+  `Cache_Stats`, `get-cache [type=Update]` is `Get_Cache_Type_Update`. The other
+  providers' identifiers are unchanged.
+
 ## 0.7.11
 
 * **A skipped case is Skipped under TAEF** (DEC-T14). TAEF's CoreCLR host

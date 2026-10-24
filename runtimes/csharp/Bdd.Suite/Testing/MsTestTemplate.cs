@@ -147,6 +147,18 @@ public static class MsTestTemplate
     /// </summary>
     private static string TaefSuite(PlanSuite suite, TestsConfig config, string ns)
     {
+        // TAEF names a test by its method and ignores DisplayName, so the method keeps the case
+        // name's words: cache-stats is Cache_Stats (DEC-T14).
+        var methods = TaefMethodNames(suite);
+        var open = new StringBuilder("                Session = global::Bdd.Suite.Testing.BddSuiteRun.Open(\n");
+        open.Append($"                    {CSharpCode.PathLiteral(suite.FullPath)},\n");
+        open.Append($"                    {CSharpCode.PathLiteral(config.SchemaRoot)},\n");
+        open.Append($"                    guarded: {(suite.Guarded ? "true" : "false")}");
+        foreach (var one in suite.Cases)
+        {
+            open.Append($",\n                    ({CSharpCode.Literal(methods[one])}, {CSharpCode.Literal(one.Name)})");
+        }
+        open.Append(");");
         var code = new StringBuilder(CSharpCode.Header("mstest (taef)", suite.File));
         code.Append($$"""
 
@@ -166,7 +178,7 @@ public static class MsTestTemplate
                         if (Session is null)
                         {
                             {{Glue}}.Start();
-            {{CSharpCode.Open(suite, config, "                ")}}
+            {{open}}
                         }
                         return Session;
                     }
@@ -183,10 +195,44 @@ public static class MsTestTemplate
             {
                 code.Append($"    [{Mst}.TestCategory({CSharpCode.Literal(tag)})]\n");
             }
-            code.Append($"    public void {one.Id}() => {Glue}.Case(Open(), {CSharpCode.Literal(one.Id)}, {CSharpCode.Literal(one.Name)});\n");
+            code.Append($"    public void {methods[one]}() => {Glue}.Case(Open(), {CSharpCode.Literal(methods[one])}, {CSharpCode.Literal(one.Name)});\n");
         }
         code.Append("}\n");
         return code.ToString();
+    }
+
+    /// <summary>
+    /// The TAEF method name of each case: the words of its name (runs of ASCII letters and
+    /// digits), each with its first letter capitalized, joined with an underscore, so
+    /// cache-stats is Cache_Stats and get-cache [type=Update] is Get_Cache_Type_Update. A name
+    /// with no word is Case, one starting with a digit gets N_ in front, and a name already taken
+    /// in the class (another case, or a member the class declares) gets _2, _3 and so on.
+    /// </summary>
+    internal static Dictionary<PlanCase, string> TaefMethodNames(PlanSuite suite)
+    {
+        var taken = new HashSet<string>(["Open", "Teardown", "Gate", "Session"], StringComparer.OrdinalIgnoreCase);
+        var names = new Dictionary<PlanCase, string>();
+        foreach (var one in suite.Cases)
+        {
+            var words = System.Text.RegularExpressions.Regex.Matches(one.Name, "[A-Za-z0-9]+")
+                .Select(match => char.ToUpperInvariant(match.Value[0]) + match.Value[1..]);
+            var name = string.Join("_", words);
+            if (name.Length == 0)
+            {
+                name = "Case";
+            }
+            else if (char.IsAsciiDigit(name[0]))
+            {
+                name = "N_" + name;
+            }
+            var unique = name;
+            for (var suffix = 2; !taken.Add(unique); suffix++)
+            {
+                unique = name + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            names[one] = unique;
+        }
+        return names;
     }
 
     /// <summary>The run hook and the verdicts for TAEF (DEC-T14): the run starts
@@ -278,7 +324,7 @@ public static class MsTestTemplate
                 private static void Skip(string message)
                 {
                     var log = TaefType("WEX.Logging.Interop.Log");
-                    var results = TaefType("WEX.Logging.Interop.TestResults");
+                    var results = TaefType("WEX.Logging.Interop.TestResult");
                     var logResult = results is null ? null : log?.GetMethod("Result", new[] { results, typeof(string) });
                     if (logResult is not null)
                     {
@@ -297,9 +343,15 @@ public static class MsTestTemplate
                             return loaded;
                         }
                     }
+                    // TAEF's host (te.processhost.exe) runs from the folder that holds its logger;
+                    // the test assembly's own probing does not look there.
+                    var host = global::System.IO.Path.GetDirectoryName(global::System.Environment.ProcessPath ?? string.Empty) ?? string.Empty;
+                    var logger = global::System.IO.Path.Combine(host, "Wex.Logger.Interop.dll");
                     try
                     {
-                        return global::System.Reflection.Assembly.Load("Wex.Logger.Interop").GetType(name, throwOnError: false);
+                        return global::System.IO.File.Exists(logger)
+                            ? global::System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(logger).GetType(name, throwOnError: false)
+                            : null;
                     }
                     catch (global::System.Exception)
                     {
