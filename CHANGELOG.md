@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.11
+
+* **A skipped case is Skipped under TAEF** (DEC-T14). TAEF's CoreCLR host
+  counts MSTest's `Assert.Inconclusive` as a failure, so the `taef` host's
+  generated code logs TAEF's own Skipped result
+  (`WEX.Logging.Interop.Log.Result`, found at run time) for a case that skips
+  itself or is skipped by a guard. Outside TAEF the case stays Inconclusive.
+
 ## 0.7.10
 
 * **Step lines live in a test process** (docs/test-providers/design.md

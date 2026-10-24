@@ -268,7 +268,42 @@ public static class MsTestTemplate
                     }
                     if (result.Status == "skipped")
                     {
-                        {{Mst}}.Assert.Inconclusive(result.Message);
+                        Skip(result.Message);
+                    }
+                }
+
+                /// <summary>TAEF counts MSTest's Inconclusive as a failure, so a skipped
+                /// case logs TAEF's own Skipped result (WEX.Logging.Interop.Log.Result)
+                /// when the host has TAEF's logger; elsewhere it stays Inconclusive.</summary>
+                private static void Skip(string message)
+                {
+                    var log = TaefType("WEX.Logging.Interop.Log");
+                    var results = TaefType("WEX.Logging.Interop.TestResults");
+                    var logResult = results is null ? null : log?.GetMethod("Result", new[] { results, typeof(string) });
+                    if (logResult is not null)
+                    {
+                        logResult.Invoke(null, new object[] { global::System.Enum.Parse(results!, "Skipped"), message });
+                        return;
+                    }
+                    {{Mst}}.Assert.Inconclusive(message);
+                }
+
+                private static global::System.Type? TaefType(string name)
+                {
+                    foreach (var assembly in global::System.AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        if (assembly.GetType(name, throwOnError: false) is { } loaded)
+                        {
+                            return loaded;
+                        }
+                    }
+                    try
+                    {
+                        return global::System.Reflection.Assembly.Load("Wex.Logger.Interop").GetType(name, throwOnError: false);
+                    }
+                    catch (global::System.Exception)
+                    {
+                        return null;
                     }
                 }
 
