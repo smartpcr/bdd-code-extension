@@ -1,8 +1,8 @@
-import * as path from 'path';
+import { resolve } from './portablePath';
 
 /** A path key that compares equal for the same file however VS Code or Node spelled it. */
 export function fileKey(p: string): string {
-  return lowerDrive(path.resolve(p));
+  return lowerDrive(resolve(p));
 }
 
 /** A Windows drive letter in lower case; any other path unchanged. */

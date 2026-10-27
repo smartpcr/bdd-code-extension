@@ -27,6 +27,19 @@ public sealed class ActionException(string message, string reason) : Exception(m
 
     /// <summary>Whether this ends the case as skipped rather than failing it.</summary>
     public bool IsSkip => string.Equals(Reason, Tracing.Reason.Skip, StringComparison.Ordinal);
+
+    /// <summary>Structured evidence of the failure, such as the checks a verdict
+    /// was made of, written to the event stream as JSON (spec/events.md). It never
+    /// changes what the trace or the report say.</summary>
+    public object? Detail { get; private set; }
+
+    /// <summary>Attach structured evidence and return this failure, so an action
+    /// can write <c>throw ActionException.Failed(text).WithDetail(checks)</c>.</summary>
+    public ActionException WithDetail(object? detail)
+    {
+        Detail = detail;
+        return this;
+    }
 }
 
 /// <summary>
@@ -46,6 +59,27 @@ public sealed class ActionRequest
     /// <summary>For an extension's action: what that extension's Start
     /// returned as its state for this run. Null for a core action.</summary>
     public object? State { get; init; }
+
+    /// <summary>The step being run: which case, which row and where it is written
+    /// (spec/events.md). An action that keeps per-case state keys it by
+    /// <see cref="StepRef.Case"/>. Null when the request was built outside a
+    /// run, as a unit test of an action may.</summary>
+    public StepRef? Ref { get; init; }
+
+    /// <summary>Where <see cref="Note"/> sends its text; null when nobody
+    /// listens.</summary>
+    public Action<string>? OnNote { get; init; }
+
+    /// <summary>Say what a long action is doing while it does it, such as
+    /// "waiting for Ready (3 of 30 polls)". It goes to the event stream against
+    /// this step and nowhere else: not the trace and not the report.</summary>
+    public void Note(string text)
+    {
+        if (text.Length > 0)
+        {
+            OnNote?.Invoke(text);
+        }
+    }
 }
 
 /// <summary>

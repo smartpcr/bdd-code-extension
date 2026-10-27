@@ -24,6 +24,8 @@ export const VERSION_FILES: readonly VersionFile[] = [
   { file: 'samples/workspace/tests/rust/Cargo.lock', kind: 'cargo-lock' },
   { file: 'runtimes/typescript/package.json', kind: 'npm-package' },
   { file: 'runtimes/typescript/package-lock.json', kind: 'npm-lock' },
+  // The browser language package (packages/language, YB-1.7) carries the extension's version too.
+  { file: 'packages/language/package.json', kind: 'npm-package' },
   { file: 'samples/workspace/test/e2e/bindings/typescript/package-lock.json', kind: 'npm-lock' },
   { file: 'samples/workspace/tests/typescript/package-lock.json', kind: 'npm-lock' },
   { file: 'runtimes/powershell/BddSuite/BddSuite.psd1', kind: 'psd1' },

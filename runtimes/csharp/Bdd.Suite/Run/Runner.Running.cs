@@ -57,44 +57,71 @@ public static partial class Runner
         return new Report { Out = text, Code = Exit.Passed };
     }
 
+    /// <summary>What `--cancel-on-stdin-close` reads to its end: standard input. A
+    /// test may point it elsewhere.</summary>
+    public static TextReader CancelInput { get; set; } = Console.In;
+
     /// <summary>`run`: execute every selected case.</summary>
     public static Report RunSuites(Options options, Composite? extensions = null)
     {
         var composite = extensions ?? Composite.CoreOnly;
+        using var cancel = new CancellationTokenSource();
+        using var watching = WatchForCancel(options, cancel);
+        EventWriter? events = null;
         try
         {
             var (_, schemaRoot) = Roots(options);
             var schema = SuiteSchema.Load(schemaRoot);
             var files = SelectedFiles(options);
+            // Started once per run and shared by every file, so an extension's
+            // state persists across files.
+            var run = new RunExtensions(composite, composite.Start(options.ExtensionOptions));
 
             var trace = new Trace();
-            // Live lines while the run goes, for runs that take hours (spec/progress.md).
+            // Live lines while the run goes, for runs that take hours (spec/progress.md),
+            // and the step events a host shows a run from (spec/events.md). A dry
+            // run runs no step, so it writes no event file.
             var progress = options.Progress ? new ProgressPrinter(ProgressWriter) : null;
+            events = options.Events.Length > 0 && !options.DryRun
+                ? new EventWriter(options.Events, run.Started.Redact)
+                : null;
+            var observers = new List<IRunObserver>();
+            if (progress is not null)
+            {
+                observers.Add(progress);
+            }
+            if (events is not null)
+            {
+                observers.Add(events);
+            }
             var settings = new RunOptions
             {
                 Tags = options.Tags,
                 Names = options.Names,
-                Observer = progress,
+                Observer = observers.Count switch { 0 => null, 1 => observers[0], _ => new Observers(observers) },
                 Params = options.Params,
                 DryRun = options.DryRun,
                 RecordPath = Environment.GetEnvironmentVariable(composite.EnvPrefix + "RECORD_PATH") ?? string.Empty,
+                Cancel = cancel.Token,
             };
-            // Started once per run and shared by every file, so an extension's
-            // state persists across files.
-            var run = new RunExtensions(composite, composite.Start(options.ExtensionOptions));
+            events?.RunStarted(files);
 
             var suites = new List<SuiteResult>();
             var lines = new List<string>();
             foreach (var path in files)
             {
                 var suite = LoadSuite(path);
+                var name = suite.Text("suite") is { Length: > 0 } declared ? declared : Path.GetFileNameWithoutExtension(path);
                 SuiteResult result;
                 try
                 {
+                    events?.SuiteStarted(path, name);
                     result = Executor.RunFile(path, suite, schema, settings, trace, run);
+                    events?.SuiteFinished(path, name);
                 }
                 catch (ExpansionException failure)
                 {
+                    events?.RunFinished("refused", Exit.Refused);
                     return Report.Refused(failure.Message);
                 }
                 lines.Add(string.Create(CultureInfo.InvariantCulture, $"=== Suite: {Path.GetFileName(path)} ==="));
@@ -105,7 +132,9 @@ public static partial class Runner
                 suites.Add(result);
             }
 
-            var failed = Executor.Failed(suites);
+            // A cancelled run has not passed, whatever its finished cases did.
+            var cancelled = cancel.IsCancellationRequested;
+            var failed = Executor.Failed(suites) || cancelled;
             progress?.Summary();
 
             if (options.TraceFile.Length > 0)
@@ -123,18 +152,89 @@ public static partial class Runner
                 Write(options.Results, document);
                 lines.Add("Results written to " + options.Results);
             }
-            lines.Add(failed
-                ? "One or more tests failed."
-                : options.DryRun
-                    ? "Suite validation passed; live tests were not run."
-                    : "All selected tests passed.");
+            lines.Add(cancelled
+                ? "The run was cancelled; cleanup, afterEach and teardown ran for the cases that had started."
+                : failed
+                    ? "One or more tests failed."
+                    : options.DryRun
+                        ? "Suite validation passed; live tests were not run."
+                        : "All selected tests passed.");
 
-            return new Report { Out = string.Join('\n', lines), Code = failed ? Exit.Failed : Exit.Passed };
+            var code = failed ? Exit.Failed : Exit.Passed;
+            events?.RunFinished(cancelled ? "cancelled" : failed ? "failed" : "passed", code);
+            return new Report { Out = string.Join('\n', lines), Code = code };
         }
         catch (IOException failure)
         {
+            events?.RunFinished("refused", Exit.Refused);
             return Report.Refused(failure.Message);
         }
+        finally
+        {
+            events?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The watchers `--cancel-on-stdin-close` and `--cancel-file` ask for
+    /// (spec/events.md, "Cancel"). Standard input is read to its end on a
+    /// background thread; the file is looked for four times a second. Disposing
+    /// the result stops the file watch; the reader thread ends with the process.
+    /// </summary>
+    private static IDisposable WatchForCancel(Options options, CancellationTokenSource cancel)
+    {
+        if (options.CancelOnStdinClose)
+        {
+            var input = CancelInput;
+            new Thread(() =>
+            {
+                try
+                {
+                    while (input.ReadLine() is not null)
+                    {
+                    }
+                }
+                catch (Exception failure) when (failure is IOException or ObjectDisposedException)
+                {
+                    // A reader that breaks has reached its end as surely as one
+                    // that closes.
+                }
+                try
+                {
+                    cancel.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The run ended first.
+                }
+            })
+            { IsBackground = true, Name = "suiterun cancel-on-stdin-close" }.Start();
+        }
+        if (options.CancelFile.Length == 0)
+        {
+            return new Timer(_ => { }, null, Timeout.Infinite, Timeout.Infinite);
+        }
+        var path = Path.GetFullPath(options.CancelFile);
+        // A file already there cancels the run before anything starts, not on the
+        // timer's first tick.
+        if (File.Exists(path))
+        {
+            cancel.Cancel();
+        }
+        return new Timer(_ =>
+        {
+            if (File.Exists(path))
+            {
+                try
+                {
+                    cancel.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The run ended first.
+                }
+            }
+        }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(250));
     }
 
     private static void Write(string path, string text)

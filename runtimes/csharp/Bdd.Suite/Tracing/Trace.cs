@@ -41,6 +41,11 @@ public static class Reason
     /// found the environment cannot run it (spec/session.md rule 12).</summary>
     public const string Skip = "skip";
 
+    /// <summary>Work the run was asked to stop (spec/events.md, "Cancel"): the
+    /// step running when the cancel came, and every case not yet started.
+    /// Cleanup, afterEach and teardown are never cancelled.</summary>
+    public const string Cancelled = "cancelled";
+
     /// <summary>The absence of a reason, which a passed entry carries.</summary>
     public const string None = "";
 }

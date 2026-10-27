@@ -1,8 +1,8 @@
 // The action catalog, parsed with positions (plan B1.2). Never throws: a
 // problem is a CoreError on the result.
-import * as path from 'path';
 import { isMap, isScalar, isSeq, Node } from 'yaml';
 import { fileKey } from './paths';
+import { dirname, isAbsolute, relative, resolve, sepOf } from './portablePath';
 import { Range } from './text';
 import { CaptureShape, Catalog, CatalogAction, CatalogParam, CoreError } from './types';
 import { itemsOf, ParsedYaml, parseYaml, stringItems, stringOf, valueOf } from './yamlPositions';
@@ -149,7 +149,7 @@ export function resolveCatalog(text: string, file: string, read: (file: string) 
     }
     // Through bdd-suite:core, the importer's own bindings are what the core is cut to.
     const narrow = core ? fromBindings : undefined;
-    const target = fileKey(core ? coreFile! : path.resolve(path.dirname(fromFile), rel));
+    const target = fileKey(core ? coreFile! : resolve(dirname(fromFile), rel));
     if (chain.includes(target)) {
       catalog.errors.push({ code: 'BDD023', message: `Catalog import cycle: ${[...chain, target].join(' -> ')}`, range });
       return;
@@ -187,8 +187,12 @@ export function mergeSources(rootFile: string, list: { from: string; sources: Re
   const merged: Record<string, string[]> = {};
   for (const { from, sources } of list) {
     for (const [binding, globs] of Object.entries(sources)) {
-      const rebased = globs.map(g => (path.isAbsolute(g) ? g
-        : path.relative(path.dirname(rootFile), path.resolve(path.dirname(from), g)).split(path.sep).join('/')));
+      const rebased = globs.map(g => {
+        if (isAbsolute(g)) return g;
+        const base = dirname(rootFile);
+        const target = resolve(dirname(from), g);
+        return relative(base, target).split(sepOf(base, target)).join('/');
+      });
       merged[binding] = [...new Set([...(merged[binding] ?? []), ...rebased])];
     }
   }

@@ -17,8 +17,18 @@ public sealed class RunLibrary
     public List<OrderedMap> Params { get; } = [];
     public OrderedMap Vars { get; } = new();
     public Dictionary<string, OrderedMap> MetaSteps { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Where each imported meta step is declared.</summary>
+    public Dictionary<string, StepOrigin> MetaOrigins { get; } = new(StringComparer.Ordinal);
+
     public OrderedMap Defaults { get; } = new();
 }
+
+/// <summary>Where a meta step is declared: the file (empty for the suite itself)
+/// and the JSON pointer of its definition there. A step reference reads its line
+/// from it (spec/events.md). Kept beside the definitions rather than written
+/// into them, so the parsed suite is never changed.</summary>
+public sealed record StepOrigin(string File, string Pointer);
 
 /// <summary>
 /// One suite file as the runner executes it: meta steps expanded, tables and
@@ -97,11 +107,14 @@ public static class SuiteExpansion
             {
                 library.Vars.Set(key, imported.Map("vars")!.Value(key));
             }
-            foreach (var meta in Walk.Entries(imported, "metaSteps"))
+            var declared = Walk.Entries(imported, "metaSteps");
+            for (var at = 0; at < declared.Count; at++)
             {
-                if (meta is not null)
+                if (declared[at] is { } meta)
                 {
                     library.MetaSteps[meta.Text("name")] = meta;
+                    library.MetaOrigins[meta.Text("name")] = new StepOrigin(
+                        full, string.Create(CultureInfo.InvariantCulture, $"/metaSteps/{at}"));
                 }
             }
             foreach (var key in imported.Map("defaults")?.Keys ?? [])
@@ -124,6 +137,56 @@ public static class SuiteExpansion
             }
         }
         return definitions;
+    }
+
+    /// <summary>Where every meta step in scope is declared, by name, with the
+    /// precedence of <see cref="MetaDefinitions"/>: a local declaration
+    /// wins.</summary>
+    public static Dictionary<string, StepOrigin> MetaOrigins(OrderedMap suite, RunLibrary library)
+    {
+        var origins = new Dictionary<string, StepOrigin>(library.MetaOrigins, StringComparer.Ordinal);
+        var declared = Walk.Entries(suite, "metaSteps");
+        for (var at = 0; at < declared.Count; at++)
+        {
+            if (declared[at] is { } meta)
+            {
+                origins[meta.Text("name")] = new StepOrigin(
+                    string.Empty, string.Create(CultureInfo.InvariantCulture, $"/metaSteps/{at}"));
+            }
+        }
+        return origins;
+    }
+
+    /// <summary>The internal keys a step carries its address in, and a case its
+    /// place in the file. Like <c>__provenance</c>, they are the runner's and never
+    /// a suite's.</summary>
+    public const string StepIdKey = "__stepId";
+    public const string StepFileKey = "__stepFile";
+    public const string StepPointerKey = "__stepPointer";
+    public const string TestIndexKey = "__testIndex";
+    public const string ExamplesRowKey = "__examplesRow";
+
+    /// <summary>Where one step list sits, so every step expanded from it can say
+    /// where it came from: the address prefix of the list, the file and pointer of
+    /// the list, and where the meta steps it may use are declared.</summary>
+    private sealed record Address(string Id, string File, string Pointer, Dictionary<string, StepOrigin> Origins)
+    {
+        public void Mark(OrderedMap step, int index)
+        {
+            step.Set(StepIdKey, string.Create(CultureInfo.InvariantCulture, $"{Id}/{index}"));
+            step.Set(StepFileKey, File);
+            step.Set(StepPointerKey, string.Create(CultureInfo.InvariantCulture, $"{Pointer}/{index}"));
+        }
+
+        /// <summary>The address of a meta step's own steps, used at one index of
+        /// this list.</summary>
+        public Address Into(int index, string meta)
+        {
+            var origin = Origins.TryGetValue(meta, out var found) ? found : new StepOrigin(string.Empty, string.Empty);
+            return new Address(
+                string.Create(CultureInfo.InvariantCulture, $"{Id}/{index}/{meta.Replace("/", "%2F", StringComparison.Ordinal)}"),
+                origin.File, origin.Pointer + "/steps", Origins);
+        }
     }
 
     /// <summary>Substitute ${param.x} inside a meta step's body, leaving a name
@@ -235,7 +298,12 @@ public static class SuiteExpansion
     /// stands for and every table replaced by one step per row.</summary>
     public static List<OrderedMap> ExpandSteps(
         List<object?>? steps, Dictionary<string, OrderedMap> definitions,
-        string whereItIs, int depth, string provenance)
+        string whereItIs, int depth, string provenance) =>
+        ExpandSteps(steps, definitions, whereItIs, depth, provenance, at: null);
+
+    private static List<OrderedMap> ExpandSteps(
+        List<object?>? steps, Dictionary<string, OrderedMap> definitions,
+        string whereItIs, int depth, string provenance, Address? at)
     {
         var expanded = new List<OrderedMap>();
         // The keyword an `and` continues, tracked across this list only: a case's
@@ -282,7 +350,7 @@ public static class SuiteExpansion
                 var body = (definition.List("steps") ?? [])
                     .Select(inner => BindMetaParams(inner, arguments)).ToList();
                 var guard = step.Text("ifCapture");
-                foreach (var inner in ExpandSteps(body, definitions, whereItIs, depth + 1, "meta " + used))
+                foreach (var inner in ExpandSteps(body, definitions, whereItIs, depth + 1, "meta " + used, at?.Into(index, used)))
                 {
                     // A nested step that carries a guard from the use site
                     // inherits it, so `- meta: x` with ifCapture skips the whole
@@ -306,6 +374,7 @@ public static class SuiteExpansion
                     copied.Set("__rowIndex", (long)(rowIndex + 1));
                     copied.Set("__rowCount", (long)rows.Count);
                     copied.Set("__provenance", position);
+                    at?.Mark(copied, index);
                     ResolveKeyword(copied, ref previous);
                     expanded.Add(copied);
                 }
@@ -314,6 +383,7 @@ public static class SuiteExpansion
 
             var plain = step.Clone();
             plain.Set("__provenance", position);
+            at?.Mark(plain, index);
             ResolveKeyword(plain, ref previous);
             expanded.Add(plain);
         }
@@ -329,12 +399,14 @@ public static class SuiteExpansion
         }
         var name = held.Text("name");
         var out_ = new List<OrderedMap>(rows.Count);
-        foreach (var row in rows)
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
+            var row = rows[rowIndex];
             var copied = held.Clone();
             copied.Remove("examples");
             copied.Set("name", string.Create(CultureInfo.InvariantCulture, $"{name} [{FormatRow(row)}]"));
             copied.Set("__row", row);
+            copied.Set(ExamplesRowKey, (long)rowIndex);
             out_.Add(copied);
         }
         return out_;
@@ -461,37 +533,68 @@ public static class SuiteExpansion
     /// <summary>Every step list of one case, expanded, in the order the phases
     /// run.</summary>
     public static Dictionary<string, List<OrderedMap>> ExpandedCase(
-        OrderedMap held, Dictionary<string, OrderedMap> definitions)
+        OrderedMap held, Dictionary<string, OrderedMap> definitions) =>
+        ExpandedCase(held, definitions, origins: null);
+
+    /// <summary>Every step list of one case, expanded; with origins
+    /// (<see cref="MetaOrigins"/>), every step also carries its address
+    /// (spec/events.md). A case from <see cref="Cases"/> knows which test it
+    /// is.</summary>
+    public static Dictionary<string, List<OrderedMap>> ExpandedCase(
+        OrderedMap held, Dictionary<string, OrderedMap> definitions, Dictionary<string, StepOrigin>? origins)
     {
         var phases = new Dictionary<string, List<OrderedMap>>(StringComparer.Ordinal);
+        var test = held.Value(TestIndexKey) as long? ?? 0;
         foreach (var phase in Walk.CasePhases)
         {
-            phases[phase] = ExpandSteps(held.List(phase), definitions, "case " + held.Text("name"), 0, string.Empty);
+            var at = origins is null
+                ? null
+                : new Address(phase, string.Empty,
+                    string.Create(CultureInfo.InvariantCulture, $"/tests/{test}/{phase}"), origins);
+            phases[phase] = ExpandSteps(held.List(phase), definitions, "case " + held.Text("name"), 0, string.Empty, at);
         }
         return phases;
     }
 
     /// <summary>The suite's own hook lists, expanded.</summary>
     public static Dictionary<string, List<OrderedMap>> ExpandedHooks(
-        OrderedMap suite, Dictionary<string, OrderedMap> definitions)
+        OrderedMap suite, Dictionary<string, OrderedMap> definitions) =>
+        ExpandedHooks(suite, definitions, origins: null);
+
+    /// <summary>The suite's own hook lists, expanded; with origins, every step
+    /// also carries its address, as <see cref="ExpandedCase(OrderedMap, Dictionary{string, OrderedMap}, Dictionary{string, StepOrigin}?)"/>'s
+    /// do.</summary>
+    public static Dictionary<string, List<OrderedMap>> ExpandedHooks(
+        OrderedMap suite, Dictionary<string, OrderedMap> definitions, Dictionary<string, StepOrigin>? origins)
     {
         var hooks = new Dictionary<string, List<OrderedMap>>(StringComparer.Ordinal);
         foreach (var hook in Walk.Hooks)
         {
-            hooks[hook] = ExpandSteps(suite.List(hook), definitions, "the suite " + hook, 0, string.Empty);
+            // The suite's setup is not a case's: the two lists must not share an
+            // address.
+            var at = origins is null
+                ? null
+                : new Address(string.Equals(hook, "setup", StringComparison.Ordinal) ? "suiteSetup" : hook,
+                    string.Empty, "/" + hook, origins);
+            hooks[hook] = ExpandSteps(suite.List(hook), definitions, "the suite " + hook, 0, string.Empty, at);
         }
         return hooks;
     }
 
-    /// <summary>Every case a file runs, outlines expanded.</summary>
+    /// <summary>Every case a file runs, outlines expanded. Each is a copy that
+    /// knows its place in tests (<see cref="TestIndexKey"/>), so its steps can be
+    /// addressed; the suite is not changed.</summary>
     public static List<OrderedMap> Cases(OrderedMap suite)
     {
         var found = new List<OrderedMap>();
-        foreach (var held in Walk.Entries(suite, "tests"))
+        var tests = Walk.Entries(suite, "tests");
+        for (var index = 0; index < tests.Count; index++)
         {
-            if (held is not null)
+            if (tests[index] is { } held)
             {
-                found.AddRange(ExpandOutline(held));
+                var copied = held.Clone();
+                copied.Set(TestIndexKey, (long)index);
+                found.AddRange(ExpandOutline(copied));
             }
         }
         return found;

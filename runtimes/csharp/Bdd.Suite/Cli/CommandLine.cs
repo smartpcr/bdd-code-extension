@@ -51,6 +51,19 @@ public sealed class Options
 
     public string Results { get; set; } = string.Empty;
     public string TraceFile { get; set; } = string.Empty;
+
+    /// <summary>`--events`: the file the run writes its step events to, one JSON
+    /// object per line, as it goes (spec/events.md).</summary>
+    public string Events { get; set; } = string.Empty;
+
+    /// <summary>`--cancel-on-stdin-close`: cancel the run when standard input
+    /// reaches its end (spec/events.md, "Cancel"). Opt-in, because a runner
+    /// started with no standard input would otherwise cancel itself.</summary>
+    public bool CancelOnStdinClose { get; set; }
+
+    /// <summary>`--cancel-file`: cancel the run when this file appears.</summary>
+    public string CancelFile { get; set; } = string.Empty;
+
     public ReportFormat Format { get; set; } = ReportFormat.NUnit3;
 
     /// <summary>The --param pairs, in the order they were given, because a later
@@ -99,6 +112,7 @@ public sealed class CommandLineException(string message) : Exception(message);
 ///   suiterun lint    --path &lt;glob&gt; [--json] [--strict] [--binding-check] [--binding &lt;name&gt;]
 ///   suiterun run     --path &lt;glob&gt; [--tags a,b] [--results f.xml] [--format nunit3|junit]
 ///                    [--dry-run] [--param name=value] [--trace-file f.json]
+///                    [--events f.jsonl] [--cancel-on-stdin-close] [--cancel-file &lt;path&gt;]
 ///                    [any option an extension declares, with its value]
 ///   suiterun list    --path &lt;glob&gt; [--tags a,b]
 ///   suiterun actions [--json]
@@ -118,6 +132,7 @@ public static class CommandLine
         suiterun lint    --path <glob> [--json] [--strict] [--binding-check] [--binding <name>]
         suiterun run     --path <glob> [--tags a,b] [--name a*,b?] [--results f.xml] [--format nunit3|junit]
                          [--dry-run] [--param name=value] [--trace-file f.json] [--progress]
+                         [--events f.jsonl] [--cancel-on-stdin-close] [--cancel-file <path>]
         suiterun list    --path <glob> [--tags a,b] [--name a*,b?]
         suiterun actions [--json]
         suiterun generate --config <bddsuite.tests.yaml> [--config <another>] [--provider <name>]
@@ -227,6 +242,15 @@ public static class CommandLine
                     break;
                 case "--trace-file":
                     options.TraceFile = Value(name);
+                    break;
+                case "--events":
+                    options.Events = Value(name);
+                    break;
+                case "--cancel-on-stdin-close":
+                    options.CancelOnStdinClose = true;
+                    break;
+                case "--cancel-file":
+                    options.CancelFile = Value(name);
                     break;
                 case "--schema-root":
                     options.SchemaRoot = Value(name);

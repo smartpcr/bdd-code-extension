@@ -99,8 +99,10 @@ changes a case's result, the trace or a report:
 | --- | --- | --- |
 | `--name glob[,glob]` | `run`, `list` | Selects a case when its name matches any of the globs (`*` any run of characters, `?` one character, the whole name, case-sensitive) **and** the tag filter. A case it leaves out is reported `skipped` with reason `tag`, exactly as one the tag filter leaves out, and a session's selection applies it the same way (session.md). Repeatable; empty selects every case. PowerShell's `--test-name <case>` (one exact name) stays. |
 | `--progress` | `run` | Prints live lines while the run goes, in the shape `progress.md` specifies. |
+| `--events <file>` | `run` | Writes step events, one JSON object per line, as the run goes: each step's id, file and line, timings, message, value and assertion operands (`events.md`). C# runtime first. |
+| `--cancel-on-stdin-close`, `--cancel-file <path>` | `run` | Lets a host stop the run: the running step is cancelled, no later case starts, cleanup, afterEach and teardown still run, and the exit code is 1 (`events.md`, "Cancel"). C# runtime first. |
 
-An extension may not take either flag name. `list` prints one line per selected
+An extension may not take any of these flag names. `list` prints one line per selected
 case, `<file name>  <case name>`.
 
 ## Generating a workspace's schema

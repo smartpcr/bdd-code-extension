@@ -35,6 +35,7 @@ The same rule is stated for diagnostics in
 | `expressions/` | The expression language as a table: a fixed context and one row per expression. |
 | `asserts/` | The assertion operator table: one row per operator per interesting pair of operands. |
 | `report/` | How two reports are compared, and the canonical form of three of them. |
+| `events/` | The step-event corpus ([spec/events.md](../spec/events.md)): its own `manifest.yaml`, suites, and the events a run of each must write with `--events`, masked. Outside `execute/`, so only the runtimes its manifest lists run it (C# today) and no other runtime's corpus changes. |
 | `generate/` | Test-generation configs, the suites they name, and the plan `suiterun generate --plan` must print for each ([spec/test-plan.md](../spec/test-plan.md)). |
 
 ## An expectation

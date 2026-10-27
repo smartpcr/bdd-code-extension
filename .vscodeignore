@@ -30,3 +30,5 @@ CHANGELOG.md
 templates/skeleton/**/{artifacts,bin,obj,target,node_modules,dist,.vs}/**
 templates/skeleton/.gitignore
 templates/skeleton/**/{TestResults,go.sum,Cargo.lock,package-lock.json}
+# The browser language package (YB-1.7) is published on its own.
+packages/**

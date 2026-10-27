@@ -29,6 +29,11 @@ public sealed class RunOptions
     public IReadOnlyList<KeyValuePair<string, string>> Params { get; init; } = [];
     public bool DryRun { get; init; }
     public string RecordPath { get; init; } = string.Empty;
+
+    /// <summary>Cancelled when the run is asked to stop (spec/events.md,
+    /// "Cancel"): the running step is cancelled, no case starts after it, and
+    /// every cleanup, afterEach and teardown still runs. None by default.</summary>
+    public CancellationToken Cancel { get; init; }
 }
 
 /// <summary>
@@ -83,6 +88,61 @@ public sealed class CaseContext
     /// path may start at, and each extension's state. The core alone when not
     /// given.</summary>
     public RunExtensions Run { get; init; } = RunExtensions.CoreOnly;
+
+    /// <summary>Told of each step this context runs (spec/events.md); null for
+    /// nobody.</summary>
+    public IStepObserver? Steps { get; init; }
+
+    /// <summary>The suite's name and file, the case's examples row (-1 for none)
+    /// and where to read lines from: what a step reference is made of.</summary>
+    public string Suite { get; init; } = string.Empty;
+    public string File { get; init; } = string.Empty;
+    public int ExamplesRow { get; init; } = -1;
+    public StepPositions? Positions { get; init; }
+
+    /// <summary>The run's cancel, which this context's steps obey; none for a
+    /// context that undoes work (<see cref="ForUndo"/>).</summary>
+    public CancellationToken Cancel { get; init; }
+
+    /// <summary>This context for a cleanup, afterEach or teardown: the same bag,
+    /// never cancelled. A cancel stops work; it does not stop the clean-up of
+    /// work already done.</summary>
+    public CaseContext ForUndo() => new()
+    {
+        Scope = Scope, RecordPath = RecordPath, Run = Run, Steps = Steps,
+        Suite = Suite, File = File, ExamplesRow = ExamplesRow, Positions = Positions,
+    };
+
+    /// <summary>The reference of one expanded step, as it runs in this
+    /// context.</summary>
+    public StepRef RefOf(OrderedMap step, string phase, string caseName, string label, string action)
+    {
+        var tableRow = step.Value("__rowIndex") is long index ? (int)index - 1 : -1;
+        var file = step.Text(SuiteExpansion.StepFileKey);
+        if (file.Length == 0)
+        {
+            file = File;
+        }
+        var (line, column) = Positions is not null && step.Text(SuiteExpansion.StepPointerKey) is { Length: > 0 } pointer
+            ? Positions.At(file, pointer)
+            : (0, 0);
+        return new StepRef
+        {
+            Id = StepRef.IdOf(step.Text(SuiteExpansion.StepIdKey), ExamplesRow, tableRow),
+            Phase = phase,
+            Suite = Suite,
+            Case = caseName,
+            ExamplesRow = ExamplesRow,
+            TableRow = tableRow,
+            Keyword = step.Text("__keyword"),
+            Sentence = step.Text("__sentence"),
+            Action = action,
+            Label = label,
+            File = file,
+            Line = line,
+            Column = column,
+        };
+    }
 
     public void Capture(string name, object? produced)
     {
@@ -164,7 +224,11 @@ public static class Executor
     /// <summary>Compare one assertion and fail when it does not hold. Every
     /// operator in one assertion has to pass, and the first failure ends the
     /// case.</summary>
-    internal static void CheckAssertion(object? raw, CaseContext context)
+    internal static void CheckAssertion(object? raw, CaseContext context) => CheckAssertion(raw, context, results: null);
+
+    /// <summary>Compare one assertion, recording each comparison in
+    /// <paramref name="results"/> when given, the failing one included.</summary>
+    internal static void CheckAssertion(object? raw, CaseContext context, List<AssertResult>? results)
     {
         object? expanded;
         try
@@ -210,8 +274,10 @@ public static class Executor
             }
             catch (CompareException failure)
             {
+                results?.Add(new AssertResult(subject, operator_, expected, found, present, Holds: false));
                 throw ActionException.AssertionFailed(failure.ToString());
             }
+            results?.Add(new AssertResult(subject, operator_, expected, found, present, holds));
             if (!holds)
             {
                 throw ActionException.AssertionFailed(
@@ -224,8 +290,13 @@ public static class Executor
     /// <summary>Run one action with a limit, and give up on it when the limit
     /// expires.</summary>
     internal static object? Bounded(
-        string name, OrderedMap step, CaseContext context, long limitSec, string description, bool interruptible)
+        string name, OrderedMap step, CaseContext context, long limitSec, string description, bool interruptible,
+        StepRef? stepRef = null)
     {
+        if (context.Cancel.IsCancellationRequested)
+        {
+            throw Cancelled(description);
+        }
         if (limitSec <= 0)
         {
             throw ActionException.TimedOut(string.Create(CultureInfo.InvariantCulture,
@@ -242,7 +313,11 @@ public static class Executor
                 $"Unknown action: {name}. No extension of this runtime registers it."));
         }
 
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(limitSec));
+        // The step's own limit and the run's cancel, as one token: an action that
+        // honours it stops for either.
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.Cancel);
+        cancellation.CancelAfter(TimeSpan.FromSeconds(limitSec));
+        var steps = context.Steps;
         var request = new ActionRequest
         {
             Step = step,
@@ -250,6 +325,8 @@ public static class Executor
             RecordPath = context.RecordPath,
             Cancellation = cancellation.Token,
             State = context.Run.Started.State(registered.Owner),
+            Ref = stepRef,
+            OnNote = steps is null || stepRef is null ? null : text => steps.Note(stepRef, text, DateTimeOffset.UtcNow),
         };
 
         object? produced = null;
@@ -279,20 +356,44 @@ public static class Executor
         { IsBackground = true, Name = "suiterun " + name };
         worker.Start();
 
-        if (!done.Wait(TimeSpan.FromSeconds(limitSec + 1)))
+        // Wait for the action, its limit, or the run's cancel, whichever comes
+        // first. An interruptible action given the cancel stops within a moment,
+        // so it is given a moment to say so itself.
+        var signalled = WaitHandle.WaitAny(
+            [done.WaitHandle, context.Cancel.WaitHandle], TimeSpan.FromSeconds(limitSec + 1));
+        if (signalled == 1 && !done.IsSet)
+        {
+            done.Wait(interruptible ? TimeSpan.FromSeconds(1) : TimeSpan.Zero);
+        }
+        if (!done.IsSet)
         {
             var wording = interruptible
                 ? "cancelled"
                 : "abandoned: it holds a remote session this runner cannot interrupt, so the work on the far side continues";
+            if (context.Cancel.IsCancellationRequested)
+            {
+                throw new ActionException(string.Create(CultureInfo.InvariantCulture,
+                    $"{description} was {wording}: the run was asked to stop."), Reason.Cancelled);
+            }
             throw ActionException.TimedOut(string.Create(CultureInfo.InvariantCulture,
                 $"{description} exceeded its {limitSec}s limit and was {wording}."));
         }
         if (failure is not null)
         {
+            // An action that gave up because the run was cancelled failed for that
+            // reason, whatever it called its failure.
+            if (context.Cancel.IsCancellationRequested && failure is not ActionException { IsSkip: true })
+            {
+                throw Cancelled(description);
+            }
             throw failure;
         }
         return produced;
     }
+
+    /// <summary>The failure of work the run was asked to stop.</summary>
+    internal static ActionException Cancelled(string description) =>
+        new(description + " was cancelled: the run was asked to stop.", Reason.Cancelled);
 
     /// <summary>
     /// `wait`: sleep, or poll a nested step until an assertion holds.
@@ -309,7 +410,10 @@ public static class Executor
         var seconds = Value.TryNumber(step.Value("seconds"), out var given) ? given : 0.0;
         if (seconds > 0 && nested is null)
         {
-            Thread.Sleep(TimeSpan.FromSeconds(seconds));
+            if (context.Cancel.WaitHandle.WaitOne(TimeSpan.FromSeconds(seconds)))
+            {
+                throw Cancelled("wait");
+            }
             var slept = new OrderedMap();
             slept.Set("waitedSec", seconds);
             return slept;
@@ -327,6 +431,15 @@ public static class Executor
         {
             until = deadline;
         }
+        // The polled step's address is the wait's, one level down, so each poll's
+        // events name the step that ran.
+        if (step.Text(SuiteExpansion.StepIdKey) is { Length: > 0 } waitId)
+        {
+            nested = nested.Clone();
+            nested.Set(SuiteExpansion.StepIdKey, waitId + "/forStep");
+            nested.Set(SuiteExpansion.StepFileKey, step.Text(SuiteExpansion.StepFileKey));
+            nested.Set(SuiteExpansion.StepPointerKey, step.Text(SuiteExpansion.StepPointerKey) + "/forStep");
+        }
         var started = Stopwatch.StartNew();
         while (true)
         {
@@ -335,6 +448,10 @@ public static class Executor
             try
             {
                 RunStep(nested, context, schema, until, phase, caseName, trace, collected);
+            }
+            catch (ActionException failure) when (string.Equals(failure.Reason, Reason.Cancelled, StringComparison.Ordinal))
+            {
+                throw;
             }
             // A skip is the case's decision, not a step that is not ready yet: it
             // ends the case rather than being polled again (session.md rule 12).
@@ -364,7 +481,10 @@ public static class Executor
                 throw ActionException.TimedOut(string.Create(CultureInfo.InvariantCulture,
                     $"wait gave up after {(long)started.Elapsed.TotalSeconds}s: the step it polls never satisfied its until."));
             }
-            Thread.Sleep(interval);
+            if (context.Cancel.WaitHandle.WaitOne(interval))
+            {
+                throw Cancelled("wait");
+            }
         }
     }
 
@@ -383,10 +503,37 @@ public static class Executor
     {
         var label = SuiteExpansion.StepLabel(step);
         var action = step.Text("action");
+
+        // The step's events (spec/events.md): one start, then one finish on every
+        // way out of here, carrying what the trace cannot: when, how long, the
+        // message, the value and each comparison.
+        var stepRef = context.Steps is null ? null : context.RefOf(step, phase, caseName, label, action);
+        var startedAt = DateTimeOffset.UtcNow;
+        var asserted = new List<AssertResult>();
+        if (stepRef is not null)
+        {
+            context.Steps!.StepStarted(stepRef, startedAt);
+        }
+        void Finished(string status, string reason, string message = "", object? detail = null,
+            bool returned = false, object? value = null)
+        {
+            if (stepRef is null)
+            {
+                return;
+            }
+            context.Steps!.StepFinished(new StepResult
+            {
+                Step = stepRef, Status = status, Reason = reason, Started = startedAt,
+                Finished = DateTimeOffset.UtcNow, Message = message, Detail = detail,
+                Returned = returned, Value = value, Asserts = asserted,
+            });
+        }
+
         var guard = step.Text("ifCapture");
         if (guard.Length > 0 && !context.Has(guard))
         {
             trace.Add(phase, caseName, label, action, Status.Skipped, Reason.Guard);
+            Finished(Status.Skipped, Reason.Guard);
             return null;
         }
 
@@ -407,6 +554,7 @@ public static class Executor
             var refused = ActionException.Failed(string.Create(CultureInfo.InvariantCulture,
                 $"{label}: {failure}"));
             trace.Add(phase, caseName, label, action, Status.Failed, refused.Reason);
+            Finished(Status.Failed, refused.Reason, refused.Message);
             throw refused;
         }
         if (action.Length == 0)
@@ -414,6 +562,7 @@ public static class Executor
             var refused = ActionException.Failed(string.Create(CultureInfo.InvariantCulture,
                 $"{label}: a step names no action"));
             trace.Add(phase, caseName, label, string.Empty, Status.Failed, refused.Reason);
+            Finished(Status.Failed, refused.Reason, refused.Message);
             throw refused;
         }
 
@@ -431,7 +580,7 @@ public static class Executor
             // the parent can read it.
             produced = string.Equals(action, "wait", StringComparison.Ordinal)
                 ? Wait(expanded, context, schema, deadline, phase, caseName, trace)
-                : Bounded(action, expanded, context, limit, label, interruptible);
+                : Bounded(action, expanded, context, limit, label, interruptible, stepRef);
         }
         catch (Exception thrown)
         {
@@ -441,7 +590,9 @@ public static class Executor
             var message = thrown.Message.StartsWith(label, StringComparison.Ordinal)
                 ? thrown.Message
                 : label + ": " + thrown.Message;
-            throw new ActionException(message, reason);
+            var detail = (thrown as ActionException)?.Detail;
+            Finished(skipped ? Status.Skipped : Status.Failed, reason, message, detail);
+            throw new ActionException(message, reason).WithDetail(detail);
         }
 
         // A step's capture is its own result while its own assertions run, and
@@ -460,11 +611,12 @@ public static class Executor
             }
             try
             {
-                CheckAssertion(one, context);
+                CheckAssertion(one, context, asserted);
             }
             catch (ActionException failure)
             {
                 trace.Add(phase, caseName, label, action, Status.Failed, failure.Reason);
+                Finished(Status.Failed, failure.Reason, label + ": " + failure.Message, returned: true, value: produced);
                 throw new ActionException(label + ": " + failure.Message, failure.Reason);
             }
         }
@@ -480,6 +632,7 @@ public static class Executor
         }
 
         trace.Add(phase, caseName, label, action, Status.Passed, Reason.None);
+        Finished(Status.Passed, Reason.None, returned: true, value: produced);
         return produced;
     }
 
@@ -491,6 +644,11 @@ public static class Executor
         if (steps.Count == 0)
         {
             return;
+        }
+        // Work that undoes work is never cancelled (spec/events.md, "Cancel").
+        if (phase is Phase.CaseCleanup or Phase.AfterEach or Phase.SuiteTeardown)
+        {
+            context = context.ForUndo();
         }
         var deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, limitSec));
         var collected = new Dictionary<string, List<object?>>(StringComparer.Ordinal);

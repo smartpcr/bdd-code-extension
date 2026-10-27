@@ -1,0 +1,39 @@
+# The step-event corpus (spec/events.md): suites, and the events a run of each
+# must write with --events, timings, messages and details masked.
+#
+# Kept out of validate/ and execute/ on purpose: those are the conformance
+# contract every runtime runs, and the events are implemented by the C# runtime
+# first. A runtime runs these entries when it is listed under runtimes below;
+# the others are not affected by this folder at all.
+#
+# How an expectation is compared: each line of the run's event file is parsed,
+# the fields free to differ between runs are removed (at, started, durationMs,
+# message, detail), every file path is made relative to conformance/ with
+# forward slashes, and the result must equal the expectation line for line.
+# Every line must also validate against spec/events.schema.json.
+#
+# Paths are relative to conformance/ and use forward slashes.
+
+version: 1
+
+runtimes: [csharp]
+
+entries:
+  - suite: execute/gherkin.yml
+    events: events/gherkin.events.jsonl
+    description: A scenario, a table step run once per row, an outline run once per examples row, and a failing assertion with its expected and actual value.
+
+  - suite: execute/meta.yml
+    events: events/meta.events.jsonl
+    description: A meta step used in two cases expands to steps addressed through the use site, with lines in the suite.
+
+  - suite: execute/meta-from-library.yml
+    events: events/meta-from-library.events.jsonl
+    description: A meta step imported from a library reports the library file and its lines.
+
+  - suite: events/cancel.yml
+    events: events/cancel.events.jsonl
+    description: A run cancelled during a 60 s step cancels it, runs the case's cleanup and afterEach and the suite's teardown, starts no later case, and exits 1 within 5 s.
+    cancelAfterSec: 1
+    withinSec: 5
+    exitCode: 1

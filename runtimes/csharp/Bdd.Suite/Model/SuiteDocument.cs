@@ -50,6 +50,10 @@ public sealed class SuiteDocument
             ? found
             : new NodePosition(Position.Start, Position.Start);
 
+    /// <summary>The position of one pointer, when the document has it. A step
+    /// reference with no line is honest; one pointing at line 1 is not.</summary>
+    public bool TryAt(string pointer, out NodePosition position) => _positions.TryGetValue(pointer, out position);
+
     /// <summary>One pointer segment, escaped the way JSON pointers escape.</summary>
     public static string Escape(string segment) =>
         segment.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);

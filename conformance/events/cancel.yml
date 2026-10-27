@@ -1,0 +1,36 @@
+suite: cancel
+description: A run cancelled during a long step runs the case's cleanup and afterEach, starts no later case, and runs the suite's teardown.
+tags: [conformance]
+
+setup:
+  - given: the suite is set up
+    action: core.record
+    marker: setup
+
+afterEach:
+  - then: every case that started is followed by its afterEach
+    action: core.record
+    marker: after-each
+
+teardown:
+  - then: the suite is torn down
+    action: core.record
+    marker: teardown
+
+tests:
+  - name: a-long-step-is-cancelled
+    steps:
+      - when: the step sleeps far longer than the run will last
+        action: core.sleep
+        seconds: 60
+      - then: nothing after the cancelled step runs
+        action: core.noop
+    cleanup:
+      - then: the cleanup still runs after the cancel
+        action: core.record
+        marker: cleaned
+
+  - name: a-later-case-never-starts
+    steps:
+      - when: this case would run if the run had not been cancelled
+        action: core.noop

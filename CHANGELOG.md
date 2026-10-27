@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.8.0 (unreleased)
+
+* **Step events** (spec/events.md, C# runtime first). `suiterun run --events
+  <file>` writes what the run does as it does it, one JSON object per line:
+  run, suite and case boundaries, and each step's start and finish. A step is
+  named by a stable **step id**
+  (`steps/1/stage-update-payload/0#row2`) and the **file and line** it is
+  written on, the library's for a step from an imported meta step, so a host
+  can draw a run on the YAML itself. A finish carries the status and reason,
+  the start time and duration, the message, a failing action's structured
+  detail, the captured value and each assertion's operator, expected and
+  actual. Texts are redacted like the report's; a value over 8192 characters
+  is cut to a preview. The trace, `--progress` and the reports are unchanged.
+  `spec/events.schema.json` is the shape of a line; `conformance/events/` holds
+  the expected events, masked, for the `gherkin`, `meta` and
+  `meta-from-library` suites and a cancel run, read by the C# runtime's tests
+  only, so no other runtime's corpus changes.
+* **In process**: an `IRunObserver` that also implements `IStepObserver` is
+  told of each step; `ActionRequest.Ref` is the step being run,
+  `ActionRequest.Note(text)` sends a `note` event, and
+  `ActionException.WithDetail(value)` attaches evidence to a failure.
+* **Cancel** (spec/events.md, "Cancel"; session rule 13).
+  `--cancel-on-stdin-close` (opt-in) and `--cancel-file <path>` let a host stop
+  a run: the running step's action is cancelled and the step fails with reason
+  `cancelled`, the case's remaining steps do not run, its cleanup and
+  afterEach and the suite's teardown still run and are never cancelled, no
+  later case starts (each is `skipped` with reason `cancelled`), and the exit
+  code is 1. `RunOptions.Cancel` is the same for a library caller.
+* **The language core for browsers**: `@smartpcr/bdd-suite-language`
+  (`packages/language`), an ESM bundle of `src/core` with no Node built-ins,
+  for a web editor that reads and writes suites as the extension does: suite
+  parsing with positions, catalog resolution through a read callback with the
+  core catalog built in (`CORE_CATALOG_TEXT`, so `imports: [bdd-suite:core]`
+  needs no file system), the workspace index, scope and shape queries,
+  completion contexts and the required-parameter snippet, the expression
+  cursor, hover text, the schema check and semantic tokens. `src/core` reads
+  paths through a new `portablePath` (Node's `path.win32` or `path.posix` rules
+  on a Node host, POSIX in a browser), so the extension behaves as before.
+  `npm run build:language`, `npm run test:language`.
+
 ## 0.7.13
 
 * **Ctrl+click reaches a handler declared in another file.** A C# registry

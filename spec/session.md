@@ -144,6 +144,16 @@ that provider step.
     as any other: skipping is the case's own decision. A skipped case does not
     change the exit code.
 
+13. **A run may be cancelled** ([events.md](events.md), "Cancel"; C# runtime
+    first). The run options carry a cancel. When it fires, the running step's
+    action is cancelled and the step fails with reason `cancelled`; the case's
+    remaining steps do not run; its cleanup and afterEach run and are never
+    cancelled; `beforeEach` of a later case skips it with reason `cancelled`
+    and runs nothing; the teardown runs as rule 6 says. A step observer (an
+    observer that also implements the runtime's step-observer interface) is
+    told of each step's start and finish, as events.md describes. Neither
+    changes what a run without them does.
+
 ## Inputs a test process takes from the environment
 
 `<prefix>` is the extensions' environment prefix, `BDD_SUITE_` by default.

@@ -1,7 +1,7 @@
 // Lint output: parsing it against diagnostic.schema.json's shape, mapping it to
 // editor positions, and keeping each linted file's result (plan 2.4, B2.1, B2.2).
-import * as path from 'path';
 import { fileKey } from './paths';
+import { resolve } from './portablePath';
 
 /** One finding exactly as a binding's `lint --json` prints it. */
 export interface RawDiagnostic {
@@ -76,7 +76,7 @@ export function parseActionsOutput(stdout: string): ParseResult<string[]> {
 /** One-based file positions to zero-based, and the file to an absolute key under `root` (INV-10). */
 export function toZeroBased(d: RawDiagnostic, root: string): LintDiagnostic {
   const out: LintDiagnostic = {
-    code: d.code, severity: d.severity, file: fileKey(path.resolve(root, d.file)),
+    code: d.code, severity: d.severity, file: fileKey(resolve(root, d.file)),
     line: d.line - 1, character: d.column - 1, message: d.message,
   };
   if (d.suggestion !== undefined) out.suggestion = d.suggestion;

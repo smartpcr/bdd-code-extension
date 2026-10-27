@@ -1,7 +1,7 @@
 // Suites and libraries, indexed with positions (plan B1.3). The walker recurses
 // explicitly so it always knows where a step sits (its home).
-import * as path from 'path';
 import { isMap, isScalar, isSeq, Node, Pair } from 'yaml';
+import { dirname, resolve } from './portablePath';
 import {
   CaseInfo, HookName, Keyword, MetaStepDef, Named, StepHome, StepInfo, SuiteFile,
 } from './types';
@@ -150,7 +150,7 @@ export function parseSuite(text: string, file: string): SuiteFile {
   for (const item of itemsOf(root, 'imports')) {
     if (!isScalar(item)) continue;
     const p = String(item.value);
-    suite.imports.push({ path: p, resolved: path.resolve(path.dirname(file), p), range: y.range(item) });
+    suite.imports.push({ path: p, resolved: resolve(dirname(file), p), range: y.range(item) });
   }
   for (const item of itemsOf(root, 'params')) {
     const nameNode = valueOf(item, 'name');

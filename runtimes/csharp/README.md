@@ -38,6 +38,14 @@ filter) and `run` takes `--progress` (live `StartGroup`/`EndGroup`/`Summary`
 lines for long runs; spec/progress.md). An action that throws anything fails its
 step; the run goes on.
 
+`run --events <file>` writes step events as JSON lines while the run goes (each
+step's id, file and line, timings, message, value and assertion operands), and
+`--cancel-on-stdin-close` / `--cancel-file <path>` let a host stop a run with
+its cleanup, afterEach and teardown still running (spec/events.md). In a
+library, an `IRunObserver` that also implements `IStepObserver` gets the same
+events; an action reads `ActionRequest.Ref`, calls `ActionRequest.Note(text)`
+and attaches evidence with `ActionException.WithDetail(value)`.
+
 Every bdd-suite package of one release carries the release's version, the VS
 Code extension's, so keep both packages at the same one. A working consumer that
 uses only these packages, under central package management, with its own

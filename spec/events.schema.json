@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartpcr/bdd-code-extension/spec/events.schema.json",
+  "title": "Step event",
+  "description": "One line of the file suiterun run --events writes (spec/events.md).",
+  "type": "object",
+  "required": ["event", "at"],
+  "properties": {
+    "event": {
+      "enum": ["runStarted", "suiteStarted", "suiteFinished", "caseStarted", "stepStarted", "note", "stepFinished", "caseFinished", "runFinished"]
+    },
+    "at": { "type": "string", "description": "When it happened, ISO 8601 UTC." }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event": { "const": "runStarted" } } },
+      "then": {
+        "required": ["version", "files"],
+        "properties": {
+          "version": { "const": 1 },
+          "files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "enum": ["suiteStarted", "suiteFinished"] } } },
+      "then": {
+        "required": ["suite", "file"],
+        "properties": { "suite": { "type": "string" }, "file": { "type": "string" } }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "caseStarted" } } },
+      "then": {
+        "required": ["suite", "case"],
+        "properties": { "suite": { "type": "string" }, "case": { "type": "string" } }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "stepStarted" } } },
+      "then": {
+        "required": ["suite", "step"],
+        "properties": { "suite": { "type": "string" }, "step": { "$ref": "#/$defs/stepRef" } }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "note" } } },
+      "then": {
+        "required": ["suite", "stepId", "text"],
+        "properties": {
+          "suite": { "type": "string" },
+          "case": { "type": "string" },
+          "stepId": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "stepFinished" } } },
+      "then": {
+        "required": ["suite", "step", "status", "started", "durationMs"],
+        "properties": {
+          "suite": { "type": "string" },
+          "step": { "$ref": "#/$defs/stepRef" },
+          "status": { "$ref": "#/$defs/status" },
+          "reason": { "$ref": "#/$defs/reason" },
+          "started": { "type": "string" },
+          "durationMs": { "type": "integer", "minimum": 0 },
+          "message": { "type": "string" },
+          "detail": true,
+          "detailPreview": { "type": "string" },
+          "detailTruncated": { "const": true },
+          "value": true,
+          "valuePreview": { "type": "string" },
+          "valueTruncated": { "const": true },
+          "asserts": { "type": "array", "items": { "$ref": "#/$defs/assert" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "caseFinished" } } },
+      "then": {
+        "required": ["suite", "case", "status", "durationMs"],
+        "properties": {
+          "suite": { "type": "string" },
+          "case": { "type": "string" },
+          "status": { "$ref": "#/$defs/status" },
+          "reason": { "$ref": "#/$defs/reason" },
+          "durationMs": { "type": "integer", "minimum": 0 },
+          "message": { "type": "string" },
+          "afterEachFailed": { "const": true }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "runFinished" } } },
+      "then": {
+        "required": ["status", "exitCode"],
+        "properties": {
+          "status": { "enum": ["passed", "failed", "cancelled", "refused"] },
+          "exitCode": { "enum": [0, 1, 2] }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "status": { "enum": ["passed", "failed", "skipped", "error"] },
+    "reason": {
+      "enum": ["assertion", "timeout", "action", "hook", "cleanup", "suite-setup", "tag", "guard", "skip", "cancelled"]
+    },
+    "stepRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "phase", "label"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(suiteSetup|beforeEach|setup|steps|cleanup|afterEach|teardown)/[0-9]+(/[^/#@]+/[0-9]+)*(/forStep)*(#row[0-9]+)?(@table[0-9]+)?$"
+        },
+        "phase": { "enum": ["suite-setup", "before-each", "case-setup", "step", "case-cleanup", "after-each", "suite-teardown"] },
+        "case": { "type": "string" },
+        "examplesRow": { "type": "integer", "minimum": 0 },
+        "tableRow": { "type": "integer", "minimum": 0 },
+        "keyword": { "enum": ["given", "when", "then", "and"] },
+        "sentence": { "type": "string" },
+        "action": { "type": "string" },
+        "label": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "assert": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["var", "operator", "present", "holds"],
+      "properties": {
+        "var": { "type": "string" },
+        "operator": { "type": "string" },
+        "expected": true,
+        "expectedPreview": { "type": "string" },
+        "expectedTruncated": { "const": true },
+        "actual": true,
+        "actualPreview": { "type": "string" },
+        "actualTruncated": { "const": true },
+        "present": { "type": "boolean" },
+        "holds": { "type": "boolean" }
+      }
+    }
+  }
+}

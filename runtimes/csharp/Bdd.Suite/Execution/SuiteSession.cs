@@ -57,6 +57,8 @@ public sealed class SuiteSession
     private readonly SuiteSchema _schema;
     private readonly RunLibrary _library;
     private readonly Dictionary<string, OrderedMap> _definitions;
+    private readonly Dictionary<string, StepOrigin> _origins;
+    private readonly StepPositions _positions = new();
     private readonly Dictionary<string, List<OrderedMap>> _hooks;
     private readonly List<OrderedMap> _cases;
     private readonly bool[] _selected;
@@ -83,7 +85,10 @@ public sealed class SuiteSession
         Name = name.Length > 0 ? name : System.IO.Path.GetFileNameWithoutExtension(path);
         _library = SuiteExpansion.ReadLibraries(suite, path);
         _definitions = SuiteExpansion.MetaDefinitions(suite, _library);
-        _hooks = SuiteExpansion.ExpandedHooks(suite, _definitions);
+        // Every step carries its address, so an event can name it by id, file and
+        // line (spec/events.md).
+        _origins = SuiteExpansion.MetaOrigins(suite, _library);
+        _hooks = SuiteExpansion.ExpandedHooks(suite, _definitions, _origins);
         _cases = SuiteExpansion.Cases(suite);
         Cases = _cases.Select(held => held.Text("name")).ToList();
         _selected = _cases
@@ -211,6 +216,13 @@ public sealed class SuiteSession
             if (IsRefusedAsGuarded)
             {
                 state.Skip(CaseKind.SkippedAsGuarded, GuardedMessage, Reason.Guard);
+                return;
+            }
+            // No case starts after the run was asked to stop; one that started
+            // finishes its cleanup and afterEach (spec/events.md, "Cancel").
+            if (Context.Options.Cancel.IsCancellationRequested)
+            {
+                state.Skip(CaseKind.Cancelled, "the run was cancelled before this case started", Reason.Cancelled);
                 return;
             }
             Setup();
@@ -402,9 +414,13 @@ public sealed class SuiteSession
         return state;
     }
 
-    private CaseContext NewContext(OrderedMap scope) => new()
+    private CaseContext NewContext(OrderedMap scope, int examplesRow = -1) => new()
     {
         Scope = scope, RecordPath = Context.Options.RecordPath, Run = Context.Extensions,
+        // A dry run runs no step, so nobody is told of one.
+        Steps = Context.Options.DryRun ? null : Context.Options.Observer as IStepObserver,
+        Suite = Name, File = Path, ExamplesRow = examplesRow, Positions = _positions,
+        Cancel = Context.Options.Cancel,
     };
 
     /// <summary>The case's scope: a deep copy of the setup's bag, then its
@@ -413,7 +429,7 @@ public sealed class SuiteSession
     {
         var run = Context.Extensions;
         state.Clock = Stopwatch.StartNew();
-        state.Phases = SuiteExpansion.ExpandedCase(held, _definitions);
+        state.Phases = SuiteExpansion.ExpandedCase(held, _definitions, _origins);
         var scope = _suiteScope.DeepClone();
         scope.Set("param", SuiteExpansion.ResolveParams(_library, _suite, held, Context.Options.Params, run.Composite.EnvPrefix));
         if (held.TryGet("__row", out var row))
@@ -450,7 +466,7 @@ public sealed class SuiteSession
             }
         }
         SuiteExpansion.ResolveVars(_library, _suite, held, scope, run.Composite.Roots);
-        state.Context = NewContext(scope);
+        state.Context = NewContext(scope, held.Value(SuiteExpansion.ExamplesRowKey) is long examplesRow ? (int)examplesRow : -1);
         // An extension's rule may hold a case to less than it declares.
         state.CaseLimit = run.Composite.CaseLimitSec(_suite, Executor.LimitOf(held, "timeoutSec", Executor.DefaultCaseSec));
     }
@@ -536,6 +552,7 @@ public sealed class SuiteSession
         SkippedAsGuarded,
         SetupFailed,
         DryRun,
+        Cancelled,
     }
 
     private enum CaseStage

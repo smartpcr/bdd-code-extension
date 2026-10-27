@@ -1,0 +1,19 @@
+{
+  // The declarations of the package (build.mjs; the code itself is esbuild's).
+  // No Node types and no DOM: what the entry reaches of src/core needs neither.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": [],
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "../..",
+    "outDir": "dist/types"
+  },
+  "files": ["src/index.ts"]
+}

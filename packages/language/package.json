@@ -1,0 +1,48 @@
+{
+  "name": "@smartpcr/bdd-suite-language",
+  "version": "0.8.0",
+  "description": "The language core of the BDD suite format for browsers: suite and catalog parsing with positions, scope, completion contexts, the expression cursor, hover text, the schema check, semantic tokens and the definition index - the same code the VS Code extension runs.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smartpcr/bdd-code-extension.git",
+    "directory": "packages/language"
+  },
+  "homepage": "https://github.com/smartpcr/bdd-code-extension/tree/main/packages/language#readme",
+  "bugs": {
+    "url": "https://github.com/smartpcr/bdd-code-extension/issues"
+  },
+  "keywords": [
+    "bdd",
+    "yaml",
+    "suite",
+    "language",
+    "editor",
+    "browser"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --experimental-vm-modules --disable-warning=ExperimentalWarning --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "yaml": "^2.5.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}
