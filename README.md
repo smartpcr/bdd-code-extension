@@ -141,7 +141,9 @@ indexes the union:
 # test/e2e/schema/actions.catalog.yaml; globs relative to this file
 bindingSources:
   csharp: [../bindings/dotnet/Shop.Suite/**/*.cs]
-``` Once a binding registers any of
+```
+
+Once a binding registers any of
 the catalog's own actions, *Implement in ...* adds to the file that holds most
 of them instead of the one in the table. In a C# dictionary registry whose
 entries are qualified, `["shop.order"] = ShopActions.Order,`, the new entry is
