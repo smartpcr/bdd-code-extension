@@ -2,6 +2,14 @@
 
 ## 0.7.13
 
+* **Add parameter, a quick fix.** On a step key its action does not take
+  (`E105`, or the schema's "Property ... is not allowed here"), the lightbulb
+  now offers *Add parameter `<key>` to `<action>`* beside removing it: the key
+  becomes an item of the action's `params:` in the workspace catalog, typed
+  from the step's value (`string`, `integer`, ...; a `${...}` value gets a
+  `# TODO type`), and the schema is regenerated so the finding clears. An
+  action from an imported catalog, or whose params are a flow list, is not
+  offered or is refused with the reason.
 * **Suite: Create suites workspace skeleton...** A new command, in any window
   with or without a catalog: given a folder, the binding languages (any of C#,
   PowerShell, Go, Rust and TypeScript) and a name, it writes

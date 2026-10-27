@@ -50,7 +50,7 @@ const SCENARIOS: Record<string, string> = {
   'navigation.test.ts': 'E-B3', 'references.test.ts': 'E-B4', 'completion.test.ts': 'E-B5', 'scaffold.test.ts': 'E-B6',
   'coverage.test.ts': 'E-B7', 'coverageDrift.test.ts': 'E-B7', 'watch.test.ts': 'E-B8', 'testing.test.ts': 'E-B9',
   'testingCancel.test.ts': 'E-B9', 'lintFailures.test.ts': 'E-B11', 'worker.test.ts': 'E-B11', 'liveLint.test.ts': 'E-B14',
-  'latency.test.ts': 'E-B14', 'trust.test.ts': 'E-B15', 'consumer.test.ts': 'E9 (packages)', 'skeleton.test.ts': 'skeleton',
+  'latency.test.ts': 'E-B14', 'trust.test.ts': 'E-B15', 'consumer.test.ts': 'E9 (packages)', 'skeleton.test.ts': 'skeleton', 'skeletonQuickFix.test.ts': 'skeleton',
 };
 
 function argValue(name: string): string | undefined {

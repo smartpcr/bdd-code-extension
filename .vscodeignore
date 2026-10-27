@@ -28,3 +28,5 @@ spikes/**
 CHANGELOG.md
 # Whatever an editor's build of the skeleton templates leaves in place is not a template.
 templates/skeleton/**/{artifacts,bin,obj,target,node_modules,dist,.vs}/**
+templates/skeleton/.gitignore
+templates/skeleton/**/{TestResults,go.sum,Cargo.lock,package-lock.json}

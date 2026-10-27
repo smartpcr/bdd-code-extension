@@ -62,11 +62,7 @@ export function renderCatalogEntry(name: string, params: { name: string; value: 
   ];
   if (params.length) {
     lines.push('    params:');
-    for (const p of params) {
-      const { type, todo } = inferType(p.value);
-      const key = plainKey.test(p.name) ? p.name : JSON.stringify(p.name);
-      lines.push(`      - { name: ${key}, type: ${type} }${todo ? '  # TODO type' : ''}`);
-    }
+    for (const p of params) lines.push(`      ${paramItem(p.name, p.value)}`);
   }
   lines.push('    captures: { type: object, additionalProperties: true }');
   return lines.map(l => l + eol).join('');
@@ -133,6 +129,68 @@ export function planDeclare(input: DeclareInput): EditPlan {
   const params = input.stepParams.filter(p => !common.has(p.name));
   const entry = renderCatalogEntry(name, params, eolOf(input.catalogText), input.binding ? [input.binding] : []);
   return { edits: [{ file: input.catalogFile, start: at.offset, end: at.offset, text: at.prefix + entry }, ...input.stub] };
+}
+
+/** A parameter item as *Declare action* writes one: the type the step's value suggests, with a TODO when it cannot say. */
+function paramItem(name: string, value: unknown): string {
+  const { type, todo } = inferType(value);
+  const key = plainKey.test(name) ? name : JSON.stringify(name);
+  return `- { name: ${key}, type: ${type} }${todo ? '  # TODO type' : ''}`;
+}
+
+/**
+ * The catalog edit of *Add parameter* (the quick fix on E105, a step key its
+ * action does not take): one item for it at the end of the entry's `params:`
+ * list, at the indentation of the items there. An entry with no `params:` gets
+ * one before its `captures:` (or at its end); `params: []` becomes a list. A
+ * flow list (`params: [ ... ]` with items) is refused: rewriting it would lose
+ * its layout.
+ */
+export function addParamEdit(file: string, text: string, action: CatalogAction, param: { name: string; value: unknown }): FileEdit | { refused: string } {
+  if (action.file) return { refused: `${action.name} is declared in ${action.file}, not in this catalog.` };
+  if (action.params.some(p => p.name === param.name)) return { refused: `${action.name} already takes ${param.name}.` };
+  const eol = eolOf(text);
+  const lines = text.split('\n').map(l => l.replace(/\r$/, ''));
+  const lineStart = (i: number) => offsetOf(text, { line: i, character: 0 });
+  const lineEnd = (i: number) => lineStart(i) + lines[i].length;
+  const first = action.entryRange.start.line;
+  // The entry's keys sit where its first key does: `  - name:` puts them at column 4.
+  const keyIndent = /^\s*-\s+/.exec(lines[first])![0].length;
+  const indentOf = (l: string) => /^ */.exec(l)![0].length;
+  const blank = (l: string) => !l.trim() || l.trim().startsWith('#');
+  // The entry's range ends after its last value: at the start of the next line, or at the end of the file.
+  let last = Math.min(action.entryRange.end.line, lines.length - 1);
+  if (action.entryRange.end.character === 0 && last > first) last--;
+  const item = (indent: number) => ' '.repeat(indent) + paramItem(param.name, param.value);
+  const key = (name: string) => new RegExp(`^ {${keyIndent}}${name}:\\s*(.*?)\\s*(#.*)?$`);
+  const at = lines.slice(first, last + 1).findIndex(l => key('params').test(l));
+  if (at < 0) {
+    const captures = lines.slice(first + 1, last + 1).findIndex(l => key('captures').test(l));
+    const block = `${' '.repeat(keyIndent)}params:${eol}${item(keyIndent + 2)}${eol}`;
+    if (captures >= 0) {
+      const offset = lineStart(first + 1 + captures);
+      return { file, start: offset, end: offset, text: block };
+    }
+    return { file, start: lineEnd(last), end: lineEnd(last), text: eol + block.slice(0, -eol.length) };
+  }
+  const paramsLine = first + at;
+  const rest = key('params').exec(lines[paramsLine])![1];
+  if (rest === '[]') {
+    return { file, start: lineStart(paramsLine), end: lineEnd(paramsLine), text: `${' '.repeat(keyIndent)}params:${eol}${item(keyIndent + 2)}` };
+  }
+  if (rest) return { refused: `${action.name}'s params are a flow list; add ${param.name} to it by hand.` };
+  // The list's lines: deeper than the key, or a `- ` at its own column, as YAML allows.
+  let end = paramsLine;
+  let itemIndent: number | undefined;
+  for (let i = paramsLine + 1; i <= last; i++) {
+    const l = lines[i];
+    if (blank(l)) continue;
+    const indent = indentOf(l);
+    if (indent < keyIndent || (indent === keyIndent && !l.trimStart().startsWith('- '))) break;
+    if (itemIndent === undefined && l.trimStart().startsWith('- ')) itemIndent = indent;
+    end = i;
+  }
+  return { file, start: lineEnd(end), end: lineEnd(end), text: eol + item(itemIndent ?? keyIndent + 2) };
 }
 
 /**

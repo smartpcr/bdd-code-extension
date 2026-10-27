@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { SUITE_DOCUMENTS } from './suiteLanguage';
 import { TrustGate } from '../config/trust';
 import { parseCatalog } from '../core/catalog';
-import { addBindingEdit, commonStepKeys, FileEdit, planDeclare } from '../core/catalogEdit';
+import { addBindingEdit, addParamEdit, commonStepKeys, FileEdit, planDeclare } from '../core/catalogEdit';
 import { missingImplementations, workspaceBindings } from '../core/coverage';
 import { csharpHandlerClass, planStub, powershellStubFile, registryFileOf, renderTemplate, stubTarget } from '../core/stubs';
 import { parseSuite } from '../core/suites';
@@ -76,6 +76,22 @@ export function registerScaffoldActions(owner: Owner): vscode.Disposable {
         fix.command = { title: fix.title, command: 'bddSuite.declareAction', arguments: [doc.uri, name] };
         out.push(fix);
       }
+      // A step key its action does not take (E105, or a schema's "not allowed": this extension's own
+      // `Property "x" is not allowed here.` or the YAML extension's `Property x is not allowed.`): add it to
+      // the action's params in the catalog, beside the YAML extension's fix that removes it.
+      const added = new Set<string>();
+      for (const d of context.diagnostics) {
+        if (codeOf(d) !== 'E105' && !/\bProperty "?[^"\s]+"? is not allowed\b|takes no parameter/.test(d.message)) continue;
+        const at = steps.find(s => s.params.some(p => contains(p.range, d.range.start)));
+        const param = at?.params.find(p => contains(p.range, d.range.start));
+        const entry = at?.action ? catalog.actions.get(at.action) : undefined;
+        if (!at || !param || !entry || entry.file || entry.params.some(p => p.name === param.name) || added.has(param.name)) continue;
+        added.add(param.name);
+        const fix = new vscode.CodeAction(`Add parameter ${param.name} to ${entry.name}`, vscode.CodeActionKind.QuickFix);
+        fix.diagnostics = [d];
+        fix.command = { title: fix.title, command: 'bddSuite.addParameter', arguments: [doc.uri, entry.name, param.name] };
+        out.push(fix);
+      }
       const step = stepAt(steps, range.start);
       const entry = step?.action ? catalog.actions.get(step.action) : undefined;
       // An imported action (the core's, say) is implemented where it is declared, not in this workspace.
@@ -136,7 +152,29 @@ export function registerScaffoldCommands(host: ScaffoldHost): vscode.Disposable[
     vscode.commands.registerCommand('bddSuite.declareAction', (uri?: vscode.Uri, name?: string) => declareAction(host, uri, name)),
     vscode.commands.registerCommand('bddSuite.implementAction', (action?: string, binding?: string) => implementAction(host, action, binding)),
     vscode.commands.registerCommand('bddSuite.regenerateSchema', (uri?: vscode.Uri) => regenerateSchema(host, uri)),
+    vscode.commands.registerCommand('bddSuite.addParameter', (uri: vscode.Uri, action: string, name: string) => addParameter(host, uri, action, name)),
   ];
+}
+
+/**
+ * *Add parameter* (the quick fix on E105): the step's key as a parameter of its
+ * action in the catalog, typed from the step's value, then the regenerated
+ * schema, so the step lints clean. The binding's handler is not changed: it
+ * reads the new key when it is written to.
+ */
+async function addParameter(host: ScaffoldHost, uri: vscode.Uri, action: string, name: string): Promise<ScaffoldResult> {
+  const ix = host.owner(uri);
+  if (!ix?.index.catalog) return report(host, refused('Add parameter: this suite\'s workspace has no actions catalog.'));
+  const step = liveSteps(await vscode.workspace.openTextDocument(uri)).find(s => s.action === action && s.params.some(p => p.name === name));
+  const catalogFile = ix.layout.catalogPath;
+  const catalogDoc = await vscode.workspace.openTextDocument(vscode.Uri.file(catalogFile));
+  const text = catalogDoc.getText();
+  // This catalog's text as it is now: an action the index has only from an import is not here.
+  const entry = parseCatalog(text, catalogFile).actions.get(action) ?? ix.index.catalog.actions.get(action);
+  if (!entry) return report(host, refused(`Add parameter: ${action} is not in the catalog.`));
+  const edit = addParamEdit(catalogFile, text, entry, { name, value: step?.params.find(p => p.name === name)?.value });
+  if ('refused' in edit) return report(host, refused(`Add parameter: ${edit.refused}`));
+  return applyAndGenerate(host, ix, [edit], `Added parameter ${name} to ${action}`);
 }
 
 const refused = (message: string): ScaffoldResult => ({ ok: false, message, files: [] });

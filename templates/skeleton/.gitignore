@@ -1,0 +1,17 @@
+# What a build of the skeleton templates in place leaves behind: an editor's C#,
+# Go, Rust or TypeScript tooling may restore or build the template projects.
+# None of it is a template (src/core/skeleton.ts BUILD_OUTPUT_DIRS skips it when
+# the templates are read, and .vscodeignore keeps it out of the package). This
+# file sits above the parts (common/, csharp/, ...), so it is never a template
+# itself; a part's own .gitignore template is its dot.gitignore.
+**/artifacts/
+**/bin/
+**/obj/
+**/target/
+**/node_modules/
+**/dist/
+**/.vs/
+**/TestResults/
+**/go.sum
+**/Cargo.lock
+**/package-lock.json

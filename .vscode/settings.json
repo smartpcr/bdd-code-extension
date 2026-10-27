@@ -1,6 +1,11 @@
 {
   "sarif-viewer.connectToGithubCodeScanning": "off",
 
+  // The C# extension loads the runtime's solution, never the skeleton template's
+  // (templates/skeleton/csharp/.../__Namespace__.Suite.slnx), so it does not
+  // restore and build the template projects in place.
+  "dotnet.defaultSolution": "runtimes/csharp/Bdd.Suite.sln",
+
   // Suite Authoring in this window: use the demo workspace under
   // test/e2e-demo/fixture. Paths are relative to this repository; the
   // extension finds the repository root of the fixture (the folder holding

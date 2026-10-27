@@ -2,7 +2,7 @@
 import * as assert from 'assert';
 import { test } from 'node:test';
 import {
-  addBindingEdit, commonStepKeys, eolOf, findCatalogInsertOffset, inferType, offsetOf, planDeclare, renderCatalogEntry,
+  addBindingEdit, addParamEdit, commonStepKeys, eolOf, findCatalogInsertOffset, inferType, offsetOf, planDeclare, renderCatalogEntry,
 } from '../../src/core/catalogEdit';
 import { parseCatalog } from '../../src/core/catalog';
 
@@ -150,4 +150,80 @@ test('eolOf and offsetOf', () => {
   assert.strictEqual(offsetOf('ab\ncd\n', { line: 1, character: 1 }), 4);
   assert.strictEqual(offsetOf('ab', { line: 3, character: 0 }), 2);
   assert.strictEqual(offsetOf('ab', { line: 0, character: 9 }), 2);
+});
+
+/** The catalog after Add parameter, or its refusal. */
+function addParam(text: string, action: string, name: string, value: unknown): string {
+  const parsed = parseCatalog(text, '/w/schema/actions.catalog.yaml');
+  const edit = addParamEdit('/w/schema/actions.catalog.yaml', text, parsed.actions.get(action)!, { name, value });
+  if ('refused' in edit) return `refused: ${edit.refused}`;
+  assert.strictEqual(edit.file, '/w/schema/actions.catalog.yaml');
+  const out = apply(text, [edit]);
+  assert.deepStrictEqual(parseCatalog(out, '/w/schema/actions.catalog.yaml').errors, [], out);
+  assert.ok(parseCatalog(out, '/w/schema/actions.catalog.yaml').actions.get(action)!.params.some(p => p.name === name), out);
+  return out;
+}
+
+const PARAMS = [
+  'catalogVersion: 1',
+  'actions:',
+  '  - name: example.echo',
+  '    summary: Echo.',
+  '    bindings: [csharp]',
+  '    interruptible: true',
+  '    params:',
+  '      - { name: text, type: string, required: true, description: What to return. }',
+  '      # the next one is long',
+  '      - name: times',
+  '        type: integer',
+  '    captures:',
+  '      type: object',
+  '',
+  '  - name: example.other',
+  '    summary: Other.',
+  '    bindings: [csharp]',
+  '    interruptible: true',
+  '',
+].join('\n');
+
+test('Add parameter: an item after the last of the action\'s params, at their indentation, typed from the step\'s value', () => {
+  assert.strictEqual(addParam(PARAMS, 'example.echo', 'name', 'John'), PARAMS.replace('        type: integer\n', '        type: integer\n      - { name: name, type: string }\n'));
+  assert.match(addParam(PARAMS, 'example.echo', 'count', 3), /type: integer\n {6}- \{ name: count, type: integer \}\n {4}captures:/);
+  assert.match(addParam(PARAMS, 'example.echo', 'from', '${capture.a}'), /- \{ name: from, type: string \} {2}# TODO type\n/);
+  assert.match(addParam(PARAMS, 'example.echo', 'odd key', true), /- \{ name: "odd key", type: boolean \}\n/);
+  // The list's items may sit at the key's own column, as YAML allows.
+  const flush = PARAMS.replace('      - { name: text', '    - { name: text').replace('      # the next', '    # the next')
+    .replace('      - name: times\n        type: integer', '    - name: times\n      type: integer');
+  assert.match(addParam(flush, 'example.echo', 'name', 'John'), / {6}type: integer\n {4}- \{ name: name, type: string \}\n {4}captures:/);
+});
+
+test('Add parameter: an entry with no params gets them, before its captures or at its end; params: [] becomes a list', () => {
+  const noParams = PARAMS.replace(/ {4}params:\n(?: {6}.*\n| {8}.*\n)+/, '');
+  assert.match(addParam(noParams, 'example.echo', 'name', 'John'), /interruptible: true\n {4}params:\n {6}- \{ name: name, type: string \}\n {4}captures:/);
+  // The last entry, ending the file, with no captures and no final line break.
+  const atEnd = addParam(PARAMS.trimEnd(), 'example.other', 'name', 'John');
+  assert.ok(atEnd.endsWith('    interruptible: true\n    params:\n      - { name: name, type: string }'), atEnd);
+  // Followed by a blank line: the item goes before it.
+  assert.ok(addParam(PARAMS, 'example.other', 'name', 'John').endsWith('    interruptible: true\n    params:\n      - { name: name, type: string }\n'));
+  const empty = PARAMS.replace('    interruptible: true\n', '    interruptible: true\n    params: []\n').replace(/(example\.other[\s\S]*)/, '$1');
+  const listed = addParam(empty.replace(/ {4}params:\n(?: {6}.*\n| {8}.*\n)+/, ''), 'example.echo', 'name', 'John');
+  assert.match(listed, /interruptible: true\n {4}params:\n {6}- \{ name: name, type: string \}\n {4}captures:/);
+  const crlf = addParam(noParams.replace(/\n/g, '\r\n'), 'example.echo', 'name', 'John');
+  assert.match(crlf, /interruptible: true\r\n {4}params:\r\n {6}- \{ name: name, type: string \}\r\n {4}captures:/);
+});
+
+test('Add parameter is refused for a parameter it takes, an imported action and a flow list', () => {
+  assert.strictEqual(addParam(PARAMS, 'example.echo', 'text', 'x'), 'refused: example.echo already takes text.');
+  const flow = PARAMS.replace(/ {4}params:\n(?: {6}.*\n| {8}.*\n)+/, '    params: [ { name: text, type: string } ]\n');
+  assert.strictEqual(addParam(flow, 'example.echo', 'name', 'x'), 'refused: example.echo\'s params are a flow list; add name to it by hand.');
+  const imported = { ...parseCatalog(PARAMS, '/w/c.yaml').actions.get('example.echo')!, file: '/x/core.catalog.yaml' };
+  assert.deepStrictEqual(addParamEdit('/w/c.yaml', PARAMS, imported, { name: 'name', value: 'x' }),
+    { refused: 'example.echo is declared in /x/core.catalog.yaml, not in this catalog.' });
+});
+test('Add parameter: a one-line entry, and a params key with nothing under it', () => {
+  const oneLine = 'catalogVersion: 1\nactions:\n  - name: example.min\n';
+  assert.strictEqual(addParam(oneLine, 'example.min', 'name', 'John'), 'catalogVersion: 1\nactions:\n  - name: example.min\n    params:\n      - { name: name, type: string }\n');
+  const bare = 'catalogVersion: 1\nactions:\n  - name: example.bare\n    params:\n    captures: { type: any }\n';
+  assert.strictEqual(addParam(bare, 'example.bare', 'name', 'John'),
+    'catalogVersion: 1\nactions:\n  - name: example.bare\n    params:\n      - { name: name, type: string }\n    captures: { type: any }\n');
 });
