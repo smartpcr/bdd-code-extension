@@ -354,10 +354,37 @@ credential: a lab run reads the connection file you name, each time.
 
 ## Commands
 
-*Suite: Build lint tool*, *Choose lint tool...*, *Choose target binding...*,
-*Configure lint...*, *Show actions implemented by binding...*, *Declare action*,
-*Implement action in binding...*, *Verify with binding programs*, *Copy binding
-table*.
+*Suite: Create suites workspace skeleton...*, *Build lint tool*, *Choose lint
+tool...*, *Choose target binding...*, *Configure lint...*, *Show actions
+implemented by binding...*, *Declare action*, *Implement action in binding...*,
+*Regenerate the schema*, *Verify with binding programs*, *Copy binding table*.
+
+### Starting a new suites workspace
+
+*Suite: Create suites workspace skeleton...* (Ctrl+Shift+P) works in any window,
+with or without a catalog. It asks for a folder, the binding languages (C#,
+PowerShell, or both; with both, which one suites run with), and a name such as
+`order-service`, then writes the layout of [samples/e2e](samples/e2e/README.md):
+
+| File | What it is |
+| --- | --- |
+| `.vscode/settings.json` | Catalog, suites, lint tool, target binding, offline actions and each binding's `tool` (and `build` or `stubFile`). |
+| `schema/actions.catalog.yaml` | Imports `bdd-suite:core`, lists the bindings and their `bindingSources`, and declares a first action, `orderService.echo`. `suite.schema.json` and `suite.schema.md` are generated beside it. |
+| `suites/order-service.yml` | A first suite with one case that uses that action. |
+| `bindings/dotnet/` (C#) | `OrderService.Suite` (extension and handlers), `.Cli` (suiterun) and `.MsTest` (tests generated at build), on `Smartpcr.BddSuite` and `Smartpcr.BddSuite.Testing` of this extension's release (`Directory.Packages.props`, `nuget.config`). |
+| `bindings/powershell/` (PowerShell) | The `OrderService` extension module and its `actions/`, `suiterun.ps1`, `bddsuite.tests.yaml` and `Invoke-Tests.ps1`, with `packages.psd1` naming `BddSuite` of this release and `restore.ps1` restoring it into `.modules/`. |
+| `README.md`, `.gitignore`, `.vscode/extensions.json` | How to build and run each binding, and what not to commit. |
+
+A file that is already there is kept as it is, and a folder that already has
+`schema/actions.catalog.yaml` is refused. Both extensions declare the
+`--api-url`, `--lab-id` and `--connection-file` options a Test Explorer run of a
+guarded suite passes. The files come from the extension's
+`templates/skeleton/<part>/` (`common`, `csharp`, `powershell`); a file under
+`<bddSuite.templatesDir>/skeleton/<part>/` with the same path replaces the
+shipped one, and a new one is added. In a template, `{{name}}`, `{{Namespace}}`,
+`{{prefix}}`, `{{action}}`, `{{ActionName}}` and `{{version}}` are filled in, a
+path segment's `__Namespace__` (and the other names) likewise, and a `dot.`
+segment is a dot-file (`dot.vscode` is `.vscode`).
 
 ## A self-contained demo
 

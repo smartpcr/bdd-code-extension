@@ -1,0 +1,34 @@
+# The {{name}} actions: every action a step may name, its parameters and what it
+# returns. The core of the format - the suite structure, the built-in actions
+# core.* and wait, the diagnostics and the schema generator - comes with the
+# bdd-suite {{version}} runtime and the Suite Authoring extension of the same
+# release, imported here by name as bdd-suite:core.
+#
+# After an edit, run *Suite: Regenerate the schema*: it rewrites
+# suite.schema.json and suite.schema.md beside this file, which the editor,
+# suiterun lint and the runtime check suites against. Commit all three.
+catalogVersion: 1
+imports:
+  - bdd-suite:core
+bindings: {{bindings}}
+# Where each binding's registrations are, relative to this file. The Suite
+# Authoring extension indexes these files for coverage, navigation and code
+# generation.
+bindingSources:
+{{bindingSources}}
+
+actions:
+  # A starting point: replace it with the first real action. *Declare action*,
+  # on a suite step whose action is not here yet, adds the next entry and its
+  # stub in the target binding.
+  - name: {{action}}
+    summary: Return the text it is given.
+    bindings: {{bindings}}
+    interruptible: true
+    params:
+      - { name: text, type: string, required: true, description: What to return. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        text: { type: string }

@@ -161,7 +161,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   schemaGenerator: 'Command that regenerates suite.schema.json after a catalog edit, run in the workspace root. `${extension}` is the extension\'s folder (the default runs the spec\'s Build-Schema.ps1 it carries) and `${catalogPath}` the catalog.',
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
   'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',
-  templatesDir: 'Workspace directory whose files override the stub templates.',
+  templatesDir: 'Workspace directory whose files override the stub templates; its `skeleton/<part>/` files (`common`, `csharp`, `powershell`) override those of *Create suites workspace skeleton*, file by file.',
   'lab.apiUrl': 'The API URL of the environment (lab) a lab run targets; prompted when empty.',
   'lab.labId': 'The id of the environment (lab) a lab run targets; prompted when empty.',
   'lab.connectionFile': 'The connection file of the environment (lab) a lab run targets; prompted when empty.',

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    suiterun for this workspace: the C# suite runtime plus the {{name}} extension. It maps a command line
+    to an exit code (lint, list, actions, run); everything else is in the runtime. The Suite Authoring
+    extension runs it to lint, list and run suites (.vscode\settings.json, bddSuite.bindings.csharp.tool).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>suiterun</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Smartpcr.BddSuite" />
+    <ProjectReference Include="..\{{Namespace}}.Suite\{{Namespace}}.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

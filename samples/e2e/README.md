@@ -20,6 +20,10 @@ Demo video: [bdd suite e2e demo](https://www.youtube.com/watch?v=6JYugu594x8) (Y
 Both hold the same suites and the same inventory domain, so they can be read
 side by side; only the catalog's `bindings:` and the binding code differ.
 
+To start a new workspace in this layout, run *Suite: Create suites workspace
+skeleton...* from the command palette (Ctrl+Shift+P): it writes the settings, a
+catalog, a first suite and the binding of each language you choose.
+
 Each sample is a workspace of its own: open the sample's folder in VS Code
 (`code samples/e2e/csharp`), not this repository, and it uses its own
 `.vscode/settings.json`. Neither refers to a path outside its folder or builds

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The {{name}} suites as MSTest tests. Nothing here is written by hand: every build generates one
+    [TestClass] per suite and one [TestMethod] per case and examples row from bddsuite.tests.yaml
+    (artifacts\obj\{{Namespace}}.Suite.MsTest\<configuration>\net10.0\BddSuite\*.g.cs, never committed).
+    NuGet imports Smartpcr.BddSuite.Testing's build targets, which run the generator the package carries
+    before every compile; the provider, MSTest, is detected from the references below.
+  -->
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)tests.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Smartpcr.BddSuite.Testing" />
+    <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- {{Namespace}}Extension, named in bddsuite.tests.yaml. -->
+    <ProjectReference Include="..\{{Namespace}}.Suite\{{Namespace}}.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

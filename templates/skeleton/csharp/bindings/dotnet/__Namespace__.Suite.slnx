@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="{{Namespace}}.Suite/{{Namespace}}.Suite.csproj" />
+  <Project Path="{{Namespace}}.Suite.Cli/{{Namespace}}.Suite.Cli.csproj" />
+  <Project Path="{{Namespace}}.Suite.MsTest/{{Namespace}}.Suite.MsTest.csproj" />
+</Solution>

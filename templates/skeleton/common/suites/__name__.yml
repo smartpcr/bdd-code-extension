@@ -1,0 +1,18 @@
+suite: {{name}}
+description: The first suite. Replace its case with real scenarios, one case per scenario.
+tags: [{{name}}]
+
+tests:
+  - name: echoes-text
+    tags: [smoke]
+    steps:
+      - when: some text is echoed
+        why: Proves the binding is wired up end to end, from this step to its handler and back.
+        action: {{action}}
+        text: hello
+        captureAs: echoed
+      - then: the same text comes back
+        action: core.noop
+        asserts:
+          - var: echoed.text
+            equals: hello

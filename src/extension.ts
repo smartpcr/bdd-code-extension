@@ -15,6 +15,7 @@ import { registerCommands } from './features/commands';
 import { CoverageView } from './features/coverageView';
 import { registerImplementLens, registerScaffoldActions, registerScaffoldCommands } from './features/scaffold';
 import { watchForUpdate } from './features/selfUpdate';
+import { registerSkeletonCommand } from './features/skeleton';
 import { registerSuiteLanguage } from './features/suiteLanguage';
 import { SuiteTesting } from './features/testing';
 import { registerTestsConfig } from './features/testsConfig';
@@ -241,6 +242,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<TestAp
       show: () => channel.show(true),
       gate,
       extensionPath: context.extensionPath,
+    }),
+    // A new suites workspace, with or without a catalog in this window.
+    registerSkeletonCommand({
+      log,
+      show: () => channel.show(true),
+      gate,
+      extensionPath: context.extensionPath,
+      version: String((context.extension.packageJSON as { version?: unknown }).version),
     }),
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('bddSuite')) void rebuild();

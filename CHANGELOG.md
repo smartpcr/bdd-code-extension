@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+* **Suite: Create suites workspace skeleton...** A new command, in any window
+  with or without a catalog: given a folder, the binding languages (C#,
+  PowerShell or both) and a name, it writes `.vscode/settings.json`, an action
+  catalog with a first action, a first suite and each language's binding (C#:
+  extension, suiterun and MSTest projects on the `Smartpcr.BddSuite` packages;
+  PowerShell: extension module, `suiterun.ps1`, Pester runner and
+  `packages.psd1`/`restore.ps1` for the `BddSuite` module), pinned to the
+  extension's release, then generates the schema. Existing files are kept; a
+  folder with a catalog is refused. The templates are
+  `templates/skeleton/<part>/`, and `bddSuite.templatesDir/skeleton/<part>/`
+  overrides them file by file.
+
 ## 0.7.12
 
 * **TAEF skips, fixed.** 0.7.11 looked for the TAEF result enum as

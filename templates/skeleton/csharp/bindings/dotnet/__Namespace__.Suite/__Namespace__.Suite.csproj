@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The {{name}} extension of the C# suite runtime: the actions schema\actions.catalog.yaml declares
+    ({{Namespace}}Extension, the registrations; {{Namespace}}Actions, the handlers). suiterun
+    ({{Namespace}}.Suite.Cli) and the MSTest tests ({{Namespace}}.Suite.MsTest) both load it.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Smartpcr.BddSuite" />
+  </ItemGroup>
+
+</Project>

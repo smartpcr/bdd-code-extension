@@ -1,0 +1,15 @@
+# The {{name}} suites as Pester tests. suiterun.ps1 generate writes them into
+# tests/ beside this file:
+#
+#   pwsh -File bindings/powershell/suiterun.ps1 generate --config bindings/powershell/bddsuite.tests.yaml --out bindings/powershell/tests
+#
+# Paths are relative to this file.
+suites:
+  - ../../suites/*.yml
+schemaRoot: ../../schema
+provider: pester
+extensions: [ ./{{Namespace}}/{{Namespace}}.psm1 ]
+# What runs without a real environment; keep it the same as .vscode/settings.json's
+# bddSuite.offlineActions. A suite using any other action is guarded: its tests
+# skip unless BDD_SUITE_ALLOW_GUARDED=1.
+offlineActions: {{offlineActions}}

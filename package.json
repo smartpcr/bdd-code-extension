@@ -432,7 +432,7 @@
         "bddSuite.templatesDir": {
           "type": "string",
           "default": "",
-          "description": "Workspace directory whose files override the stub templates."
+          "description": "Workspace directory whose files override the stub templates; its `skeleton/<part>/` files (`common`, `csharp`, `powershell`) override those of *Create suites workspace skeleton*, file by file."
         },
         "bddSuite.lab.apiUrl": {
           "type": "string",
@@ -504,6 +504,11 @@
       {
         "command": "bddSuite.implementAction",
         "title": "Implement action in binding...",
+        "category": "Suite"
+      },
+      {
+        "command": "bddSuite.createSkeleton",
+        "title": "Create suites workspace skeleton...",
         "category": "Suite"
       },
       {

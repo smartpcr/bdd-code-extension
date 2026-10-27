@@ -1,0 +1,4 @@
+# PowerShell: restored packages (restore.ps1) and generated Pester tests (suiterun.ps1 generate).
+.packages/
+.modules/
+bindings/powershell/tests/

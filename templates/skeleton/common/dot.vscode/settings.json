@@ -1,0 +1,29 @@
+{
+  // Suite Authoring (asz.bdd-suite {{version}}) for this workspace, written by *Suite: Create suites
+  // workspace skeleton*. schema/ holds the action catalog, suites/ the suites, bindings/ the code that
+  // implements the actions ({{languages}}). Open THIS folder as the workspace.
+  //
+  // bddSuite.root is the suites' root: each binding's suiterun runs in it, and the tool, build and stubFile
+  // paths below are relative to it. The catalog is not in <root>/test/e2e/schema, so the extension passes
+  // suiterun --schema-root <the catalog's folder> itself.
+  "bddSuite.root": ".",
+  "bddSuite.catalogPath": "schema/actions.catalog.yaml",
+  "bddSuite.suiteGlobs": ["suites/**/*.yml"],
+  // The binding whose suiterun lints, and the binding suites are meant to run with (a step whose action it
+  // does not implement is E201).
+  "bddSuite.lintTool": "{{lintTool}}",
+  "bddSuite.targetBinding": "{{targetBinding}}",
+  // The actions a run needs no real environment for; keep this list and bddsuite.tests.yaml's the same. A
+  // suite using any other action is guarded: its generated tests skip unless BDD_SUITE_ALLOW_GUARDED=1, and a
+  // Test Explorer run of it asks for confirmation and passes the lab values below to suiterun as --api-url,
+  // --lab-id and --connection-file (it asks for any left empty).
+  "bddSuite.offlineActions": {{offlineActions}},
+  "bddSuite.lab.apiUrl": "",
+  "bddSuite.lab.labId": "",
+  "bddSuite.lab.connectionFile": "",
+  // Where each binding's registrations are is the catalog's bindingSources (schema/actions.catalog.yaml).
+  "bddSuite.bindings": {{bindingsJson}},
+  "files.associations": {
+    "**/suites/**/*.yml": "bdd-suite"
+  }
+}

@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    The C# binding of the {{name}} suites. Every bdd-suite type comes from the Smartpcr.BddSuite packages
+    (versions in Directory.Packages.props beside this file). Build output stays under artifacts\ beside this
+    file, which is where .vscode\settings.json points the Suite Authoring extension's tool:
+    artifacts\bin\<project>\<configuration>\<tfm>\.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>
