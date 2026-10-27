@@ -157,6 +157,12 @@ export interface RegistrationSite {
   file: string;
   range: Range;
   recognizer: number;
-  /** Where the handler is declared in the same file: its name in `func x(`, `fn x(`, `function x(`, a C# method. */
+  /** Where the handler is declared: its name in `func x(`, `fn x(`, `function x(`, a C# method; in `handlerFile` when that is set, else in `file`. */
   handlerRange?: Range;
+  /**
+   * The file that declares the handler when it is not the registration's: a C#
+   * registry's `["a.b"] = Actions.AB,` with the method in Actions.cs. Set by the
+   * index from the binding's other source files (WorkspaceIndex).
+   */
+  handlerFile?: string;
 }

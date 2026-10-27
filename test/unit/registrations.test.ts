@@ -5,7 +5,7 @@ import * as path from 'path';
 import { test } from 'node:test';
 import { minimatch } from 'minimatch';
 import { DEFAULT_BINDINGS } from '../../src/config/defaults';
-import { compileRecognizers, findHandlerDeclaration, handlerIdentifier, scanRegistrations } from '../../src/core/registrations';
+import { compileRecognizers, findHandlerDeclaration, handlerIdentifier, handlerQualifier, scanDeclarations, scanRegistrations } from '../../src/core/registrations';
 
 const scan = (binding: string, text: string) =>
   scanRegistrations(text, `/src.${binding}`, binding, compileRecognizers(DEFAULT_BINDINGS[binding].recognizers).ok);
@@ -205,4 +205,27 @@ test('scanRegistrations: each site carries where its handler is declared in the 
   const rust = scan('rust', '        Action::new("demo.greet", demo_greet),\n\nfn demo_greet(_request: &Request) -> Outcome {\n');
   assert.deepStrictEqual(rust[0].handlerRange, { start: { line: 2, character: 3 }, end: { line: 2, character: 13 } });
   assert.strictEqual(scan('powershell', "Register-SuiteAction -Name 'demo.greet' -Handler {")[0].handlerRange, undefined, 'an inline script block has no declaration');
+});
+
+test('scanDeclarations: each function or method at its first declaration, and the classes; handlerQualifier', () => {
+  const text = [
+    'public static class ExampleActions',
+    '{',
+    '    internal static object? ExampleEcho(ActionRequest request) => Echo(request);',
+    '    private static object? ExampleEcho(int overload) => null;',
+    '}',
+    'func goEcho(request *actions.Request) (any, error) {',
+    'pub fn rust_echo(request: &Request) -> Outcome {',
+    'export async function tsEcho<T>(request: Request) {',
+    'impl Extension for Shop {',
+    '    Echo(request);',
+  ].join('\n');
+  const d = scanDeclarations(text);
+  assert.deepStrictEqual([...d.functions.keys()], ['ExampleEcho', 'goEcho', 'rust_echo', 'tsEcho']);
+  assert.deepStrictEqual(d.functions.get('ExampleEcho'), { start: { line: 2, character: 28 }, end: { line: 2, character: 39 } });
+  assert.deepStrictEqual([...d.classes], ['ExampleActions', 'Extension']);
+  assert.strictEqual(handlerQualifier('ExampleActions.ExampleEcho'), 'ExampleActions');
+  assert.strictEqual(handlerQualifier('Ns.ExampleActions . ExampleEcho'), 'ExampleActions');
+  assert.strictEqual(handlerQualifier('ExampleEcho'), undefined);
+  assert.strictEqual(handlerQualifier(undefined), undefined);
 });

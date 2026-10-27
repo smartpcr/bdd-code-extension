@@ -2,6 +2,7 @@
 // else parses. Joins are rebuilt lazily, once, on the first query after updates.
 import { META_DEPTH_LIMIT } from '../limits';
 import { fileKey } from './paths';
+import { handlerIdentifier, handlerQualifier, SourceDeclarations } from './registrations';
 import { Pos, Range } from './text';
 import { Catalog, CatalogAction, MetaStepDef, RegistrationSite, StepInfo, SuiteFile } from './types';
 
@@ -20,6 +21,8 @@ interface Joins {
   libraries: Set<string>;
   stepsByAction: Map<string, StepInfo[]>;
   sitesByAction: Map<string, RegistrationSite[]>;
+  /** By file: the sites whose handler that file declares for a registration in another file. */
+  handlersByFile: Map<string, RegistrationSite[]>;
 }
 
 export class WorkspaceIndex {
@@ -28,6 +31,8 @@ export class WorkspaceIndex {
   private readonly suites = new Map<string, SuiteFile>();
   private readonly staleSuites = new Set<string>();
   private readonly sites = new Map<string, RegistrationSite[]>();
+  /** Each source file's declarations and binding, for handlers declared away from their registration. */
+  private readonly declarations = new Map<string, { binding: string; declared: SourceDeclarations }>();
   private joins?: Joins;
   private readonly listeners = new Set<() => void>();
   /** How many times the joins were rebuilt (B1.7-3). */
@@ -77,14 +82,33 @@ export class WorkspaceIndex {
     this.changed();
   }
 
-  updateSources(file: string, sites: RegistrationSite[]): void {
+  /** One binding source file: its registration sites, and (when given) what it declares, which other files' registrations may name. */
+  updateSources(file: string, sites: RegistrationSite[], declared?: { binding: string; declared: SourceDeclarations }): void {
     this.sites.set(fileKey(file), sites);
+    if (declared) this.declarations.set(fileKey(file), declared);
+    else this.declarations.delete(fileKey(file));
     this.changed();
   }
 
   removeSources(file: string): void {
     this.sites.delete(fileKey(file));
+    this.declarations.delete(fileKey(file));
     this.changed();
+  }
+
+  /**
+   * A site whose handler its own file does not declare, with the handler found in
+   * another source file of its binding: the file declaring the class a qualified
+   * handler names first (`Actions` for `Actions.AB`), then by file name.
+   */
+  private withHandler(site: RegistrationSite): RegistrationSite {
+    const id = handlerIdentifier(site.handler);
+    if (site.handlerRange || !id) return site;
+    const qualifier = handlerQualifier(site.handler);
+    const candidates = [...this.declarations].filter(([key, d]) => d.binding === site.binding && key !== fileKey(site.file) && d.declared.functions.has(id))
+      .sort(([a, x], [b, y]) => Number(!!qualifier && y.declared.classes.has(qualifier)) - Number(!!qualifier && x.declared.classes.has(qualifier)) || a.localeCompare(b));
+    const found = candidates[0];
+    return found ? { ...site, handlerFile: found[0], handlerRange: found[1].declared.functions.get(id) } : site;
   }
 
   isStale(file: string): boolean {
@@ -109,18 +133,21 @@ export class WorkspaceIndex {
     const order = this.catalog?.bindings ?? [];
     const rank = (b: string) => (order.includes(b) ? order.indexOf(b) : order.length);
     const sitesByAction = new Map<string, RegistrationSite[]>();
+    const handlersByFile = new Map<string, RegistrationSite[]>();
     for (const list of this.sites.values()) {
-      for (const site of list) {
+      for (const raw of list) {
+        const site = this.withHandler(raw);
         const all = sitesByAction.get(site.action) ?? [];
         all.push(site);
         sitesByAction.set(site.action, all);
+        if (site.handlerFile) handlersByFile.set(site.handlerFile, [...handlersByFile.get(site.handlerFile) ?? [], site]);
       }
     }
     for (const list of sitesByAction.values()) {
       list.sort((a, b) => rank(a.binding) - rank(b.binding) || a.file.localeCompare(b.file)
         || a.range.start.line - b.range.start.line);
     }
-    this.joins = { libraries, stepsByAction, sitesByAction };
+    this.joins = { libraries, stepsByAction, sitesByAction, handlersByFile };
     return this.joins;
   }
 
@@ -212,9 +239,15 @@ export class WorkspaceIndex {
     return undefined;
   }
 
-  /** The registration at `pos`: its name in the registration, or its handler's name where the handler is declared. */
+  /** The sites whose handler `file` declares for a registration in another file (C#'s Actions.cs). */
+  handlersIn(file: string): RegistrationSite[] {
+    return this.j.handlersByFile.get(fileKey(file)) ?? [];
+  }
+
+  /** The registration at `pos`: its name in the registration, or its handler's name where the handler is declared, in this file or another. */
   siteAt(file: string, pos: Pos): RegistrationSite | undefined {
-    return this.sitesIn(file).find(s => contains(s.range, pos) || (!!s.handlerRange && contains(s.handlerRange, pos)));
+    return this.sitesIn(file).find(s => contains(s.range, pos) || (!!s.handlerRange && contains(s.handlerRange, pos)))
+      ?? this.handlersIn(file).find(s => contains(s.handlerRange!, pos));
   }
 
   /** The action named at `pos`: a step's action value, a catalog entry name, a registration site or its handler's declaration. */

@@ -4,7 +4,7 @@ import * as path from 'path';
 import { test } from 'node:test';
 import { parseCatalog } from '../../src/core/catalog';
 import { fileKey } from '../../src/core/paths';
-import { compileRecognizers, scanRegistrations } from '../../src/core/registrations';
+import { compileRecognizers, scanDeclarations, scanRegistrations } from '../../src/core/registrations';
 import { parseSuite } from '../../src/core/suites';
 import { contains, WorkspaceIndex } from '../../src/core/workspaceIndex';
 import { DEFAULT_BINDINGS } from '../../src/config/defaults';
@@ -217,4 +217,59 @@ test('siteAt and actionNameAt find a registration from its handler\'s declaratio
   assert.strictEqual(ix.siteAt(file, { line: 2, character: 7 })?.action, 'demo.greet', 'on the handler name in `func demoGreet(`');
   assert.strictEqual(ix.actionNameAt(file, { line: 0, character: 10 }), 'demo.greet', 'on the registration');
   assert.strictEqual(ix.actionNameAt(file, { line: 2, character: 1 }), undefined, 'on `func`, not the name');
+});
+
+test('a C# registry\'s handler declared in another file: Ctrl+click target, siteAt and handlersIn find it there', () => {
+  const ix = new WorkspaceIndex();
+  const csharp = compileRecognizers(DEFAULT_BINDINGS.csharp.recognizers).ok;
+  const registry = [
+    'public sealed class ExampleExtension : IExtension',
+    '{',
+    '    private static readonly Dictionary<string, Func<ActionRequest, object?>> handlers = new(StringComparer.Ordinal)',
+    '    {',
+    '        ["example.echo"] = ExampleActions.ExampleEcho,',
+    '        ["example.gone"] = ExampleActions.Nowhere,',
+    '    };',
+    '}',
+    '',
+  ].join('\n');
+  const actions = 'public static class ExampleActions\n{\n    internal static object? ExampleEcho(ActionRequest request) => null;\n}\n';
+  // Another class declaring a method of the same name: the qualifier picks ExampleActions.cs.
+  const other = 'public static class Helpers\n{\n    internal static object? ExampleEcho(ActionRequest request) => null;\n}\n';
+  // As the indexer does, by each file's key.
+  const add = (file: string, text: string, binding = 'csharp') =>
+    ix.updateSources(fileKey(file), scanRegistrations(text, fileKey(file), binding, csharp), { binding, declared: scanDeclarations(text) });
+  add('/w/A.cs', other);
+  add('/w/ExampleExtension.cs', registry);
+  add('/w/ExampleActions.cs', actions);
+  // A file of another binding declaring it is never a candidate.
+  add('/w/x.go', 'func ExampleEcho() {}\n', 'go');
+
+  const [echo] = ix.sitesFor('example.echo');
+  assert.strictEqual(echo.file, fileKey('/w/ExampleExtension.cs'));
+  assert.strictEqual(echo.handlerFile, fileKey('/w/ExampleActions.cs'));
+  assert.deepStrictEqual(echo.handlerRange, { start: { line: 2, character: 28 }, end: { line: 2, character: 39 } });
+  // A handler no file declares keeps only its registration.
+  const [gone] = ix.sitesFor('example.gone');
+  assert.strictEqual(gone.handlerFile, undefined);
+  assert.strictEqual(gone.handlerRange, undefined);
+
+  assert.deepStrictEqual(ix.handlersIn('/w/ExampleActions.cs').map(s => s.action), ['example.echo']);
+  assert.deepStrictEqual(ix.handlersIn('/w/A.cs'), []);
+  assert.strictEqual(ix.siteAt('/w/ExampleActions.cs', { line: 2, character: 30 })?.action, 'example.echo');
+  assert.strictEqual(ix.actionNameAt('/w/ExampleActions.cs', { line: 2, character: 30 }), 'example.echo');
+  assert.strictEqual(ix.siteAt('/w/ExampleActions.cs', { line: 0, character: 3 }), undefined);
+  // The registration's own file still finds it by its name.
+  assert.strictEqual(ix.siteAt('/w/ExampleExtension.cs', { line: 4, character: 12 })?.action, 'example.echo');
+
+  // Unqualified, the first file by name that declares it.
+  ix.updateSources(fileKey('/w/ExampleExtension.cs'), scanRegistrations(registry.replace('ExampleActions.ExampleEcho', 'ExampleEcho'), fileKey('/w/ExampleExtension.cs'), 'csharp', csharp),
+    { binding: 'csharp', declared: scanDeclarations(registry) });
+  assert.strictEqual(ix.sitesFor('example.echo')[0].handlerFile, fileKey('/w/A.cs'));
+
+  // A file removed, or indexed with no declarations, no longer declares anything.
+  ix.removeSources('/w/A.cs');
+  ix.updateSources(fileKey('/w/ExampleActions.cs'), scanRegistrations(actions, fileKey('/w/ExampleActions.cs'), 'csharp', csharp));
+  assert.strictEqual(ix.sitesFor('example.echo')[0].handlerFile, undefined);
+  assert.deepStrictEqual(ix.handlersIn('/w/ExampleActions.cs'), []);
 });

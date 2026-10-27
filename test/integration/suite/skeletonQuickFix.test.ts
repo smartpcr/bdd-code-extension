@@ -49,7 +49,7 @@ describe('Add parameter: the quick fix on a step key its action does not take', 
     const api = (await vscode.extensions.getExtension('asz.bdd-suite')!.activate()) as TestApi;
     const root = vscode.workspace.workspaceFolders![0].uri.fsPath;
     const made = await vscode.commands.executeCommand<SkeletonResult>('bddSuite.createSkeleton',
-      { target: root, languages: ['typescript'], name: 'example', open: false });
+      { target: root, languages: ['typescript', 'csharp'], name: 'example', open: false });
     assert.ok(made.ok && made.generator === 'exit 0', made.message);
     // The folder's new settings rebuild the extension around its catalog.
     await until('the catalog to be indexed', () => api.indexers.length > 0);
@@ -86,5 +86,22 @@ describe('Add parameter: the quick fix on a step key its action does not take', 
     // And with the key a parameter, the fix is no longer offered.
     const again = (await vscode.commands.executeCommand<vscode.CodeAction[]>('vscode.executeCodeActionProvider', uri, new vscode.Range(pos, pos))) ?? [];
     assert.ok(!again.some(a => a.title.startsWith('Add parameter')), again.map(a => a.title).join(', '));
+  });
+
+  it('Ctrl+click on the action reaches the C# handler declared in its own file, not only the registration', async () => {
+    const root = vscode.workspace.workspaceFolders![0].uri.fsPath;
+    const uri = vscode.Uri.file(path.join(root, 'suites', 'example.yml'));
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const line = doc.getText().split('\n').findIndex(l => l.includes('action: example.echo'));
+    const pos = new vscode.Position(line, doc.lineAt(line).text.indexOf('example.echo') + 3);
+    const handlers = path.join(root, 'bindings', 'dotnet', 'Example.Suite', 'ExampleActions.cs');
+    const found = await until('the C# handler among the definitions', async () => {
+      const defs = (await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>('vscode.executeDefinitionProvider', uri, pos)) ?? [];
+      return defs.map(d => ('targetUri' in d ? { uri: d.targetUri, range: d.targetRange } : d))
+        .find(d => d.uri.fsPath.toLowerCase() === handlers.toLowerCase());
+    });
+    const text = fs.readFileSync(handlers, 'utf8').split(/\r?\n/)[found.range.start.line];
+    assert.match(text, /internal static object\? ExampleEcho\(ActionRequest request\)/);
+    assert.strictEqual(text.slice(found.range.start.character, found.range.end.character), 'ExampleEcho');
   });
 });

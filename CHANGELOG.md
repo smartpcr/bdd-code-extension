@@ -2,6 +2,14 @@
 
 ## 0.7.13
 
+* **Ctrl+click reaches a handler declared in another file.** A C# registry
+  written as update2's and the skeleton's are, `["a.b"] = Actions.AB,` with the
+  method in `Actions.cs`, used to send Go to Definition to the registration
+  line only: a handler was looked for in its registration's file alone. The
+  index now also records what each binding source file declares, and finds a
+  handler in the binding's other files, the one declaring the class a
+  qualified handler names first. Find References and the "suite steps"
+  CodeLens work on that method too.
 * **Add parameter, a quick fix.** On a step key its action does not take
   (`E105`, or the schema's "Property ... is not allowed here"), the lightbulb
   now offers *Add parameter `<key>` to `<action>`* beside removing it: the key

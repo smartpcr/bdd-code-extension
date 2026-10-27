@@ -9,7 +9,7 @@ import { resolveCatalog } from '../core/catalog';
 import { Debouncer } from '../core/debounce';
 import { forEachLimited, isTransientFsError, realSleep, retryTransient, retryTransientSync } from '../core/fsRetry';
 import { fileKey } from '../core/paths';
-import { CompiledRecognizer, compileRecognizers, scanRegistrations } from '../core/registrations';
+import { CompiledRecognizer, compileRecognizers, scanDeclarations, scanRegistrations } from '../core/registrations';
 import { parseSuite } from '../core/suites';
 import { Range } from '../core/text';
 import { CoreError } from '../core/types';
@@ -127,8 +127,9 @@ export class FolderIndexer implements vscode.Disposable {
       this.index.updateSuite(s);
       this.publish(this.indexDiagnostics, key, s.parseError ? [s.parseError] : []);
     } else {
+      // Its declarations too: a registration in another file may name a handler declared here.
       this.index.updateSources(key, scanRegistrations(text, key, kind.binding.name,
-        this.recognizers.get(kind.binding.name) ?? []));
+        this.recognizers.get(kind.binding.name) ?? []), { binding: kind.binding.name, declared: scanDeclarations(text) });
     }
   }
 

@@ -22,12 +22,14 @@ export function definitionsAt(indexer: FolderIndexer, file: string, position: vs
   if (!step?.action || !step.actionRange || !contains(step.actionRange, pos)) return [];
   // Ctrl+click lands on the code that runs: each binding's handler where it is
   // declared (the C# method, the Go `func`, the Rust `fn`, the TypeScript
-  // `function`), or the registration itself when the handler is written inline,
-  // as PowerShell's script block is. The catalog entry comes first.
+  // `function`), in the registration's file or another (a C# registry's
+  // `Actions.AB` is a method of Actions.cs), or the registration itself when the
+  // handler is written inline, as PowerShell's script block is. The catalog
+  // entry comes first.
   const out: vscode.Location[] = [];
   const entry = index.catalog?.actions.get(step.action);
   if (entry) out.push(loc(entry.file ?? index.catalog!.file, entry.nameRange));
-  for (const site of index.sitesFor(step.action)) out.push(loc(site.file, site.handlerRange ?? site.range));
+  for (const site of index.sitesFor(step.action)) out.push(site.handlerRange ? loc(site.handlerFile ?? site.file, site.handlerRange) : loc(site.file, site.range));
   return out;
 }
 
@@ -92,10 +94,14 @@ export function registerNavigation(owner: Owner, indexers: () => FolderIndexer[]
         const ix = owner(doc.uri);
         await ix?.ready;
         if (!ix) return [];
-        // A lens on each registration, and one on its handler where the handler is declared on another line.
-        return ix.index.sitesIn(doc.uri.fsPath).flatMap(site => {
+        // A lens on each registration, and one on its handler where the handler is declared on another
+        // line: of this file, or of this file for a registration in another (a C# Actions.cs method).
+        const here = ix.index.sitesIn(doc.uri.fsPath).map(site => ({
+          site, ranges: [site.range, ...(site.handlerRange && site.handlerRange.start.line !== site.range.start.line ? [site.handlerRange] : [])],
+        }));
+        const elsewhere = ix.index.handlersIn(doc.uri.fsPath).map(site => ({ site, ranges: [site.handlerRange!] }));
+        return [...here, ...elsewhere].flatMap(({ site, ranges }) => {
           const steps = ix.index.stepsUsing(site.action);
-          const ranges = [site.range, ...(site.handlerRange && site.handlerRange.start.line !== site.range.start.line ? [site.handlerRange] : [])];
           return ranges.map(r => {
             const range = toRange(r);
             return new vscode.CodeLens(range, steps.length
