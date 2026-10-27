@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "dgSpecHash": "nECnsZbo+c8=",
+  "success": false,
+  "projectFilePath": "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.Cli\\__Namespace__.Suite.Cli.csproj",
+  "expectedPackageFiles": [],
+  "logs": [
+    {
+      "code": "NU1105",
+      "level": "Error",
+      "message": "Unable to read project information for 'suiterun': '{{version}}' is not a valid version string.",
+      "projectPath": "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.Cli\\__Namespace__.Suite.Cli.csproj",
+      "filePath": "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.Cli\\__Namespace__.Suite.Cli.csproj",
+      "targetGraphs": []
+    }
+  ]
+}

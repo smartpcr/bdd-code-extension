@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "restore": {
+    "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.MsTest\\__Namespace__.Suite.MsTest.csproj": {}
+  },
+  "projects": {
+    "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.MsTest\\__Namespace__.Suite.MsTest.csproj": {
+      "restore": {
+        "projectUniqueName": "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.MsTest\\__Namespace__.Suite.MsTest.csproj",
+        "projectPath": "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\__Namespace__.Suite.MsTest\\__Namespace__.Suite.MsTest.csproj",
+        "packagesPath": "",
+        "outputPath": "E:\\work\\github\\bdd-code-extension\\templates\\skeleton\\csharp\\bindings\\dotnet\\artifacts\\obj\\__Namespace__.Suite.MsTest\\",
+        "projectStyle": "PackageReference",
+        "UsingMicrosoftNETSdk": false
+      }
+    }
+  }
+}
