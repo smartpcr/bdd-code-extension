@@ -398,6 +398,15 @@ To try it by hand, `npm run demo:workspace` copies the demo workspace to
 `%TEMP%\bdd-suite-demo` (or a folder you name; `--open` opens it in VS Code)
 and prints what to try.
 
+## End-to-end samples
+
+[samples/e2e](samples/e2e/README.md) holds two workspaces that run on the
+published packages alone, one with a C# binding and one with a PowerShell
+binding. Each walks through the settings, *Declare action* from a suite step to
+the catalog and the binding, building and running with suiterun, MSTest or
+Pester, and the logs and reports a run leaves. Demo video:
+[bdd suite e2e demo](https://www.youtube.com/watch?v=6JYugu594x8) (YouTube).
+
 ## Build, test and release
 
 From the source repository, with Node.js 24:

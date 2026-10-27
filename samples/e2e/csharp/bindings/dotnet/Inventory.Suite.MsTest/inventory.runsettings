@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The run inputs the generated tests read (README.md, step 4). A TestRunParameters entry wins over the
+  environment variable of the same name. Uncomment one to set it for every dotnet test of this project.
+-->
+<RunSettings>
+  <RunConfiguration>
+    <ResultsDirectory>..\artifacts\TestResults</ResultsDirectory>
+  </RunConfiguration>
+  <TestRunParameters>
+    <!-- <Parameter name="BDD_SUITE_TRACE_FILE" value="..\artifacts\TestResults\trace.json" /> -->
+    <!-- <Parameter name="BDD_SUITE_TAGS" value="smoke" /> -->
+    <!-- <Parameter name="BDD_SUITE_ALLOW_GUARDED" value="1" /> -->
+  </TestRunParameters>
+</RunSettings>

@@ -1,0 +1,40 @@
+suite: warehouse-sync
+description: >-
+  Pushes a store's levels to the warehouse service. warehouse.sync stands for an
+  action that reaches a real environment, so this suite is guarded: under
+  dotnet test or Invoke-Pester its cases skip unless BDD_SUITE_ALLOW_GUARDED=1.
+tags: [inventory, warehouse]
+
+imports:
+  - _lib/inventory.yml
+
+afterEach:
+  - then: the case's store is deleted
+    ifCapture: store
+    action: store.close
+    store: ${capture.store.path}
+
+tests:
+  - name: syncs-levels-to-the-warehouse
+    steps:
+      - given: a store holding 5 WIDGET-1
+        meta: a-store-holding
+        with: { sku: WIDGET-1, qty: 5 }
+      - and: a second SKU on hand
+        action: stock.receive
+        store: ${capture.store.path}
+        sku: GADGET-7
+        qty: 1
+      - when: the store is synced
+        action: warehouse.sync
+        store: ${capture.store.path}
+        captureAs: sync
+      - then: both SKUs are sent to the warehouse
+        action: core.noop
+        asserts:
+          - var: sync.skus
+            equals: 2
+          - var: sync.endpoint
+            matches: '^https?://'
+          - var: sync.payload
+            contains: '"WIDGET-1":5'

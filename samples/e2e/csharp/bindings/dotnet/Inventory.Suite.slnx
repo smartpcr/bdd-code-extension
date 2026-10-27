@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Inventory.Suite/Inventory.Suite.csproj" />
+  <Project Path="Inventory.Suite.Cli/Inventory.Suite.Cli.csproj" />
+  <Project Path="Inventory.Suite.MsTest/Inventory.Suite.MsTest.csproj" />
+</Solution>

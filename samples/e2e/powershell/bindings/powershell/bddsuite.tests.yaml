@@ -1,0 +1,16 @@
+# The inventory suites as Pester tests (README.md, step 3). suiterun.ps1
+# generate writes them into tests/ beside this file:
+#
+#   pwsh -File bindings/powershell/suiterun.ps1 generate --config bindings/powershell/bddsuite.tests.yaml --out bindings/powershell/tests
+#
+# Paths are relative to this file.
+suites:
+  - ../../suites/*.yml
+schemaRoot: ../../schema
+provider: pester
+# The inventory actions, from the Inventory module.
+extensions: [ ./Inventory/Inventory.psm1 ]
+# What runs without a real environment. warehouse.sync is left out, so
+# warehouse-sync.yml is guarded: its tests skip unless BDD_SUITE_ALLOW_GUARDED=1,
+# and an Invoke-Pester on a developer machine or in CI never reaches the service.
+offlineActions: [ "core.*", "wait", "store.*", "stock.*" ]

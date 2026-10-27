@@ -1,0 +1,6 @@
+# Restored packages (restore.ps1), generated Pester tests (suiterun.ps1 generate),
+# test results, traces and reports.
+.packages/
+.modules/
+bindings/powershell/tests/
+out/

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The inventory extension of the C# suite runtime: the actions schema\actions.catalog.yaml declares
+    (InventoryExtension, the registrations; InventoryActions, the handlers) and the store they act on.
+    suiterun (Inventory.Suite.Cli) and the MSTest tests (Inventory.Suite.MsTest) both load it.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Smartpcr.BddSuite" />
+  </ItemGroup>
+
+</Project>

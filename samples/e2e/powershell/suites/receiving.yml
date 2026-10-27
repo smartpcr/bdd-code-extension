@@ -1,0 +1,81 @@
+suite: receiving
+description: Deliveries add to a store's stock, one SKU at a time.
+tags: [inventory]
+
+imports:
+  - _lib/inventory.yml
+
+afterEach:
+  - then: the case's store is deleted
+    why: Leaves nothing behind in the temp folder, whether the case passed or not.
+    ifCapture: store
+    action: store.close
+    store: ${capture.store.path}
+
+tests:
+  - name: receives-stock
+    description: One delivery into an empty store.
+    tags: [smoke]
+    steps:
+      - given: a fresh, empty store
+        why: Nothing on hand before the delivery.
+        action: store.open
+        name: receiving
+        captureAs: store
+      - when: 12 widgets are received
+        why: A delivery is the only way stock grows.
+        action: stock.receive
+        store: ${capture.store.path}
+        sku: WIDGET-1
+        qty: 12
+        captureAs: delivery
+      - then: the store holds 12 widgets
+        why: The level is read back from the store, not from the delivery's answer.
+        action: stock.level
+        store: ${capture.store.path}
+        sku: WIDGET-1
+        captureAs: level
+        asserts:
+          - var: level.onHand
+            equals: 12
+          - var: delivery.received
+            equals: 12
+
+  - name: deliveries-add-up
+    description: Two deliveries of one SKU, for each row.
+    examples:
+      - { first: 1, second: 2, total: 3 }
+      - { first: 10, second: 5, total: 15 }
+    steps:
+      - given: a store holding ${row.first} GADGET-7
+        meta: a-store-holding
+        with: { sku: GADGET-7, qty: '${row.first}' }
+      - when: a second delivery of ${row.second} arrives
+        why: Deliveries accumulate; none replaces another.
+        action: stock.receive
+        store: ${capture.store.path}
+        sku: GADGET-7
+        qty: ${row.second}
+        captureAs: second
+      - then: the store holds ${row.total}
+        action: core.noop
+        asserts:
+          - var: second.onHand
+            equals: ${row.total}
+
+  - name: an-unknown-sku-has-none
+    steps:
+      - given: a store holding 3 WIDGET-1
+        meta: a-store-holding
+        with: { sku: WIDGET-1, qty: 3 }
+      - when: a SKU the store never received is read
+        why: Reading is not receiving; the store does not invent a level.
+        action: stock.level
+        store: ${capture.store.path}
+        sku: NEVER-SEEN
+        captureAs: level
+      - then: its level is zero
+        action: core.noop
+        asserts:
+          - var: level.onHand
+            equals: 0

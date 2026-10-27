@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The inventory suites as MSTest tests. Nothing here is written by hand: every build generates one
+    [TestClass] per suite and one [TestMethod] per case and examples row from bddsuite.tests.yaml
+    (artifacts\obj\Inventory.Suite.MsTest\<configuration>\net10.0\BddSuite\*.g.cs, never committed).
+    NuGet imports Smartpcr.BddSuite.Testing's build targets, which run the generator the package carries
+    before every compile; the provider, MSTest, is detected from the references below.
+
+      dotnet test runs every suite; warehouse-sync is guarded (bddsuite.tests.yaml) and skips unless
+      BDD_SUITE_ALLOW_GUARDED=1.
+  -->
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)inventory.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Smartpcr.BddSuite.Testing" />
+    <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- InventoryExtension, named in bddsuite.tests.yaml. -->
+    <ProjectReference Include="..\Inventory.Suite\Inventory.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

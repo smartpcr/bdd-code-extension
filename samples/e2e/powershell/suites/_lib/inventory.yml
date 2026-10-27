@@ -1,0 +1,25 @@
+# Declarations the inventory suites share. A library declares meta steps and
+# nothing that runs: each suite declares its own beforeEach and afterEach.
+
+metaSteps:
+  - name: a-store-holding
+    description: >-
+      Open a fresh store and receive a first delivery into it. The store is
+      captured as `store`; the suite's afterEach closes it.
+    params:
+      - { name: sku, type: string, required: true }
+      - { name: qty, type: integer, required: true }
+    # A definition's captures stay inside it unless it exports them: the case
+    # reads `store` afterwards (its path), and its afterEach closes it.
+    exports: [store]
+    steps:
+      - given: a fresh, empty store
+        why: Every case owns its store, so no case sees another's stock.
+        action: store.open
+        captureAs: store
+      - and: a first delivery of ${param.qty} ${param.sku}
+        why: Most cases start from stock on hand.
+        action: stock.receive
+        store: ${capture.store.path}
+        sku: ${param.sku}
+        qty: ${param.qty}

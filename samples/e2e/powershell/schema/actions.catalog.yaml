@@ -1,0 +1,128 @@
+# The inventory sample's own actions (README.md, step 2).
+#
+# The core of the format - the suite structure, the built-in actions core.* and
+# wait, the diagnostics and the schema generator - comes with the
+# BddSuite module (packages.psd1) and the Suite Authoring extension of the same
+# release, imported here by name as bdd-suite:core. Only the inventory actions
+# are declared below.
+#
+# Each action is implemented by the PowerShell extension in
+# bindings/powershell/Inventory (Inventory.psm1, one Register-SuiteAction per
+# action in actions/*.ps1). params are the keys a handler reads; captures is the
+# shape it returns. After an edit the extension regenerates suite.schema.json
+# and suite.schema.md beside this file (or: Suite: Regenerate the schema).
+#
+# The system under test is a store: one JSON file of stock levels by SKU, which
+# store.open creates and store.close deletes. Every case opens its own store,
+# so cases never share state and may run in parallel.
+catalogVersion: 1
+imports:
+  - bdd-suite:core
+bindings: [powershell]
+# Where the PowerShell registrations are, relative to this file. The Suite Authoring
+# extension indexes these files for coverage, navigation and code generation,
+# over its bddSuite.bindings setting.
+bindingSources:
+  powershell: [../bindings/powershell/Inventory/actions/*.ps1]
+
+actions:
+  # --------------------------------------------------------------- store ----
+  - name: store.open
+    summary: Open a new, empty store and return where it is.
+    bindings: [powershell]
+    interruptible: true
+    notes: >-
+      Creates a JSON file under the system temp folder (bdd-inventory/), named
+      after the store and a fresh id, so two cases never open the same file.
+    params:
+      - { name: name, type: string, default: main, description: A label for the store; part of its file name. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        path: { type: string }
+
+  - name: store.close
+    summary: Delete a store opened by store.open. Never fails on a store already gone.
+    bindings: [powershell]
+    interruptible: true
+    params:
+      - { name: store, type: string, required: true, description: The store's path, as store.open captured it. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        removed: { type: boolean }
+
+  # --------------------------------------------------------------- stock ----
+  - name: stock.receive
+    summary: Receive units of a SKU into the store, and return the new level.
+    bindings: [powershell]
+    interruptible: true
+    params:
+      - { name: store, type: string, required: true }
+      - { name: sku, type: string, required: true }
+      - { name: qty, type: integer, required: true, description: Units received; more than zero. }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        received: { type: integer }
+        onHand: { type: integer }
+
+  - name: stock.ship
+    summary: Ship units of a SKU if the store holds enough; otherwise refuse, and say why.
+    bindings: [powershell]
+    interruptible: true
+    notes: >-
+      A refusal is an answer, not a failure: shipped is false, onHand is
+      unchanged and reason says what was short, so a case asserts on it.
+    params:
+      - { name: store, type: string, required: true }
+      - { name: sku, type: string, required: true }
+      - { name: qty, type: integer, required: true }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        shipped: { type: boolean }
+        onHand: { type: integer }
+        reason: { type: string }
+
+  - name: stock.level
+    summary: The units of a SKU the store holds; zero for a SKU it never received.
+    bindings: [powershell]
+    interruptible: true
+    params:
+      - { name: store, type: string, required: true }
+      - { name: sku, type: string, required: true }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        sku: { type: string }
+        onHand: { type: integer }
+
+  # ----------------------------------------------------------- warehouse ----
+  - name: warehouse.sync
+    summary: Push the store's levels to the central warehouse service.
+    bindings: [powershell]
+    interruptible: true
+    notes: >-
+      Stands for an action that reaches a real environment. It is not in
+      bddsuite.tests.yaml's offlineActions, so a suite using it is guarded: its
+      tests skip unless BDD_SUITE_ALLOW_GUARDED=1. The sample writes the
+      payload beside the store (<store>.sync.json) instead of calling a service.
+    params:
+      - { name: store, type: string, required: true }
+      - { name: endpoint, type: string, description: 'Where to send; else the run''s --api-url, else https://warehouse.example/api/levels.' }
+    captures:
+      type: object
+      additionalProperties: false
+      properties:
+        endpoint: { type: string }
+        skus: { type: integer }
+        payload: { type: string }

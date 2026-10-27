@@ -1,0 +1,45 @@
+{
+  // Suite Authoring (asz.bdd-suite 0.7.12) for this workspace, laid out like update2's
+  // EnvironmentTest/BVT: schema/ (the catalog), suites/ and bindings/powershell/ (the PowerShell
+  // extension module, its suiterun.ps1 and its Pester tests). Open THIS folder as the workspace
+  // (README.md, step 1).
+  //
+  // bddSuite.root is the suites' root: suiterun.ps1 runs in it, and the binding's tool and stubFile
+  // paths below are relative to it. The catalog is not in <root>/test/e2e/schema, so the extension
+  // passes suiterun --schema-root <the catalog's folder> itself, and its live lint reads the schema there.
+  "bddSuite.root": ".",
+  "bddSuite.catalogPath": "schema/actions.catalog.yaml",
+  // Lint with the PowerShell suiterun (it knows the inventory actions) and target it: a step whose
+  // action the PowerShell binding does not implement is E201.
+  "bddSuite.lintTool": "powershell",
+  "bddSuite.targetBinding": "powershell",
+  // Only this workspace's suites; suites/_lib/*.yml are libraries the suites import.
+  "bddSuite.suiteGlobs": ["suites/**/*.yml"],
+  // No bddSuite.schemaGenerator: the extension's default runs the Build-Schema.ps1 it carries on this
+  // catalog, and the catalog imports the core it carries (bdd-suite:core).
+  //
+  // The actions a run needs no real environment for, the same list bddsuite.tests.yaml gives. A suite
+  // using any other action (warehouse.sync) is a lab suite: a Test Explorer run of it asks for
+  // confirmation and passes suiterun --api-url, --lab-id and --connection-file from the values below
+  // (it prompts for any left empty). Inventory.psm1 declares those three options.
+  "bddSuite.offlineActions": ["core.*", "wait", "store.*", "stock.*"],
+  "bddSuite.lab.apiUrl": "https://warehouse.example/api/levels",
+  "bddSuite.lab.labId": "sample-warehouse",
+  "bddSuite.lab.connectionFile": "warehouse.connection.json",
+  "bddSuite.bindings": {
+    "powershell": {
+      // Where the registrations are is the catalog's bindingSources (schema/actions.catalog.yaml), which
+      // wins over a `sources` here.
+      "tool": ["pwsh", "-NoProfile", "-NonInteractive", "-File", "bindings/powershell/suiterun.ps1"],
+      // Declare action writes a new action's stub here; ${action} is its PascalCase name
+      // (stock.adjust: StockAdjust.ps1). The extension module loads every file in actions/.
+      "stubFile": "bindings/powershell/Inventory/actions/${action}.ps1"
+    }
+  },
+  "files.associations": {
+    "**/suites/**/*.yml": "bdd-suite"
+  },
+  "files.exclude": {
+    "**/.packages": true
+  }
+}

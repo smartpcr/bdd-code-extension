@@ -1,0 +1,13 @@
+# The inventory suites as MSTest tests (README.md, step 3). The provider is not
+# named: the build detects MSTest from the project's package references. Paths
+# are relative to this file.
+suites:
+  - ../../../suites/*.yml
+schemaRoot: ../../../schema
+# The inventory actions, from Inventory.Suite.
+extensions: [ Inventory.Suite.InventoryExtension ]
+# What runs without a real environment. warehouse.sync is left out, so
+# warehouse-sync.yml is guarded: its tests skip unless BDD_SUITE_ALLOW_GUARDED=1,
+# and a dotnet test on a developer machine or in CI never reaches the service.
+offlineActions: [ "core.*", "wait", "store.*", "stock.*" ]
+output: { namespace: Inventory.Suite.MsTest }

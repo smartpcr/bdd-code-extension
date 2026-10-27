@@ -1,0 +1,90 @@
+suite: shipping
+description: Shipments take stock out of a store, never more than it holds.
+tags: [inventory]
+
+imports:
+  - _lib/inventory.yml
+
+afterEach:
+  - then: the case's store is deleted
+    why: Leaves nothing behind in the temp folder, whether the case passed or not.
+    ifCapture: store
+    action: store.close
+    store: ${capture.store.path}
+
+tests:
+  - name: ships-what-is-on-hand
+    tags: [smoke]
+    steps:
+      - given: a store holding 10 WIDGET-1
+        meta: a-store-holding
+        with: { sku: WIDGET-1, qty: 10 }
+      - when: 4 widgets are shipped
+        action: stock.ship
+        store: ${capture.store.path}
+        sku: WIDGET-1
+        qty: 4
+        captureAs: shipment
+      - then: the shipment goes out and 6 are left
+        action: core.noop
+        asserts:
+          - var: shipment.shipped
+            isTrue: true
+          - var: shipment.onHand
+            equals: 6
+
+  - name: refuses-to-ship-more-than-on-hand
+    steps:
+      - given: a store holding 2 WIDGET-1
+        meta: a-store-holding
+        with: { sku: WIDGET-1, qty: 2 }
+      - when: 5 widgets are shipped
+        why: The store holds only 2.
+        action: stock.ship
+        store: ${capture.store.path}
+        sku: WIDGET-1
+        qty: 5
+        captureAs: shipment
+      - then: the shipment is refused, with the shortfall named
+        action: core.noop
+        asserts:
+          - var: shipment.shipped
+            isFalse: true
+          - var: shipment.reason
+            contains: only 2 on hand
+      - and: the stock is untouched
+        why: A refused shipment takes nothing.
+        action: stock.level
+        store: ${capture.store.path}
+        sku: WIDGET-1
+        captureAs: level
+        asserts:
+          - var: level.onHand
+            equals: 2
+
+  - name: ships-in-parts
+    description: Several shipments in a row, one per table row.
+    steps:
+      - given: a store holding 9 BOLT-M6
+        meta: a-store-holding
+        with: { sku: BOLT-M6, qty: 9 }
+      - when: three shipments of ${row.qty} go out
+        action: stock.ship
+        store: ${capture.store.path}
+        sku: BOLT-M6
+        qty: ${row.qty}
+        captureAs: shipments
+        table:
+          - { qty: 2 }
+          - { qty: 3 }
+          - { qty: 4 }
+      - then: every shipment went out and nothing is left
+        action: stock.level
+        store: ${capture.store.path}
+        sku: BOLT-M6
+        captureAs: level
+        asserts:
+          - var: shipments
+            count: 3
+          - var: level.onHand
+            equals: 0

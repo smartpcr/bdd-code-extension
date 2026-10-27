@@ -1,0 +1,6 @@
+{
+  "//": "The sample's connection file for the warehouse environment: bddSuite.lab.connectionFile names it, and the extension passes it to suiterun as --connection-file. Nothing reads it; a real environment's file would say how to reach it.",
+  "labId": "sample-warehouse",
+  "apiUrl": "https://warehouse.example/api/levels"
+}
+
