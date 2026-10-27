@@ -363,8 +363,10 @@ implemented by binding...*, *Declare action*, *Implement action in binding...*,
 
 *Suite: Create suites workspace skeleton...* (Ctrl+Shift+P) works in any window,
 with or without a catalog. It asks for a folder, the binding languages (C#,
-PowerShell, or both; with both, which one suites run with), and a name such as
-`order-service`, then writes the layout of [samples/e2e](samples/e2e/README.md):
+PowerShell, Go, Rust, TypeScript, any number of them; with several, which one
+suites run with), and a name such as `order-service`, then writes the layout of
+[samples/e2e](samples/e2e/README.md), each binding on its package of this
+extension's release:
 
 | File | What it is |
 | --- | --- |
@@ -373,18 +375,24 @@ PowerShell, or both; with both, which one suites run with), and a name such as
 | `suites/order-service.yml` | A first suite with one case that uses that action. |
 | `bindings/dotnet/` (C#) | `OrderService.Suite` (extension and handlers), `.Cli` (suiterun) and `.MsTest` (tests generated at build), on `Smartpcr.BddSuite` and `Smartpcr.BddSuite.Testing` of this extension's release (`Directory.Packages.props`, `nuget.config`). |
 | `bindings/powershell/` (PowerShell) | The `OrderService` extension module and its `actions/`, `suiterun.ps1`, `bddsuite.tests.yaml` and `Invoke-Tests.ps1`, with `packages.psd1` naming `BddSuite` of this release and `restore.ps1` restoring it into `.modules/`. |
+| `bindings/go/` (Go) | `go.mod` requiring the Go module of this release (and `suiterun` as a tool), `actions/` (the registry, the handlers and `actions.Extension`), `cmd/suiterun`, and `tests/` for the `go test` tests `go generate` writes. |
+| `bindings/rust/` (Rust) | `Cargo.toml` depending on the `suiterun` crate of this release, `src/actions.rs` (the registry and the handlers), `src/extension.rs`, a `suiterun` binary, and `build.rs` with `tests/suites.rs` for `cargo test`. |
+| `bindings/typescript/` (TypeScript) | `package.json` depending on `@bdd-suite/runtime` of this release, `src/actions.ts` (the registry and the handlers), the extension, a suiterun, the lint library the editor loads, and `bddsuite.tests.yaml` for `node:test` tests. |
 | `README.md`, `.gitignore`, `.vscode/extensions.json` | How to build and run each binding, and what not to commit. |
 
 A file that is already there is kept as it is, and a folder that already has
-`schema/actions.catalog.yaml` is refused. Both extensions declare the
+`schema/actions.catalog.yaml` is refused. Every binding's extension declares the
 `--api-url`, `--lab-id` and `--connection-file` options a Test Explorer run of a
-guarded suite passes. The files come from the extension's
-`templates/skeleton/<part>/` (`common`, `csharp`, `powershell`); a file under
+guarded suite passes, and keeps its registrations where *Declare action* adds
+the next one (`stubFile`). The files come from the extension's
+`templates/skeleton/<part>/`, the parts being `common`, `csharp`, `powershell`,
+`go`, `rust` and `typescript`; a file under
 `<bddSuite.templatesDir>/skeleton/<part>/` with the same path replaces the
 shipped one, and a new one is added. In a template, `{{name}}`, `{{Namespace}}`,
-`{{prefix}}`, `{{action}}`, `{{ActionName}}` and `{{version}}` are filled in, a
-path segment's `__Namespace__` (and the other names) likewise, and a `dot.`
-segment is a dot-file (`dot.vscode` is `.vscode`).
+`{{prefix}}`, `{{action}}`, `{{ActionName}}`, `{{actionCamel}}`,
+`{{actionSnake}}`, `{{crate}}` and `{{version}}` are filled in, a path segment's
+`__Namespace__` (and the other names) likewise, and a `dot.` segment is a
+dot-file (`dot.vscode` is `.vscode`).
 
 ## A self-contained demo
 

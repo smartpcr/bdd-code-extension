@@ -1,18 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.7.13
 
 * **Suite: Create suites workspace skeleton...** A new command, in any window
-  with or without a catalog: given a folder, the binding languages (C#,
-  PowerShell or both) and a name, it writes `.vscode/settings.json`, an action
-  catalog with a first action, a first suite and each language's binding (C#:
-  extension, suiterun and MSTest projects on the `Smartpcr.BddSuite` packages;
-  PowerShell: extension module, `suiterun.ps1`, Pester runner and
-  `packages.psd1`/`restore.ps1` for the `BddSuite` module), pinned to the
-  extension's release, then generates the schema. Existing files are kept; a
-  folder with a catalog is refused. The templates are
-  `templates/skeleton/<part>/`, and `bddSuite.templatesDir/skeleton/<part>/`
-  overrides them file by file.
+  with or without a catalog: given a folder, the binding languages (any of C#,
+  PowerShell, Go, Rust and TypeScript) and a name, it writes
+  `.vscode/settings.json`, an action catalog with a first action, a first suite
+  and each language's binding, pinned to the extension's release, then
+  generates the schema. C#: extension, suiterun and MSTest projects on the
+  `Smartpcr.BddSuite` packages. PowerShell: extension module, `suiterun.ps1`,
+  Pester runner and `packages.psd1`/`restore.ps1` for the `BddSuite` module.
+  Go: a module requiring the Go runtime, `cmd/suiterun` and `go test` tests
+  from `go generate`. Rust: a crate on `suiterun`, a `suiterun` binary and
+  `cargo test` tests listed by `build.rs`. TypeScript: a package on
+  `@bdd-suite/runtime`, built with `tsc`, with a suiterun, the lint library and
+  `node:test` tests. Each binding's registry is where *Declare action* adds the
+  next action. Existing files are kept; a folder with a catalog is refused. The
+  templates are `templates/skeleton/<part>/`, and
+  `bddSuite.templatesDir/skeleton/<part>/` overrides them file by file.
 
 ## 0.7.12
 

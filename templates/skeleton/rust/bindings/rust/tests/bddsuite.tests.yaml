@@ -1,0 +1,11 @@
+# The {{name}} suites as cargo test tests: build.rs generates the list at every
+# build. Paths are relative to this file.
+suites:
+  - ../../../suites/*.yml
+schemaRoot: ../../../schema
+provider: rust
+extensions: [ {{crate}}::extension::{{Namespace}}Extension ]
+# What runs without a real environment; keep it the same as .vscode/settings.json's
+# bddSuite.offlineActions. A suite using any other action is guarded: its tests
+# are ignored unless BDD_SUITE_ALLOW_GUARDED=1.
+offlineActions: {{offlineActions}}

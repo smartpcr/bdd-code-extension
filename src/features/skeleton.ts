@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS } from '../config/defaults';
 import { TrustGate } from '../config/trust';
 import { fileKey } from '../core/paths';
 import {
-  isSkeletonLanguage, overlayTemplates, planSkeleton, SKELETON_LANGUAGES, SkeletonLanguage, skeletonNameProblem, skeletonParts,
+  BUILD_OUTPUT_DIRS, isSkeletonLanguage, overlayTemplates, planSkeleton, SKELETON_LANGUAGES, SkeletonLanguage, skeletonNameProblem, skeletonParts,
   suggestSkeletonName, TemplateFile,
 } from '../core/skeleton';
 import { MAX_STDERR_BYTES, MAX_TOOL_OUTPUT_BYTES, SCHEMA_TIMEOUT_MS } from '../limits';
@@ -48,7 +48,7 @@ export interface SkeletonResult {
 
 const CATALOG = 'schema/actions.catalog.yaml';
 
-/** Every file under `dir`, relative to it with `/` separators and LF line ends; none when it does not exist. */
+/** Every file under `dir` but build output, relative to it with `/` separators and LF line ends; none when it does not exist. */
 function readTemplateDir(dir: string, under = ''): TemplateFile[] {
   let entries: fs.Dirent[];
   try {
@@ -58,7 +58,8 @@ function readTemplateDir(dir: string, under = ''): TemplateFile[] {
   }
   return entries.flatMap(e => {
     const rel = under ? `${under}/${e.name}` : e.name;
-    return e.isDirectory() ? readTemplateDir(dir, rel) : [{ path: rel, text: fs.readFileSync(path.join(dir, rel), 'utf8').replace(/\r\n/g, '\n') }];
+    if (e.isDirectory()) return BUILD_OUTPUT_DIRS.has(e.name) ? [] : readTemplateDir(dir, rel);
+    return [{ path: rel, text: fs.readFileSync(path.join(dir, rel), 'utf8').replace(/\r\n/g, '\n') }];
   });
 }
 

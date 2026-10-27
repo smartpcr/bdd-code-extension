@@ -1,0 +1,12 @@
+# The {{name}} suites as go test tests: go generate ./tests writes them beside
+# this file. Paths are relative to this file.
+suites:
+  - ../../../suites/*.yml
+schemaRoot: ../../../schema
+provider: go
+extensions: [ {{name}}/actions.Extension ]
+# What runs without a real environment; keep it the same as .vscode/settings.json's
+# bddSuite.offlineActions. A suite using any other action is guarded: its tests
+# skip unless BDD_SUITE_ALLOW_GUARDED=1.
+offlineActions: {{offlineActions}}
+output: { package: tests }

@@ -1,0 +1,12 @@
+# The {{name}} suites as node:test tests: npm run generate writes them into
+# tests/ beside this file, from the built extension (npm run build first).
+# Paths are relative to this file.
+suites:
+  - ../../suites/*.yml
+schemaRoot: ../../schema
+provider: node
+extensions: [ "./dist/extension.js#{{prefix}}Extension" ]
+# What runs without a real environment; keep it the same as .vscode/settings.json's
+# bddSuite.offlineActions. A suite using any other action is guarded: its tests
+# skip unless BDD_SUITE_ALLOW_GUARDED=1.
+offlineActions: {{offlineActions}}

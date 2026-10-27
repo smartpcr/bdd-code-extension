@@ -1,0 +1,27 @@
+{
+  "name": "{{name}}-suites",
+  "version": "0.1.0",
+  "description": "The TypeScript binding of the {{name}} suites: its actions, its extension, its suiterun, the runtime's library with the extension applied, and its suites as node:test tests.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "suiterun": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "generate": "node dist/cli.js generate --config bddsuite.tests.yaml --out tests",
+    "test": "node --test --test-reporter=spec \"tests/*.bdd.test.ts\""
+  },
+  "dependencies": {
+    "@bdd-suite/runtime": "{{version}}"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~5.9.2"
+  }
+}

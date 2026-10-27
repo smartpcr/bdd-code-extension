@@ -2,7 +2,7 @@
   "name": "bdd-suite",
   "displayName": "Suite Authoring",
   "description": "Write BDD-style YAML test suites whose steps call actions implemented in several languages: navigation between YAML and code, validation and IntelliSense, lint, code generation, and Test Explorer runs. Bindings in PowerShell, C#, Go, Rust and TypeScript.",
-  "version": "0.7.12",
+  "version": "0.7.13",
   "publisher": "asz",
   "license": "MIT",
   "repository": {
@@ -432,7 +432,7 @@
         "bddSuite.templatesDir": {
           "type": "string",
           "default": "",
-          "description": "Workspace directory whose files override the stub templates; its `skeleton/<part>/` files (`common`, `csharp`, `powershell`) override those of *Create suites workspace skeleton*, file by file."
+          "description": "Workspace directory whose files override the stub templates; its `skeleton/<part>/` files (`common`, `csharp`, `powershell`, `go`, `rust`, `typescript`) override those of *Create suites workspace skeleton*, file by file."
         },
         "bddSuite.lab.apiUrl": {
           "type": "string",

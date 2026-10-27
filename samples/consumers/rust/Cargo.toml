@@ -12,11 +12,11 @@ publish = false
 [workspace]
 
 [dependencies]
-suiterun = { version = "0.7.12", features = ["testing"] }
+suiterun = { version = "0.7.13", features = ["testing"] }
 serde_json = "1"
 
 [build-dependencies]
-suiterun = { version = "0.7.12", features = ["testing"] }
+suiterun = { version = "0.7.13", features = ["testing"] }
 
 # Its own suiterun: the runtime's command line with its extension.
 [[bin]]

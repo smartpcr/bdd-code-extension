@@ -51,6 +51,21 @@ describe('Suite: Create suites workspace skeleton', () => {
     assert.match(again.message, /is a suites workspace already/);
   });
 
+  it('writes a Go, Rust and TypeScript workspace, each binding with its registry', async () => {
+    const target = folder();
+    const r = await create({ target, languages: ['go', 'rust', 'typescript'], name: 'order-service' });
+    assert.ok(r.ok, r.message);
+    assert.strictEqual(r.generator, 'exit 0', r.message);
+    for (const f of ['bindings/go/go.mod', 'bindings/go/actions/actions.go', 'bindings/go/cmd/suiterun/main.go',
+      'bindings/rust/Cargo.toml', 'bindings/rust/src/actions.rs', 'bindings/rust/build.rs',
+      'bindings/typescript/package.json', 'bindings/typescript/src/actions.ts', 'bindings/typescript/tsconfig.json']) {
+      assert.ok(fs.existsSync(path.join(target, f)), f);
+    }
+    const settings = fs.readFileSync(path.join(target, '.vscode/settings.json'), 'utf8');
+    assert.match(settings, /"bddSuite\.targetBinding": "go"/);
+    assert.match(settings, /"stubFile": "bindings\/typescript\/src\/actions\.ts"/);
+  });
+
   it('keeps a file that is there and writes the rest', async () => {
     const target = folder();
     fs.writeFileSync(path.join(target, 'README.md'), 'mine\n');
@@ -63,9 +78,9 @@ describe('Suite: Create suites workspace skeleton', () => {
 
   it('refuses a language it has no skeleton for, and a bad name', async () => {
     const target = folder();
-    const go = await create({ target, languages: ['go'], name: 'shop' });
-    assert.ok(!go.ok);
-    assert.match(go.message, /no skeleton for go/);
+    const java = await create({ target, languages: ['java'], name: 'shop' });
+    assert.ok(!java.ok);
+    assert.match(java.message, /no skeleton for java/);
     const bad = await create({ target, languages: ['csharp'], name: 'Shop' });
     assert.ok(!bad.ok);
     assert.match(bad.message, /lower-case letters/);

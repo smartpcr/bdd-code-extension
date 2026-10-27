@@ -1,0 +1,34 @@
+# The Rust binding of the {{name}} suites: the bdd-suite crate, suiterun, at the
+# release these suites are written against (keep the Suite Authoring extension,
+# asz.bdd-suite, at the same release); its extension (src/), its own suiterun
+# binary, and its suites as cargo test tests (build.rs, tests/suites.rs).
+[package]
+name = "{{name}}"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Its own workspace, so it builds standalone wherever it is.
+[workspace]
+
+[lib]
+name = "{{crate}}"
+path = "src/lib.rs"
+
+[dependencies]
+suiterun = { version = "{{version}}", features = ["testing"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[build-dependencies]
+suiterun = { version = "{{version}}", features = ["testing"] }
+
+# Its own suiterun: the runtime's command line with its extension.
+[[bin]]
+name = "suiterun"
+path = "src/main.rs"
+
+# Its suites as cargo test tests, from the list build.rs generates.
+[[test]]
+name = "suites"
+path = "tests/suites.rs"
+harness = false
