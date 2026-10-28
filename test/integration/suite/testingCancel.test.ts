@@ -47,6 +47,23 @@ async function start(items: vscode.TestItem[]): Promise<{ cancel(): void; done: 
   return { cancel: () => source.cancel(), done };
 }
 
+/**
+ * The run's results, or a failure with the output channel's last lines when it
+ * does not end in time: a stuck run then fails its own test, with what it waited
+ * on, instead of the suite's timeout and the tests after it.
+ */
+async function ended<T>(done: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(async () => reject(new Error(`the run did not end within ${ms} ms of the stop; the output channel ends:\n${(await api()).log.slice(-15).join('\n')}`)), ms);
+  });
+  try {
+    return await Promise.race([done, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 describe('B6.5 cancellation, and the lab path of B6.4 with a fake program', function () {
   this.timeout(300_000);
   let ui: RunUi;
@@ -158,7 +175,12 @@ tests:
         confirmLab: async d => { shown.push(d); return true; },
         confirmStop: async () => true,
       };
-      const results = await (await start([await item(LAB)])).done;
+      // The fake program's run sleeps until it is killed (a lab run still working), so the run is stopped once the
+      // program has written its run log, as B6.5-2 does: a stop at the instant of the spawn races the kill.
+      const run = await start([await item(LAB)]);
+      await within(60_000, () => fs.existsSync(RUN_LOG) && a.testing.lastCommand.has(LAB) && a.testing.running.has(LAB));
+      run.cancel();
+      const results = await ended(run.done, KILL_GRACE_MS + 10_000);
       assert.deepStrictEqual(asked, [['labId']], 'the empty API URL is not asked for: it is not required');
       assert.strictEqual(shown.length, 1);
       assert.strictEqual(shown[0].labId, 'lab-y');
@@ -167,11 +189,22 @@ tests:
       assert.deepStrictEqual(argv.slice(argv.indexOf('--lab-id'), argv.indexOf('--lab-id') + 2), ['--lab-id', 'lab-y']);
       assert.ok(argv.includes('--connection-file'), 'a value that is set is passed even when it is not required');
       assert.ok(!argv.includes('--api-url'), 'an empty value is not passed');
-      assert.ok(results.has(`${LAB}::first`), 'the confirmed run ran');
+      assert.deepStrictEqual(results.get(`${LAB}::first`), { state: 'skipped', message: 'cancelled' }, 'the confirmed run started and was stopped');
     } finally {
+      // Back to what B6.4-1 left for the tests after this one: no run of the scratch still going, and its settings.
+      const left = a.testing.running.get(LAB);
+      if (left !== undefined) {
+        try {
+          process.kill(left);
+        } catch {
+          // already gone
+        }
+        await within(KILL_GRACE_MS + 5000, () => !a.testing.running.has(LAB)).catch(() => undefined);
+      }
       await config.update('lab.required', undefined, W);
-      await config.update('lab.apiUrl', undefined, W);
-      await config.update('lab.connectionFile', undefined, W);
+      await config.update('lab.apiUrl', 'https://lab.invalid/api/v1', W);
+      await config.update('lab.connectionFile', 'C:/labs/lab-x.json', W);
+      await within(10_000, () => a.indexers[0]?.layout.settings['lab.apiUrl'] === 'https://lab.invalid/api/v1' && a.indexers[0]?.layout.settings['lab.required'].length === 3);
     }
   });
 
