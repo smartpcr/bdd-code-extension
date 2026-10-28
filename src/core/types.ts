@@ -138,6 +138,8 @@ export interface SuiteFile {
   tags: string[];
   /** True when the root mapping has a `suite:` key. */
   hasSuiteKey: boolean;
+  /** Where the `suite:` key is, so the Test Explorer can put a run button on that line. */
+  suiteKeyRange?: Range;
   /** The document parsed but its root is not a mapping (lint reports E100). */
   notAMapping?: boolean;
   suiteName?: string;

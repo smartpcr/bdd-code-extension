@@ -55,6 +55,15 @@ test('list: with and without tags; --test-name only for a binding that selects o
     ['list', '--path', 's.yml', '--test-name', 'one case']);
 });
 
+test('run: --events only for a binding that declares events, and only when a file is given', () => {
+  const o = { traceFile: 't.json', resultsFile: 'r.xml', eventsFile: 'e.jsonl' };
+  assert.ok(!runCommand(b('go'), R, 's.yml', o).argv.includes('--events'), 'go declares no events');
+  const withEvents: ResolvedBinding = { ...b('csharp'), events: true };
+  const argv = runCommand(withEvents, R, 's.yml', o).argv;
+  assert.deepStrictEqual(argv.slice(argv.indexOf('--events'), argv.indexOf('--events') + 2), ['--events', 'e.jsonl']);
+  assert.ok(!runCommand(withEvents, R, 's.yml', { traceFile: 't.json', resultsFile: 'r.xml' }).argv.includes('--events'), 'no file, no flag');
+});
+
 test('B6.2-B6.4 run: suiterun flags, dry run, tags, each lab value; no timeout, output streamed', () => {
   const o = { traceFile: 't.json', resultsFile: 'r.xml' };
   const go = runCommand(b('go'), R, 's.yml', o);

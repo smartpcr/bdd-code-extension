@@ -10,6 +10,7 @@ import { TrustGate } from '../config/trust';
 import {
   aggregate, isLabSuite, ItemResult, mapDryRun, MappedRun, mapTrace, parseNUnit, parseTrace, reportedNames, selectionTags,
 } from '../core/trace';
+import { caseEvent, splitLines } from '../core/events';
 import { offlineActionsFor } from '../core/testsConfig';
 import { CaseInfo, SuiteFile } from '../core/types';
 import { MAX_STDERR_BYTES } from '../limits';
@@ -56,9 +57,11 @@ export const modalUi: RunUi = {
     return out;
   },
   async confirmLab(d) {
-    const pick = await vscode.window.showWarningMessage(`Run ${d.cases.length} case(s) against lab ${d.labId}?`, {
+    // Only the lab values the workspace requires are shown (bddSuite.lab.required); an empty one is left out.
+    const facts = [`Binding: ${d.binding}`, ...(d.labId ? [`Lab: ${d.labId}`] : []), ...(d.apiUrl ? [`API: ${d.apiUrl}`] : [])];
+    const pick = await vscode.window.showWarningMessage(`Run ${d.cases.length} case(s) against ${d.labId ? `lab ${d.labId}` : 'the lab'}?`, {
       modal: true,
-      detail: `Binding: ${d.binding}\nLab: ${d.labId}\nAPI: ${d.apiUrl}\n\n${d.cases.join('\n')}`,
+      detail: `${facts.join('\n')}\n\n${d.cases.join('\n')}`,
     }, 'Run');
     return pick === 'Run';
   },
@@ -150,6 +153,8 @@ export class SuiteTesting implements vscode.Disposable {
         const rel = path.relative(ix.layout.root, suite.file).split(path.sep).join('/');
         const uri = vscode.Uri.file(suite.file);
         const fileItem = item(rel, rel, uri, { ix, file: suite.file, rel });
+        // The `suite:` line gets a run button too, which runs every case of the file.
+        fileItem.range = suite.suiteKeyRange ? toRange(suite.suiteKeyRange) : undefined;
         const cases: vscode.TestItem[] = [];
         for (const c of suite.cases) {
           const caseItem = item(`${rel}::${c.name}`, c.name, uri, { ix, file: suite.file, rel, caseName: c.name });
@@ -251,7 +256,9 @@ export class SuiteTesting implements vscode.Disposable {
     let labValues: LabValues | undefined;
     if (lab) {
       labValues = { apiUrl: settings['lab.apiUrl'] || undefined, labId: settings['lab.labId'] || undefined, connectionFile: settings['lab.connectionFile'] || undefined };
-      const missing = LAB_KEYS.map(k => k.key).filter(k => !labValues![k]);
+      // Only the lab values the workspace requires are asked for (bddSuite.lab.required); a set value is passed either way.
+      const required = new Set(settings['lab.required']);
+      const missing = LAB_KEYS.map(k => k.key).filter(k => required.has(k) && !labValues![k]);
       // Logged before each wait, so a run held by a question says what it waits for.
       this.log(`Run (${binding.label}) of ${rel}: a lab suite${missing.length ? `; asking for ${missing.join(', ')}` : ''}.`);
       if (missing.length) labValues = await unlessStopped(this.ui.askLab(labValues, missing, token), token);
@@ -265,7 +272,9 @@ export class SuiteTesting implements vscode.Disposable {
       }
       const lines = list.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       this.log(`Run (${binding.label}) of ${rel}: waiting for the confirmation to run ${lines.length} case(s) against lab ${labValues.labId ?? ''}.`);
-      const ok = await unlessStopped(this.ui.confirmLab({ binding: binding.label, labId: labValues.labId ?? '', apiUrl: labValues.apiUrl ?? '', cases: lines }), token);
+      const ok = await unlessStopped(this.ui.confirmLab({
+        binding: binding.label, labId: required.has('labId') ? labValues.labId ?? '' : '', apiUrl: required.has('apiUrl') ? labValues.apiUrl ?? '' : '', cases: lines,
+      }), token);
       if (token.isCancellationRequested) return stopped();
       if (!ok) return all('skipped', 'not run: the lab run was not confirmed');
     }
@@ -274,14 +283,53 @@ export class SuiteTesting implements vscode.Disposable {
     fs.mkdirSync(dir, { recursive: true });
     const traceFile = path.join(dir, 'trace.json');
     const resultsFile = path.join(dir, 'results.xml');
-    for (const f of [traceFile, resultsFile]) fs.rmSync(f, { force: true });
-    const cmd = runCommand(binding, ix.layout.root, rel, { traceFile, resultsFile, dryRun, tags, testName, lab: labValues });
+    // A binding that writes step events gets a file for them, tailed during the run so each case's
+    // verdict shows as it arrives (spec/events.md); the final mapping from the trace still follows.
+    const eventsFile = binding.events && !dryRun ? path.join(dir, 'events.jsonl') : undefined;
+    for (const f of [traceFile, resultsFile, eventsFile]) if (f) fs.rmSync(f, { force: true });
+    const cmd = runCommand(binding, ix.layout.root, rel, { traceFile, resultsFile, dryRun, tags, testName, lab: labValues, eventsFile });
     this.lastCommand.set(rel, cmd.argv);
     this.log(`Run (${binding.label}${dryRun ? ', dry run' : ''}${lab ? ', lab' : ''}) in ${cmd.cwd}: ${cmd.argv.map(quoteArg).join(' ')}`);
     if (!binding.selectsOneCase && included.size < suite.cases.length && !tags?.length) {
       run.appendOutput(crlf(`${binding.label} runs whole files; this run reports every case in ${rel}.\n`));
     }
     for (const item of leaves(chosen)) run.started(item);
+
+    // Live verdicts: every second, the events the program appended since the last look; a
+    // caseFinished marks its case or row at once. The run's end maps the trace over this anyway.
+    const byName = new Map<string, vscode.TestItem>();
+    for (const c of caseItems) {
+      byName.set(this.data.get(c)!.caseName!, c);
+      c.children.forEach(row => byName.set(this.data.get(row)!.row!, row));
+    }
+    let eventsOffset = 0;
+    let eventsTail = '';
+    const live = eventsFile ? setInterval(() => {
+      try {
+        if (!fs.existsSync(eventsFile)) return;
+        const fd = fs.openSync(eventsFile, 'r');
+        try {
+          const size = fs.fstatSync(fd).size;
+          if (size < eventsOffset) { eventsOffset = 0; eventsTail = ''; }
+          if (size === eventsOffset) return;
+          const buffer = Buffer.alloc(size - eventsOffset);
+          fs.readSync(fd, buffer, 0, buffer.length, eventsOffset);
+          eventsOffset = size;
+          const split = splitLines(buffer.toString('utf8'), eventsTail);
+          eventsTail = split.tail;
+          for (const line of split.lines) {
+            const e = caseEvent(line);
+            const item = e && byName.get(e.name);
+            if (!e || !item) continue;
+            const message = new vscode.TestMessage(e.message ?? e.state);
+            if (e.state === 'passed') run.passed(item);
+            else if (e.state === 'failed') run.failed(item, message);
+            else if (e.state === 'errored') run.errored(item, message);
+            else run.skipped(item);
+          }
+        } finally { fs.closeSync(fd); }
+      } catch { /* the next look reads again */ }
+    }, 1000) : undefined;
 
     const stop = new vscode.CancellationTokenSource();
     // A lab run is killed only on Stop; otherwise it runs on and the Test Explorer run stays active (B6.5-2).
@@ -293,6 +341,7 @@ export class SuiteTesting implements vscode.Disposable {
     const result = await runTool({ ...cmd, onOutput: t => run.appendOutput(crlf(t)), onSpawn: pid => this.running.set(rel, pid) }, stop.token,
       { gate: () => this.gate.canRunWorkspaceCode(), maxStderr: MAX_STDERR_BYTES });
     this.running.delete(rel);
+    if (live) clearInterval(live);
     sub.dispose();
     stop.dispose();
     if (result.kind === 'failure') return all('errored', `the run did not start (${result.reason}: ${result.detail})`);

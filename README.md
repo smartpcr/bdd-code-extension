@@ -286,7 +286,11 @@ In Test Explorer (the Testing view: Ctrl+Shift+P, *Testing: Focus on Test
 Explorer View*), *Run* runs a suite under the target binding and shows each
 case's result from the run's trace; *Dry run* lists what would run without
 starting an action. *Run* on one case runs only that case where the binding
-can (PowerShell); other bindings run the whole file and report every case.
+can (PowerShell, or a binding with `selectsOneCase`); other bindings run the
+whole file and report every case. The `suite:` line has a run button too, for
+the whole file. With a binding that writes step events (`events` in its
+settings), each case turns green or red as its `caseFinished` arrives; the
+trace at the end sets the final results either way.
 
 **Suites that need an environment.** Some actions work against a real
 environment (the extension calls it a *lab*), others need nothing. The actions
@@ -339,7 +343,7 @@ framework are under `samples/workspace/tests/`.
 | `bddSuite.root` | empty | The suites' root, relative to the workspace folder: binding programs run in it, and each binding's `tool`, `build.cwd`, `library` and `stubFile` are relative to it. Empty: the folder above `test/e2e/schema`, else the folder above the catalog's folder |
 | `bddSuite.suiteGlobs` | `["test/e2e/**/*.yml"]` | Candidate suite files; a file is a suite when it has a top-level `suite:` key or is imported by one |
 | `bddSuite.exclude` | `**/{node_modules,bin,obj,target,artifacts,.git}/**` | Files never indexed |
-| `bddSuite.bindings` | the five bindings | Per binding: source globs, the patterns that find registrations, the program, its build command, (TypeScript) its library, and `stubFile`, where *Declare action* writes a stub until the binding's actions are somewhere (PowerShell: `${action}` is the action's PascalCase name) |
+| `bddSuite.bindings` | the five bindings | Per binding: source globs, the patterns that find registrations, the program, its build command, (TypeScript) its library, `selectsOneCase` when the program runs one case by name, `events` when it writes step events (`--events`), so a run marks each case the moment it finishes, and `stubFile`, where *Declare action* writes a stub until the binding's actions are somewhere (PowerShell: `${action}` is the action's PascalCase name) |
 | `bddSuite.schemaGenerator` | `pwsh ... ${extension}/spec/Build-Schema.ps1 -Catalog ${catalogPath}` | Regenerates `suite.schema.json` after a catalog edit, with the generator the extension carries; `${extension}` is the extension's folder, `${catalogPath}` the catalog |
 | `bddSuite.inlayHints.bindings` | `true` | Show which bindings implement each step's action |
 | `bddSuite.codeLens.implement` | `true` | Above a step whose action is missing in a language: where, with *Implement in C#/Go/Rust* (or *Declare action* when the catalog lacks it) one click away |
@@ -349,6 +353,7 @@ framework are under `samples/workspace/tests/`.
 | `bddSuite.lab.apiUrl` | empty | The environment's API URL for lab runs; asked for when empty |
 | `bddSuite.lab.labId` | empty | The environment's id for lab runs; asked for when empty |
 | `bddSuite.lab.connectionFile` | empty | The environment's connection file for lab runs; asked for when empty |
+| `bddSuite.lab.required` | `["apiUrl", "labId", "connectionFile"]` | Which of the three a lab run needs: only these are asked for when empty and shown in the confirmation; a binding whose program takes only the connection file lists only that one. A value that is set is passed either way |
 
 `bindings`, `lintTool`, `schemaGenerator` and `root` choose code that runs, so VS Code
 ignores their workspace values in an untrusted folder. The extension stores no

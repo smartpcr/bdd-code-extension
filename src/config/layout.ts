@@ -4,7 +4,7 @@
 import * as path from 'path';
 import { fileKey } from '../core/paths';
 import { BundledFiles, bundledFiles, expandArgv } from './bundled';
-import { BindingSettings, DEFAULT_BINDINGS, DEFAULT_SETTINGS, Settings } from './defaults';
+import { BindingSettings, DEFAULT_BINDINGS, DEFAULT_SETTINGS, LAB_SETTING_KEYS, Settings } from './defaults';
 
 /** Nearest ancestor of `start` (inclusive) holding test/e2e/schema, the rule every suiterun uses. */
 export function findRepositoryRoot(start: string, exists: (p: string) => boolean): string | undefined {
@@ -76,9 +76,10 @@ function readBinding(name: string, value: unknown, messages: string[]): BindingS
     if (typeof value[f] === 'string') (out as unknown as Record<string, unknown>)[f] = value[f];
     else bad(messages, `${key}.${f}`, 'string', value[f]);
   }
-  if (value.selectsOneCase !== undefined) {
-    if (typeof value.selectsOneCase === 'boolean') out.selectsOneCase = value.selectsOneCase;
-    else bad(messages, `${key}.selectsOneCase`, 'boolean', value.selectsOneCase);
+  for (const f of ['selectsOneCase', 'events'] as const) {
+    if (value[f] === undefined) continue;
+    if (typeof value[f] === 'boolean') out[f] = value[f] as boolean;
+    else bad(messages, `${key}.${f}`, 'boolean', value[f]);
   }
   for (const f of ['sources', 'exclude', 'tool'] as const) {
     if (value[f] === undefined) continue;
@@ -120,6 +121,11 @@ export function readSettings(get: Getter): SettingsResult {
     if (v === undefined) continue;
     if (isStringArray(v)) s[k] = v;
     else bad(messages, k, 'string[]', v);
+  }
+  const required = get('lab.required');
+  if (required !== undefined) {
+    if (isStringArray(required) && required.every(k => (LAB_SETTING_KEYS as readonly string[]).includes(k))) s['lab.required'] = required;
+    else bad(messages, 'lab.required', `(${LAB_SETTING_KEYS.join(' | ')})[]`, required);
   }
   for (const k of ['inlayHints.bindings', 'codeLens.implement'] as const) {
     const v = get(k);

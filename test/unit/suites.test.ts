@@ -7,6 +7,15 @@ import { findExpressions, parseSuite } from '../../src/core/suites';
 import { StepInfo } from '../../src/core/types';
 import { oracleSteps, oracleSuiteFiles } from '../integration/harness/oracle';
 
+test('the suite: key has a range, for the run button on its line; a file without one has none', () => {
+  const s = parseSuite(SUITE, 'x.yml');
+  assert.ok(s.hasSuiteKey);
+  assert.deepStrictEqual(s.suiteKeyRange, { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } });
+  const lib = parseSuite('metaSteps: []\n', 'lib.yml');
+  assert.strictEqual(lib.hasSuiteKey, false);
+  assert.strictEqual(lib.suiteKeyRange, undefined);
+});
+
 const SUITE = `suite: demo
 imports:
   - _lib/lib.yml

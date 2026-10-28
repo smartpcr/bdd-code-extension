@@ -144,7 +144,9 @@ export function parseSuite(text: string, file: string): SuiteFile {
     return suite;
   }
   const w = new Walker(y, text, file);
-  suite.hasSuiteKey = root.items.some(p => isScalar(p.key) && p.key.value === 'suite');
+  const suitePair = root.items.find(p => isScalar(p.key) && p.key.value === 'suite');
+  suite.hasSuiteKey = !!suitePair;
+  if (suitePair) suite.suiteKeyRange = y.range(suitePair.key as Node);
   suite.suiteName = stringOf(root, 'suite');
   suite.tags = stringItems(valueOf(root, 'tags'));
   for (const item of itemsOf(root, 'imports')) {

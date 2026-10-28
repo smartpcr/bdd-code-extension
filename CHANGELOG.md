@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.1 (unreleased)
+
+* **`bddSuite.lab.required`.** Which of the three lab settings a lab run needs
+  (default: all three, as before). Only those are asked for when empty and shown
+  in the confirmation; a set value is passed to the program either way. A
+  binding whose program takes only the connection file lists only that one.
+* **A run button on the `suite:` line.** The file's test item now has a range at
+  the `suite:` key, so the gutter offers to run the whole file there.
+* **Live verdicts from step events.** A binding with `events: true` in its
+  settings is run with `--events <file>`; the run tails the file and marks each
+  case or outline row the moment its `caseFinished` arrives. The trace at the end
+  still sets the final results.
+
 ## 0.8.0 (unreleased)
 
 * **Step events** (spec/events.md, C# runtime first). `suiterun run --events

@@ -401,7 +401,7 @@
               "library": "test/e2e/bindings/typescript/dist/index.js"
             }
           },
-          "description": "Per binding: source globs (the catalog's `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, `selectsOneCase` when the program runs one case by name, and `stubFile`, where Declare action writes a stub (PowerShell: `${action}` is the action's PascalCase name)."
+          "description": "Per binding: source globs (the catalog's `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, `selectsOneCase` when the program runs one case by name, `events` when it writes step events (`--events`), so a run marks each case as it finishes, and `stubFile`, where Declare action writes a stub (PowerShell: `${action}` is the action's PascalCase name)."
         },
         "bddSuite.schemaGenerator": {
           "type": "array",
@@ -448,6 +448,23 @@
           "type": "string",
           "default": "",
           "description": "The connection file of the environment (lab) a lab run targets; prompted when empty."
+        },
+        "bddSuite.lab.required": {
+          "type": "array",
+          "default": [
+            "apiUrl",
+            "labId",
+            "connectionFile"
+          ],
+          "description": "Which lab settings a lab run needs (apiUrl, labId, connectionFile): only these are prompted for when empty and shown in the confirmation; the others are passed to the program when set.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "apiUrl",
+              "labId",
+              "connectionFile"
+            ]
+          }
         },
         "bddSuite.offlineActions": {
           "type": "array",

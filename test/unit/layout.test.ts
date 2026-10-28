@@ -78,17 +78,31 @@ test('readSettings: right types are taken', () => {
   const values: Record<string, unknown> = {
     catalogPath: 'x.yaml', suiteGlobs: ['a/*.yml'], exclude: 'e', lintTool: 'rust', targetBinding: 'go',
     schemaGenerator: ['gen'], 'inlayHints.bindings': false, 'codeLens.implement': false, templatesDir: 't',
-    'lab.apiUrl': 'u', 'lab.labId': 'l', 'lab.connectionFile': 'c',
+    'lab.apiUrl': 'u', 'lab.labId': 'l', 'lab.connectionFile': 'c', 'lab.required': ['labId'],
   };
   const { settings, messages } = readSettings(k => values[k]);
   assert.deepStrictEqual(messages, []);
   for (const [k, v] of Object.entries(values)) assert.deepStrictEqual((settings as unknown as Record<string, unknown>)[k], v);
 });
 
+test('lab.required: only the three lab keys are accepted; a binding may declare events', () => {
+  const bad = readSettings(k => (k === 'lab.required' ? ['labId', 'password'] : undefined));
+  assert.deepStrictEqual(bad.settings['lab.required'], DEFAULT_SETTINGS['lab.required']);
+  assert.strictEqual(bad.messages.length, 1);
+  assert.match(bad.messages[0], /^BDD010 bddSuite\.lab\.required: expected \(apiUrl \| labId \| connectionFile\)\[\]/);
+  const empty = readSettings(k => (k === 'lab.required' ? [] : undefined));
+  assert.deepStrictEqual(empty.settings['lab.required'], []);
+  const withEvents = readSettings(k => (k === 'bindings' ? { csharp: { events: true }, go: { events: 'yes' } } : undefined));
+  assert.strictEqual(withEvents.settings.bindings.csharp.events, true);
+  assert.strictEqual(withEvents.settings.bindings.go.events, undefined);
+  assert.strictEqual(withEvents.messages.length, 1);
+  assert.match(withEvents.messages[0], /bddSuite\.bindings\.go\.events: expected boolean/);
+});
+
 test('B1.1-4 every wrong type is ignored with a BDD010 message', () => {
   const values: Record<string, unknown> = {
     catalogPath: 1, suiteGlobs: 'x', exclude: [], lintTool: null, targetBinding: true, templatesDir: {},
-    'lab.apiUrl': 2, 'lab.labId': 3, 'lab.connectionFile': 4, schemaGenerator: [1], 'inlayHints.bindings': 'yes', 'codeLens.implement': 1,
+    'lab.apiUrl': 2, 'lab.labId': 3, 'lab.connectionFile': 4, 'lab.required': 'labId', schemaGenerator: [1], 'inlayHints.bindings': 'yes', 'codeLens.implement': 1,
     bindings: [],
   };
   const { settings, messages } = readSettings(k => values[k]);

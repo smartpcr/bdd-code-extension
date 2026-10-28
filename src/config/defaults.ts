@@ -31,6 +31,11 @@ export interface BindingSettings {
   /** The program runs one case of a file by name (`--test-name`); otherwise a run covers whole files. */
   selectsOneCase?: boolean;
   /**
+   * The program writes step events (`--events <file>`, spec/events.md) while it runs; a run
+   * then marks each case as its `caseFinished` arrives, instead of at the end.
+   */
+  events?: boolean;
+  /**
    * Where Declare action writes this binding's stub, relative to the root: the registry file
    * until the binding's own actions are somewhere (their file wins), and for PowerShell the
    * stub file, `${action}` being the action's PascalCase name.
@@ -53,9 +58,14 @@ export interface Settings {
   'lab.apiUrl': string;
   'lab.labId': string;
   'lab.connectionFile': string;
+  /** Which lab settings a lab run needs: only these are prompted for and shown in the confirmation. */
+  'lab.required': string[];
   offlineActions: string[];
   contextKeys: string[];
 }
+
+/** The lab settings a workspace may list in `lab.required`. */
+export const LAB_SETTING_KEYS = ['apiUrl', 'labId', 'connectionFile'] as const;
 
 // DEC-S11: the layout a workspace built on the runtimes gets. A workspace's own
 // actions are its extension of the runtimes, one project per language; each
@@ -143,6 +153,8 @@ export const DEFAULT_SETTINGS: Settings = {
   'lab.apiUrl': '',
   'lab.labId': '',
   'lab.connectionFile': '',
+  // Every lab setting, as before this setting existed; a workspace whose program needs only one lists only that one.
+  'lab.required': [...LAB_SETTING_KEYS],
   // B6.4 item 1: by default only the built-in core actions and wait run without a lab.
   offlineActions: ['core.*', 'wait'],
   // Only the runtimes' extensions know their context keys; the workspace names them once for completion.
@@ -157,7 +169,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   exclude: 'Glob of files never indexed.',
   lintTool: 'The binding whose code lints suites.',
   targetBinding: 'The binding suites are meant to run with; lint reports actions it does not implement (E201).',
-  bindings: 'Per binding: source globs (the catalog\'s `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, `selectsOneCase` when the program runs one case by name, and `stubFile`, where Declare action writes a stub (PowerShell: `${action}` is the action\'s PascalCase name).',
+  bindings: 'Per binding: source globs (the catalog\'s `bindingSources`, when it has them, win), registration recognizers, program (its `suiterun`, which every binding calls with the same verbs and flags), build command, `selectsOneCase` when the program runs one case by name, `events` when it writes step events (`--events`), so a run marks each case as it finishes, and `stubFile`, where Declare action writes a stub (PowerShell: `${action}` is the action\'s PascalCase name).',
   schemaGenerator: 'Command that regenerates suite.schema.json after a catalog edit, run in the workspace root. `${extension}` is the extension\'s folder (the default runs the spec\'s Build-Schema.ps1 it carries) and `${catalogPath}` the catalog.',
   'inlayHints.bindings': 'Show which bindings implement each step\'s action.',
   'codeLens.implement': 'Above a step whose action is missing in a language, offer to declare or implement it.',
@@ -165,6 +177,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof Settings, string> = {
   'lab.apiUrl': 'The API URL of the environment (lab) a lab run targets; prompted when empty.',
   'lab.labId': 'The id of the environment (lab) a lab run targets; prompted when empty.',
   'lab.connectionFile': 'The connection file of the environment (lab) a lab run targets; prompted when empty.',
+  'lab.required': 'Which lab settings a lab run needs (apiUrl, labId, connectionFile): only these are prompted for when empty and shown in the confirmation; the others are passed to the program when set.',
   offlineActions: 'Actions that run without a lab, as names or `prefix.*`; a suite using any other action is a lab suite, and its run asks for the lab and a confirmation.',
   contextKeys: 'Context keys the workspace\'s runtime extensions add (each read as ${key}), offered by completion beside the core\'s `timeoutSec` and `defaults`.',
 };

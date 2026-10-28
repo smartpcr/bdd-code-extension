@@ -58,6 +58,8 @@ export interface RunOptions {
   testName?: string;
   /** Set for a lab suite (B6.4); each value is passed when it is given. */
   lab?: LabValues;
+  /** Where the program writes its step events; passed only to a binding with `events` (spec/events.md). */
+  eventsFile?: string;
 }
 
 /** A suite run: no timeout (plan 2.6), output streamed and never capped. */
@@ -66,6 +68,7 @@ export function runCommand(binding: ResolvedBinding, root: string, rel: string, 
   const lab = o.lab ?? {};
   const argv = [...program(binding, root), 'run', '--path', rel, '--trace-file', o.traceFile, '--results', o.resultsFile, '--format', 'nunit3',
     ...(o.tags?.length ? ['--tags', o.tags.join(',')] : []), ...oneCase(binding, o.testName), ...(o.dryRun ? ['--dry-run'] : []),
+    ...(binding.events && o.eventsFile ? ['--events', o.eventsFile] : []),
     ...(lab.apiUrl ? ['--api-url', lab.apiUrl] : []), ...(lab.labId ? ['--lab-id', lab.labId] : []),
     ...(lab.connectionFile ? ['--connection-file', lab.connectionFile] : []), ...schemaRootArgs(binding)];
   return { argv, cwd: root, timeoutMs: 0, maxStdout: MAX_TOOL_OUTPUT_BYTES, streamOnly: true };
