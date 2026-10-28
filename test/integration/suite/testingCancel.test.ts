@@ -140,6 +140,41 @@ tests:
     }
   });
 
+  it('0.8.1 lab.required: only the listed lab values are asked for and shown; a set value is still passed', async () => {
+    const a = await setting('targetBinding', 'go', W, x => x.indexers[0]?.layout.settings.targetBinding === 'go');
+    await setting('bindings', { go: { tool: ['node', FAKE_LAB] } }, W, x => x.indexers[0]?.layout.bindings.find(b => b.name === 'go')!.tool[1] === FAKE_LAB);
+    const config = vscode.workspace.getConfiguration('bddSuite');
+    await config.update('lab.apiUrl', '', W);
+    await config.update('lab.connectionFile', 'C:/labs/lab-x.json', W);
+    await config.update('lab.required', ['labId'], W);
+    await within(10_000, () => a.indexers[0]?.layout.settings['lab.required']?.length === 1 && a.indexers[0]?.layout.settings['lab.apiUrl'] === '');
+    try {
+      fs.rmSync(RUN_LOG, { force: true });
+      process.env.BDD_FAKE_RUN_LOG = RUN_LOG;
+      const asked: unknown[] = [];
+      const shown: { binding: string; labId: string; apiUrl: string; cases: string[] }[] = [];
+      a.testing.ui = {
+        askLab: async (have, missing) => { asked.push(missing); return { ...have, labId: 'lab-y' }; },
+        confirmLab: async d => { shown.push(d); return true; },
+        confirmStop: async () => true,
+      };
+      const results = await (await start([await item(LAB)])).done;
+      assert.deepStrictEqual(asked, [['labId']], 'the empty API URL is not asked for: it is not required');
+      assert.strictEqual(shown.length, 1);
+      assert.strictEqual(shown[0].labId, 'lab-y');
+      assert.strictEqual(shown[0].apiUrl, '', 'the confirmation shows only the required values');
+      const argv = a.testing.lastCommand.get(LAB)!;
+      assert.deepStrictEqual(argv.slice(argv.indexOf('--lab-id'), argv.indexOf('--lab-id') + 2), ['--lab-id', 'lab-y']);
+      assert.ok(argv.includes('--connection-file'), 'a value that is set is passed even when it is not required');
+      assert.ok(!argv.includes('--api-url'), 'an empty value is not passed');
+      assert.ok(results.has(`${LAB}::first`), 'the confirmed run ran');
+    } finally {
+      await config.update('lab.required', undefined, W);
+      await config.update('lab.apiUrl', undefined, W);
+      await config.update('lab.connectionFile', undefined, W);
+    }
+  });
+
   it('B6.5 Stop ends a run that waits on an unanswered question, or on the confirmation, and starts nothing', async () => {
     const a = await api();
     fs.rmSync(RUN_LOG, { force: true });
