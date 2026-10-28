@@ -1,6 +1,6 @@
 {
   "name": "@smartpcr/bdd-suite-language",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "The language core of the BDD suite format for browsers: suite and catalog parsing with positions, scope, completion contexts, the expression cursor, hover text, the schema check, semantic tokens and the definition index - the same code the VS Code extension runs.",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.1 (unreleased)
+## 0.8.1
 
 * **`bddSuite.lab.required`.** Which of the three lab settings a lab run needs
   (default: all three, as before). Only those are asked for when empty and shown
@@ -13,7 +13,7 @@
   case or outline row the moment its `caseFinished` arrives. The trace at the end
   still sets the final results.
 
-## 0.8.0 (unreleased)
+## 0.8.0
 
 * **Step events** (spec/events.md, C# runtime first). `suiterun run --events
   <file>` writes what the run does as it does it, one JSON object per line:

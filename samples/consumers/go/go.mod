@@ -6,6 +6,6 @@ module example.com/greeter
 
 go 1.24
 
-require github.com/smartpcr/bdd-code-extension/runtimes/go v0.8.0
+require github.com/smartpcr/bdd-code-extension/runtimes/go v0.8.1
 
 tool github.com/smartpcr/bdd-code-extension/runtimes/go/cmd/suiterun
